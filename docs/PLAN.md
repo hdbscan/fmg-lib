@@ -1,74 +1,32 @@
 # High-level plan (fmg-lib)
 
-## Goal
-Turn FMG's generation pipeline into a **library** usable from Bun without a browser / DOM.
+## Intent
+Build a **library-only** version of FMG’s world generation so our game can generate worlds programmatically under **Bun**, without any browser/DOM or map rendering.
 
-Deliver a single entrypoint:
+## Deliverable
+A stable API that returns a compact, versioned **WorldGraph** suitable for:
+- server-side generation
+- storing as authoritative state for multiplayer
+- client-side custom rendering + gameplay logic
 
-```ts
-export function generateWorld(opts: GenerateOptions): WorldGraph
-```
+## Scope (what we intend to include)
+- Base world substrate: cells/grid + elevation/heightmap
+- Natural layers: coastlines/water bodies + rivers + climate/biomes (as needed)
+- Human layers: settlements + political regions/factions (as needed)
 
-where `WorldGraph` contains the minimum sufficient data to render the world and drive gameplay.
+## Out of scope
+- Any rendering (SVG/D3/canvas)
+- Any UI/editor
+- Ongoing parity with upstream FMG
 
-## Non-goals
-- No SVG generation / D3 rendering.
-- No UI/editor.
-- No attempt to maintain mergeability with upstream FMG.
+## Guiding principles
+- Deterministic generation by seed
+- Explicit inputs/outputs (no hidden globals/DOM reads)
+- Efficient data model (typed arrays / packed formats; no object-per-cell JSON)
+- Versioned schema so old worlds remain loadable
 
-## Strategy
-We will freeze FMG at a chosen commit and progressively extract/refactor pieces into a clean module graph.
-
-Two workable extraction patterns:
-1) **Copy-in extraction** (recommended): copy the required TS modules into `src/fmg/` and refactor them to be pure.
-2) **In-place refactor**: keep original files and refactor with wrappers. Higher merge conflict risk.
-
-We will prefer **copy-in** for speed and clarity.
-
-## Phases
-
-### Phase 0 — Repo + tooling
-- Bun project scaffolding
-- lint/format (optional)
-- basic test harness
-
-### Phase 1 — Deterministic substrate
-Deliver deterministic, headless generation of:
-- Voronoi grid / cells (positions)
-- heightmap (cell heights)
-
-Output:
-- typed arrays: `cells_x`, `cells_y`, `cells_h`, `neighbors` (optional)
-- metadata: seed, width/height, cell_count
-
-Acceptance:
-- `generateWorld({seed, width, height, cells})` runs without DOM
-- output stable across runs
-
-### Phase 2 — Biomes + climate fields
-Add:
-- temperature/precip/biome assignment (if needed)
-
-### Phase 3 — Rivers + water bodies
-Add:
-- rivers graph/polylines
-- lakes/coastline flags (renderable)
-
-### Phase 4 — Settlements + factions
-Add:
-- burgs (settlements): id/name/pos/pop
-- states/provinces (optional)
-
-### Phase 5 — Serialization + versioning
-- `WorldGraph` schema version
-- binary/CBOR option for compact transfer
-
-## Engineering constraints
-- No reads from `document` / `window`
-- No globals as API surface; all state should be returned
-- PRNG: a single seeded RNG injected everywhere
-- Performance: avoid JSON object-per-cell; prefer typed arrays
-
-## Upstream incorporation
-- We will not track upstream continuously.
-- If we need a feature, we cherry-pick or manually port.
+## Milestone shape
+- MVP: generate a world substrate + enough metadata for rendering and travel/pathing
+- Next: add rivers/biomes
+- Next: add settlements/regions
+- Final: serialization + schema versioning for long-lived saves and multiplayer
