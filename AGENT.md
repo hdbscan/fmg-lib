@@ -61,3 +61,4 @@ Reference material:
 - Use carefully orchestrated subagents for independent workstreams where possible; divide tasks so they can run in parallel safely.
 - When subagents need to modify code, isolate them in separate git workspaces/worktrees to avoid file conflicts.
 - Ensure Bun is available in PATH for subagents before delegating work.
+- All UI workstreams must follow the Playwright screenshot loop: implement, render, capture, inspect, then commit.
