@@ -1,0 +1,15 @@
+{
+  "slug": "m02-politics-local",
+  "capturedAt": "2026-03-06T20:26:29.550Z",
+  "url": "http://127.0.0.1:42193/",
+  "selector": "[data-screenshot=\"ui-shell\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "1440x960",
+  "fullPage": false,
+  "delayMs": 1000,
+  "staticRoot": "ui/dist",
+  "staticPath": "/",
+  "artifact": "m02-politics-local.png",
+  "sha256": "66759103395f9ff1dfa1d751e1919047f0b32e3d6faeaab34cd50d4c99b9447b"
+}

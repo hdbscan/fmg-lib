@@ -787,6 +787,94 @@ const forEachNeighbor = (
   }
 };
 
+type FrontierEntry = {
+  cost: number;
+  stateId: number;
+  packId: number;
+};
+
+const compareFrontierEntries = (
+  left: FrontierEntry,
+  right: FrontierEntry,
+): number => {
+  if (left.cost !== right.cost) {
+    return left.cost - right.cost;
+  }
+
+  if (left.stateId !== right.stateId) {
+    return left.stateId - right.stateId;
+  }
+
+  return left.packId - right.packId;
+};
+
+const pushFrontierEntry = (
+  heap: FrontierEntry[],
+  entry: FrontierEntry,
+): void => {
+  heap.push(entry);
+  let index = heap.length - 1;
+
+  while (index > 0) {
+    const parentIndex = Math.floor((index - 1) / 2);
+    const parent = heap[parentIndex];
+    if (!parent || compareFrontierEntries(parent, entry) <= 0) {
+      break;
+    }
+
+    heap[index] = parent;
+    index = parentIndex;
+  }
+
+  heap[index] = entry;
+};
+
+const popFrontierEntry = (heap: FrontierEntry[]): FrontierEntry | undefined => {
+  const first = heap[0];
+  const last = heap.pop();
+
+  if (!first) {
+    return undefined;
+  }
+
+  if (!last || heap.length === 0) {
+    return first;
+  }
+
+  let index = 0;
+
+  while (true) {
+    const leftIndex = index * 2 + 1;
+    const rightIndex = leftIndex + 1;
+    let smallestIndex = index;
+
+    const left = heap[leftIndex];
+    const right = heap[rightIndex];
+    const current =
+      smallestIndex === index ? last : (heap[smallestIndex] ?? last);
+
+    if (left && compareFrontierEntries(left, current) < 0) {
+      smallestIndex = leftIndex;
+    }
+
+    const smallest =
+      smallestIndex === index ? last : (heap[smallestIndex] ?? last);
+    if (right && compareFrontierEntries(right, smallest) < 0) {
+      smallestIndex = rightIndex;
+    }
+
+    if (smallestIndex === index) {
+      break;
+    }
+
+    heap[index] = heap[smallestIndex] as FrontierEntry;
+    index = smallestIndex;
+  }
+
+  heap[index] = last;
+  return first;
+};
+
 const polygonArea = (
   vertexIds: Uint32Array,
   from: number,
@@ -2342,6 +2430,9 @@ export const runSettlementsStage = (context: GenerationContext): void => {
     cellsFlow,
     cellsPrec,
     cellsTemp,
+    cellsLandmass,
+    landmassCount,
+    landmassSize,
     packCellCount,
     packToGrid,
     packX,
@@ -2364,6 +2455,10 @@ export const runSettlementsStage = (context: GenerationContext): void => {
 
   const totalArea = Array.from(packArea).reduce((sum, area) => sum + area, 0);
   const averageArea = totalArea / Math.max(packCellCount, 1);
+  const averageLandmassSize =
+    landmassCount > 0
+      ? packCellCount / Math.max(landmassCount, 1)
+      : packCellCount;
 
   const suitabilityScore = (packId: number): number => {
     const gridCellId = packToGrid[packId] ?? 0;
@@ -2373,6 +2468,8 @@ export const runSettlementsStage = (context: GenerationContext): void => {
     const area = packArea[packId] ?? 0;
     const coast = packCoast[packId] ?? 0;
     const harbor = packHarbor[packId] ?? 0;
+    const landmassId = cellsLandmass[gridCellId] ?? 0;
+    const landmassCellCount = landmassSize[landmassId] ?? 0;
 
     const temperatureScore =
       temperature <= -20 ? 0.2 : temperature < 0 ? 0.7 : 1 + temperature / 70;
@@ -2382,6 +2479,10 @@ export const runSettlementsStage = (context: GenerationContext): void => {
       averageArea > 0 ? Math.min(area / averageArea, 2.5) * 0.35 : 0;
     const coastScore = coast > 0 ? 0.8 : 0;
     const harborScore = harbor > 0 ? 1.5 + harbor * 0.2 : 0;
+    const landmassScore =
+      averageLandmassSize > 0
+        ? Math.min(landmassCellCount / averageLandmassSize, 3) * 0.9
+        : 0;
 
     return (
       1 +
@@ -2390,7 +2491,8 @@ export const runSettlementsStage = (context: GenerationContext): void => {
       moistureScore +
       areaScore +
       coastScore +
-      harborScore
+      harborScore +
+      landmassScore
     );
   };
 
@@ -2415,10 +2517,10 @@ export const runSettlementsStage = (context: GenerationContext): void => {
 
   const targetBurgs = Math.min(
     packCellCount,
-    Math.max(1, Math.min(256, Math.round(packCellCount / 180))),
+    Math.max(6, Math.min(512, Math.round(packCellCount / 75))),
   );
   const distanceScale = Math.max(
-    context.grid.spacing * context.grid.spacing * 9,
+    context.grid.spacing * context.grid.spacing * 5,
     1,
   );
 
@@ -2447,7 +2549,7 @@ export const runSettlementsStage = (context: GenerationContext): void => {
 
       const score = suitabilityScore(packId);
       const distanceBoost =
-        1 + Math.min((minDistanceSq[packId] ?? 0) / distanceScale, 4);
+        0.85 + Math.min((minDistanceSq[packId] ?? 0) / distanceScale, 2.2);
       const rank = score * distanceBoost;
 
       if (
@@ -2513,6 +2615,10 @@ export const runStatesStage = (context: GenerationContext): void => {
   const {
     cellsCulture,
     cellsFeature,
+    cellsH,
+    cellsFlow,
+    cellsLandmass,
+    cellsBurg,
     cellsState,
     burgCount,
     burgCell,
@@ -2523,8 +2629,16 @@ export const runStatesStage = (context: GenerationContext): void => {
     packToGrid,
     packX,
     packY,
+    packCoast,
+    packHarbor,
+    packNeighborOffsets,
+    packNeighbors,
+    gridToPack,
     cellsX,
     cellsY,
+    cellNeighborOffsets,
+    cellNeighbors,
+    landmassSize,
   } = context.world;
 
   cellsState.fill(0);
@@ -2540,10 +2654,22 @@ export const runStatesStage = (context: GenerationContext): void => {
 
   const targetStates = Math.min(
     burgCount,
-    Math.max(1, Math.min(64, Math.round(Math.sqrt(burgCount) * 1.6))),
+    Math.max(
+      3,
+      Math.min(
+        64,
+        Math.round(
+          Math.max(
+            context.config.culturesCount * 1.2,
+            burgCount / 4,
+            Math.sqrt(burgCount) * 2.25,
+          ),
+        ),
+      ),
+    ),
   );
   const distanceScale = Math.max(
-    context.grid.spacing * context.grid.spacing * 36,
+    context.grid.spacing * context.grid.spacing * 24,
     1,
   );
 
@@ -2559,6 +2685,71 @@ export const runStatesStage = (context: GenerationContext): void => {
   const selectedBurgIds: number[] = [];
   const minDistanceSq = new Float64Array(burgCount + 1);
   minDistanceSq.fill(Number.POSITIVE_INFINITY);
+  const selectedCultureCount = new Uint8Array(context.config.culturesCount + 1);
+  const majorLandmassThreshold = Math.max(24, Math.round(packCellCount / 40));
+  const bestLandmassBurg = new Uint16Array(landmassSize.length);
+  const bestLandmassScore = new Float64Array(landmassSize.length);
+  bestLandmassScore.fill(-1);
+  const landmassQuota = new Uint16Array(landmassSize.length);
+  const selectedLandmassCount = new Uint16Array(landmassSize.length);
+
+  for (let burgId = 1; burgId <= burgCount; burgId += 1) {
+    const cellId = burgCell[burgId] ?? 0;
+    const landmassId = cellsLandmass[cellId] ?? 0;
+    if (landmassId <= 0 || landmassId >= landmassSize.length) {
+      continue;
+    }
+
+    const score = burgScore(burgId);
+    if (score > (bestLandmassScore[landmassId] ?? -1)) {
+      bestLandmassScore[landmassId] = score;
+      bestLandmassBurg[landmassId] = burgId;
+    }
+  }
+
+  let quotaAssigned = 0;
+  const landmassFractions: { landmassId: number; remainder: number }[] = [];
+  for (let landmassId = 1; landmassId < landmassSize.length; landmassId += 1) {
+    if ((bestLandmassBurg[landmassId] ?? 0) === 0) {
+      continue;
+    }
+
+    const rawQuota =
+      ((landmassSize[landmassId] ?? 0) / packCellCount) * targetStates;
+    let baseQuota = Math.floor(rawQuota);
+    if ((landmassSize[landmassId] ?? 0) >= majorLandmassThreshold) {
+      baseQuota = Math.max(baseQuota, 1);
+    }
+
+    landmassQuota[landmassId] = baseQuota;
+    quotaAssigned += baseQuota;
+    landmassFractions.push({
+      landmassId,
+      remainder: rawQuota - Math.floor(rawQuota),
+    });
+  }
+
+  landmassFractions.sort((a, b) => {
+    if (b.remainder !== a.remainder) {
+      return b.remainder - a.remainder;
+    }
+
+    return b.landmassId - a.landmassId;
+  });
+
+  for (
+    let index = 0;
+    quotaAssigned < targetStates && index < landmassFractions.length;
+    index += 1
+  ) {
+    const landmassId = landmassFractions[index]?.landmassId;
+    if (landmassId === undefined) {
+      continue;
+    }
+
+    landmassQuota[landmassId] = (landmassQuota[landmassId] ?? 0) + 1;
+    quotaAssigned += 1;
+  }
 
   const updateDistances = (seedBurgId: number): void => {
     const seedCell = burgCell[seedBurgId] ?? 0;
@@ -2588,6 +2779,14 @@ export const runStatesStage = (context: GenerationContext): void => {
 
   selected[firstBurgId] = 1;
   selectedBurgIds.push(firstBurgId);
+  const firstCultureId = burgCulture[firstBurgId] ?? 0;
+  const firstLandmassId = cellsLandmass[burgCell[firstBurgId] ?? 0] ?? 0;
+  if (firstCultureId > 0 && firstCultureId < selectedCultureCount.length) {
+    selectedCultureCount[firstCultureId] = 1;
+  }
+  if (firstLandmassId > 0 && firstLandmassId < selectedLandmassCount.length) {
+    selectedLandmassCount[firstLandmassId] = 1;
+  }
   updateDistances(firstBurgId);
 
   while (selectedBurgIds.length < targetStates) {
@@ -2600,9 +2799,21 @@ export const runStatesStage = (context: GenerationContext): void => {
       }
 
       const score = burgScore(burgId);
+      const cultureId = burgCulture[burgId] ?? 0;
+      const landmassId = cellsLandmass[burgCell[burgId] ?? 0] ?? 0;
+      const quotaBoost =
+        landmassId > 0 &&
+        (selectedLandmassCount[landmassId] ?? 0) <
+          (landmassQuota[landmassId] ?? 0)
+          ? 1.4
+          : 0.82;
+      const cultureBoost =
+        cultureId > 0 && (selectedCultureCount[cultureId] ?? 0) === 0
+          ? 1.15
+          : 1;
       const distanceBoost =
-        1 + Math.min((minDistanceSq[burgId] ?? 0) / distanceScale, 4);
-      const rank = score * distanceBoost;
+        0.95 + Math.min((minDistanceSq[burgId] ?? 0) / distanceScale, 2.75);
+      const rank = score * distanceBoost * cultureBoost * quotaBoost;
 
       if (
         rank > bestRank ||
@@ -2619,7 +2830,43 @@ export const runStatesStage = (context: GenerationContext): void => {
 
     selected[bestBurgId] = 1;
     selectedBurgIds.push(bestBurgId);
+    const cultureId = burgCulture[bestBurgId] ?? 0;
+    const landmassId = cellsLandmass[burgCell[bestBurgId] ?? 0] ?? 0;
+    if (cultureId > 0 && cultureId < selectedCultureCount.length) {
+      selectedCultureCount[cultureId] = 1;
+    }
+    if (landmassId > 0 && landmassId < selectedLandmassCount.length) {
+      selectedLandmassCount[landmassId] =
+        (selectedLandmassCount[landmassId] ?? 0) + 1;
+    }
     updateDistances(bestBurgId);
+  }
+  const selectedLandmass = new Uint8Array(landmassSize.length);
+
+  for (const burgId of selectedBurgIds) {
+    const landmassId = cellsLandmass[burgCell[burgId] ?? 0] ?? 0;
+    if (landmassId > 0 && landmassId < selectedLandmass.length) {
+      selectedLandmass[landmassId] = 1;
+    }
+  }
+
+  for (let landmassId = 1; landmassId < landmassSize.length; landmassId += 1) {
+    if ((landmassSize[landmassId] ?? 0) < majorLandmassThreshold) {
+      continue;
+    }
+
+    if ((selectedLandmass[landmassId] ?? 0) === 1) {
+      continue;
+    }
+
+    const burgId = bestLandmassBurg[landmassId] ?? 0;
+    if (burgId <= 0 || (selected[burgId] ?? 0) === 1) {
+      continue;
+    }
+
+    selected[burgId] = 1;
+    selectedBurgIds.push(burgId);
+    selectedLandmass[landmassId] = 1;
   }
 
   const stateCount = selectedBurgIds.length;
@@ -2634,16 +2881,119 @@ export const runStatesStage = (context: GenerationContext): void => {
     const stateId = stateIndex + 1;
     const capitalBurgId = selectedBurgIds[stateIndex] ?? 1;
     const capitalCell = burgCell[capitalBurgId] ?? 0;
+    const capitalPackId = gridToPack[capitalCell] ?? -1;
 
     stateCenterBurg[stateId] = capitalBurgId;
     stateCulture[stateId] = burgCulture[capitalBurgId] ?? 0;
     capitalX[stateId] = cellsX[capitalCell] ?? 0;
     capitalY[stateId] = cellsY[capitalCell] ?? 0;
+
+    if (capitalPackId >= 0) {
+      stateCells[stateId] = 1;
+    }
+  }
+
+  const packState = new Uint16Array(packCellCount);
+  const packCost = new Float64Array(packCellCount);
+  packCost.fill(Number.POSITIVE_INFINITY);
+  const frontier: FrontierEntry[] = [];
+
+  const getStateExpansionCost = (packId: number, stateId: number): number => {
+    const gridCellId = packToGrid[packId] ?? 0;
+    const height = cellsH[gridCellId] ?? 0;
+    const flow = cellsFlow[gridCellId] ?? 0;
+    const cultureId = cellsCulture[gridCellId] ?? 0;
+    const coast = packCoast[packId] ?? 0;
+    const harbor = packHarbor[packId] ?? 0;
+
+    const heightPenalty = Math.max(0, height - 45) / 10;
+    const riverBonus = Math.min(flow / 1400, 1.6);
+    const coastBonus = coast > 0 ? 0.55 : 0;
+    const harborBonus = harbor > 0 ? 0.6 : 0;
+    const culturePenalty =
+      cultureId > 0 && cultureId !== (stateCulture[stateId] ?? 0) ? 1.45 : 0;
+
+    return Math.max(
+      0.8,
+      1.9 +
+        heightPenalty +
+        culturePenalty -
+        riverBonus -
+        coastBonus -
+        harborBonus,
+    );
+  };
+
+  for (let stateId = 1; stateId <= stateCount; stateId += 1) {
+    const capitalBurgId = stateCenterBurg[stateId] ?? 0;
+    const capitalCell = burgCell[capitalBurgId] ?? 0;
+    const capitalPackId = gridToPack[capitalCell] ?? -1;
+    if (capitalPackId < 0) {
+      continue;
+    }
+
+    packState[capitalPackId] = stateId;
+    packCost[capitalPackId] = 0;
+    cellsState[capitalCell] = stateId;
+
+    forEachNeighbor(
+      capitalPackId,
+      packNeighborOffsets,
+      packNeighbors,
+      (neighborPackId) => {
+        if ((packState[neighborPackId] ?? 0) !== 0) {
+          return;
+        }
+
+        pushFrontierEntry(frontier, {
+          cost: getStateExpansionCost(neighborPackId, stateId),
+          stateId,
+          packId: neighborPackId,
+        });
+      },
+    );
+  }
+
+  while (frontier.length > 0) {
+    const next = popFrontierEntry(frontier);
+    if (!next) {
+      break;
+    }
+
+    if ((packState[next.packId] ?? 0) !== 0) {
+      continue;
+    }
+
+    packState[next.packId] = next.stateId;
+    packCost[next.packId] = next.cost;
+    const gridCellId = packToGrid[next.packId] ?? 0;
+    cellsState[gridCellId] = next.stateId;
+    stateCells[next.stateId] = (stateCells[next.stateId] ?? 0) + 1;
+
+    forEachNeighbor(
+      next.packId,
+      packNeighborOffsets,
+      packNeighbors,
+      (neighborPackId) => {
+        if ((packState[neighborPackId] ?? 0) !== 0) {
+          return;
+        }
+
+        pushFrontierEntry(frontier, {
+          cost: next.cost + getStateExpansionCost(neighborPackId, next.stateId),
+          stateId: next.stateId,
+          packId: neighborPackId,
+        });
+      },
+    );
   }
 
   for (let packId = 0; packId < packCellCount; packId += 1) {
     const gridCellId = packToGrid[packId] ?? 0;
-    if ((cellsFeature[gridCellId] ?? 0) !== 1) {
+    if (
+      (cellsFeature[gridCellId] ?? 0) !== 1 ||
+      (packState[packId] ?? 0) !== 0
+    ) {
       continue;
     }
 
@@ -2660,7 +3010,7 @@ export const runStatesStage = (context: GenerationContext): void => {
       const distanceSq = dx * dx + dy * dy;
       const sameCulture =
         cultureId !== 0 && cultureId === (stateCulture[stateId] ?? 0);
-      const adjustedDistance = sameCulture ? distanceSq * 0.88 : distanceSq;
+      const adjustedDistance = sameCulture ? distanceSq * 0.9 : distanceSq;
 
       if (adjustedDistance < bestDistance) {
         bestDistance = adjustedDistance;
@@ -2668,8 +3018,84 @@ export const runStatesStage = (context: GenerationContext): void => {
       }
     }
 
+    packState[packId] = bestStateId;
     cellsState[gridCellId] = bestStateId;
     stateCells[bestStateId] = (stateCells[bestStateId] ?? 0) + 1;
+  }
+
+  const capitalCellByState = new Uint32Array(stateCount + 1);
+  for (let stateId = 1; stateId <= stateCount; stateId += 1) {
+    capitalCellByState[stateId] = burgCell[stateCenterBurg[stateId] ?? 0] ?? 0;
+  }
+
+  for (let cellId = 0; cellId < cellsState.length; cellId += 1) {
+    if ((cellsFeature[cellId] ?? 0) !== 1 || (cellsBurg[cellId] ?? 0) > 0) {
+      continue;
+    }
+
+    let same = 0;
+    let bestForeignState = 0;
+    let bestForeignCount = 0;
+    const currentState = cellsState[cellId] ?? 0;
+    const foreignCounts = new Uint8Array(stateCount + 1);
+
+    forEachNeighbor(
+      cellId,
+      cellNeighborOffsets,
+      cellNeighbors,
+      (neighborId) => {
+        if ((cellsFeature[neighborId] ?? 0) !== 1) {
+          return;
+        }
+
+        const neighborState = cellsState[neighborId] ?? 0;
+        if (neighborState === currentState) {
+          same += 1;
+          return;
+        }
+
+        if (neighborState <= 0) {
+          return;
+        }
+
+        foreignCounts[neighborState] = (foreignCounts[neighborState] ?? 0) + 1;
+        if ((foreignCounts[neighborState] ?? 0) > bestForeignCount) {
+          bestForeignCount = foreignCounts[neighborState] ?? 0;
+          bestForeignState = neighborState;
+        }
+      },
+    );
+
+    if (bestForeignState <= 0 || bestForeignCount < 2 || same > 1) {
+      continue;
+    }
+
+    const capitalCell = capitalCellByState[currentState] ?? 0;
+    let touchesCapital = false;
+    forEachNeighbor(
+      cellId,
+      cellNeighborOffsets,
+      cellNeighbors,
+      (neighborId) => {
+        if (neighborId === capitalCell) {
+          touchesCapital = true;
+        }
+      },
+    );
+
+    if (!touchesCapital) {
+      cellsState[cellId] = bestForeignState;
+    }
+  }
+
+  stateCells.fill(0);
+  for (let cellId = 0; cellId < cellsState.length; cellId += 1) {
+    const stateId = cellsState[cellId] ?? 0;
+    if ((cellsFeature[cellId] ?? 0) !== 1 || stateId <= 0) {
+      continue;
+    }
+
+    stateCells[stateId] = (stateCells[stateId] ?? 0) + 1;
   }
 
   const averageStateCells = packCellCount / Math.max(stateCount, 1);
