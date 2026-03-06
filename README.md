@@ -22,6 +22,13 @@ Current implemented slice:
 - optional culture layer generation on packed land cells
 - compact adjacency and serialization (`serializeWorld`/`deserializeWorld`)
 - high-level integration tests for determinism, graph coherence, fixture hashes, and round-trip persistence
+- Bun + Playwright parity harness against upstream FMG `?seed=42424242&options=default`
+
+## Parity
+
+- Refresh the live upstream oracle: `bun run parity:oracle`
+- Run the parity harness: `bun run parity:check`
+- Latest report is written to `artifacts/parity/latest-report.json`
 
 ## Why
 FMG is an excellent generator but is structured as a browser app (DOM + rendering + globals). We want:
