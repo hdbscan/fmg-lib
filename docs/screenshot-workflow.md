@@ -28,6 +28,15 @@ The scripts default to Playwright Firefox so they do not depend on a system Chro
 - Approved-local fallback: `bun run screenshot:drift -- --slug <name> --baseline <png> --note "why upstream is unavailable"`
 - Dummy fallback example: `bun run screenshot:dummy:drift`
 
+For a deterministic upstream FMG baseline, prefer a seeded URL and a map-only selector:
+
+- Fixed-seed upstream recipe: `https://azgaar.github.io/Fantasy-Map-Generator/?seed=42424242&options=default`
+- Comparable local selector: `[data-screenshot="ui-shell-canvas"]`
+- Comparable upstream selector: `#map`
+- Recommended command: `bun run ui:build && bun run screenshot:drift -- --slug m01-ui-shell-fixed-seed --viewport 900x600 --local-static-root ui/dist --local-static-path / --local-selector [data-screenshot="ui-shell-canvas"] --local-ready-selector [data-screenshot="ui-shell-canvas"] --local-label local-ui-shell-canvas-default --local-delay-ms 1000 --upstream-url https://azgaar.github.io/Fantasy-Map-Generator/?seed=42424242&options=default --upstream-selector '#map' --upstream-ready-selector '#map' --upstream-label upstream-fmg-seed-42424242-default --upstream-delay-ms 12000 --note "Comparing the local default canvas against upstream FMG loaded with ?seed=42424242&options=default at the same 900x600 viewport for a deterministic review scenario."`
+
+`?seed=<value>` gives upstream FMG a fixed world seed on first load, and `&options=default` forces the default option set instead of any browser-stored preferences.
+
 Outputs live under `screenshots/drift/<slug>/`:
 
 - `local.png`
