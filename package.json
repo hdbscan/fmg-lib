@@ -8,6 +8,8 @@
   },
   "types": "./src/index.ts",
   "scripts": {
+    "parity:oracle": "bun ./scripts/fetch-upstream-oracle.ts --output artifacts/parity/upstream-oracle.json",
+    "parity:check": "bun ./scripts/check-parity.ts",
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test ./tests",
     "check": "bun run typecheck && bun test ./tests",
@@ -39,6 +41,7 @@
     "@playwright/cli": "^0.1.1",
     "@types/d3-delaunay": "^6.0.4",
     "bun-types": "latest",
+    "playwright": "^1.58.2",
     "typescript": "^5.9.2"
   },
   "dependencies": {

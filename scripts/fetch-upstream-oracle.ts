@@ -1,0 +1,232 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { firefox } from "playwright";
+import type { ParitySnapshot } from "../src/parity";
+
+const DEFAULT_URL =
+  "https://azgaar.github.io/Fantasy-Map-Generator/?seed=42424242&options=default";
+
+const parseArgs = (argv: string[]): Record<string, string> => {
+  const values: Record<string, string> = {};
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const current = argv[index];
+    if (!current?.startsWith("--")) {
+      throw new Error(`Unexpected argument: ${current ?? ""}`);
+    }
+
+    const name = current.slice(2);
+    const value = argv[index + 1];
+    if (!name || !value || value.startsWith("--")) {
+      throw new Error(`Expected a value after ${current}`);
+    }
+
+    values[name] = value;
+    index += 1;
+  }
+
+  return values;
+};
+
+const normalizeBooleanArray = (values: ArrayLike<number>): number[] =>
+  Array.from(values, (value) => (value >= 20 ? 1 : 0));
+
+const normalizeOracle = (payload: {
+  seed: string;
+  width: number;
+  height: number;
+  gridSpacing: number;
+  terrainVertices: [number, number][];
+  terrainPolygons: number[][];
+  terrainHeights: ArrayLike<number>;
+  regionVertices: [number, number][];
+  regionPolygons: number[][];
+  stateLabels: ArrayLike<number>;
+  religionLabels: ArrayLike<number>;
+  burgs: Array<{
+    id: number;
+    x: number;
+    y: number;
+    cell: number;
+    name: string;
+  }>;
+  counts: {
+    landmasses: number;
+    states: number;
+    religions: number;
+    burgs: number;
+  };
+  cultureCount: number;
+  sourceUrl: string;
+}): ParitySnapshot => ({
+  kind: "upstream-oracle",
+  seed: payload.seed,
+  width: payload.width,
+  height: payload.height,
+  gridSpacing: payload.gridSpacing,
+  terrain: {
+    mesh: {
+      vertices: payload.terrainVertices,
+      polygons: payload.terrainPolygons,
+    },
+    land: normalizeBooleanArray(payload.terrainHeights),
+  },
+  regions: {
+    vertices: payload.regionVertices,
+    polygons: payload.regionPolygons,
+    states: Array.from(payload.stateLabels),
+    religions: Array.from(payload.religionLabels),
+  },
+  burgs: payload.burgs,
+  counts: payload.counts,
+  cultureCount: payload.cultureCount,
+  sourceUrl: payload.sourceUrl,
+});
+
+export const fetchUpstreamOracle = async (
+  sourceUrl = DEFAULT_URL,
+): Promise<ParitySnapshot> => {
+  const browser = await firefox.launch({ headless: true });
+
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 1280, height: 900 },
+    });
+    await page.goto(sourceUrl, { waitUntil: "domcontentloaded" });
+    await page.waitForFunction(
+      () =>
+        Boolean(
+          (globalThis as Record<string, unknown>).pack &&
+            (
+              (globalThis as Record<string, unknown>).pack as {
+                cells?: { state?: unknown };
+                burgs?: { length: number };
+                states?: { length: number };
+                religions?: { length: number };
+              }
+            ).cells?.state &&
+            (
+              (globalThis as Record<string, unknown>).pack as {
+                burgs?: { length: number };
+                states?: { length: number };
+                religions?: { length: number };
+              }
+            ).burgs?.length &&
+            (
+              (globalThis as Record<string, unknown>).pack as {
+                states?: { length: number };
+                religions?: { length: number };
+              }
+            ).states?.length &&
+            (
+              (globalThis as Record<string, unknown>).pack as {
+                religions?: { length: number };
+              }
+            ).religions?.length,
+        ),
+      undefined,
+      { timeout: 30000 },
+    );
+    await page.waitForTimeout(1000);
+
+    const payload = await page.evaluate(() => {
+      const globalData = globalThis as Record<string, unknown>;
+      const pack = globalData.pack as {
+        burgs: unknown[];
+        vertices: { p: [number, number][] };
+        cells: {
+          v: number[][];
+          state: ArrayLike<number>;
+          religion: ArrayLike<number>;
+        };
+        cultures: Array<unknown>;
+        features: Array<{ land?: boolean } | null>;
+        states: Array<{ removed?: boolean } | null>;
+        religions: Array<{ removed?: boolean } | null>;
+      };
+      const grid = globalData.grid as {
+        spacing: number;
+        vertices: { p: [number, number][] };
+        cells: { v: number[][]; h: ArrayLike<number> };
+      };
+      const burgs = (
+        pack.burgs as Array<{
+          i: number;
+          x: number;
+          y: number;
+          cell: number;
+          name?: string;
+        } | null>
+      )
+        .filter((burg) => Boolean(burg))
+        .map((burg) => ({
+          id: burg?.i ?? 0,
+          x: burg?.x ?? 0,
+          y: burg?.y ?? 0,
+          cell: burg?.cell ?? 0,
+          name: burg?.name ?? `burg-${burg?.i ?? 0}`,
+        }));
+
+      return {
+        seed: String(globalData.seed),
+        width: Number(globalData.graphWidth),
+        height: Number(globalData.graphHeight),
+        gridSpacing: Number(grid.spacing),
+        terrainVertices: grid.vertices.p.map(
+          ([x, y]: [number, number]) => [x, y] as [number, number],
+        ),
+        terrainPolygons: grid.cells.v.map((polygon: number[]) =>
+          polygon.slice(),
+        ),
+        terrainHeights: Array.from(grid.cells.h, Number),
+        regionVertices: pack.vertices.p.map(
+          ([x, y]: [number, number]) => [x, y] as [number, number],
+        ),
+        regionPolygons: pack.cells.v.map((polygon: number[]) =>
+          polygon.slice(),
+        ),
+        stateLabels: Array.from(pack.cells.state, Number),
+        religionLabels: Array.from(pack.cells.religion, Number),
+        burgs,
+        counts: {
+          landmasses: pack.features.filter(
+            (feature: { land?: boolean } | null) => feature?.land === true,
+          ).length,
+          states: pack.states.filter(
+            (state: { removed?: boolean } | null, index: number) =>
+              index > 0 && state && state.removed !== true,
+          ).length,
+          religions: pack.religions.filter(
+            (religion: { removed?: boolean } | null, index: number) =>
+              index > 0 && religion && religion.removed !== true,
+          ).length,
+          burgs: burgs.length,
+        },
+        cultureCount: Math.max(pack.cultures.length - 1, 1),
+        sourceUrl: String(
+          (globalData.location as { href?: string } | undefined)?.href ?? "",
+        ),
+      };
+    });
+
+    return normalizeOracle(payload);
+  } finally {
+    await browser.close();
+  }
+};
+
+if (import.meta.main) {
+  const args = parseArgs(process.argv.slice(2));
+  const sourceUrl = args.url ?? DEFAULT_URL;
+  const outputPath = args.output
+    ? path.resolve(process.cwd(), args.output)
+    : undefined;
+  const oracle = await fetchUpstreamOracle(sourceUrl);
+
+  if (outputPath) {
+    await mkdir(path.dirname(outputPath), { recursive: true });
+    await writeFile(outputPath, `${JSON.stringify(oracle, null, 2)}\n`, "utf8");
+  }
+
+  console.log(JSON.stringify(oracle, null, 2));
+}

@@ -22,6 +22,16 @@ import {
   runWaterbodyStage,
 } from "./internal/stages";
 export { deserializeWorld, serializeWorld } from "./serialization";
+export {
+  buildLocalParitySnapshot,
+  computeParityReport,
+  type BurgParityMetric,
+  type CountParityMetric,
+  type ParityCounts,
+  type ParityReport,
+  type ParitySnapshot,
+  type RegionParityMetric,
+} from "./parity";
 import type {
   GenerationConfig,
   GenerationContext,

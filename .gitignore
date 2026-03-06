@@ -1,6 +1,7 @@
 tmp/
 node_modules/
 .playwright-cli/
+artifacts/
 ui/node_modules/
 ui/dist/
 .worktrees/
