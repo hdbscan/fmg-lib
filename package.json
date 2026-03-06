@@ -3,6 +3,24 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "bun test"
+    "typecheck": "bunx tsc --noEmit",
+    "test": "bun test ./tests",
+    "check": "bun run typecheck && bun test ./tests",
+    "check:fixtures": "bun test ./tests/world-fixtures.integration.test.ts",
+    "lint": "bunx biome check .",
+    "format": "bunx biome format --write .",
+    "format:check": "bunx biome format .",
+    "perf:baseline": "bun run ./scripts/perf-baseline.ts",
+    "release:check": "bun run check && bun run check:fixtures"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@playwright/cli": "^0.1.1",
+    "@types/d3-delaunay": "^6.0.4",
+    "bun-types": "latest",
+    "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "d3-delaunay": "^6.0.4"
   }
 }

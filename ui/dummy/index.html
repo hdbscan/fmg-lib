@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UI Dummy Render</title>
+    <style>
+      :root {
+        color-scheme: light;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at 25% 20%, #ecf7ff, #d7e5ff 50%, #bfd4f6);
+        font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+      }
+
+      .card {
+        width: min(820px, calc(100vw - 48px));
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 18px 48px rgba(21, 42, 86, 0.2);
+        padding: 20px;
+      }
+
+      h1 {
+        margin: 0 0 10px;
+        font-size: 20px;
+        color: #142138;
+      }
+
+      p {
+        margin: 0 0 16px;
+        color: #31425f;
+      }
+
+      canvas {
+        width: 100%;
+        height: auto;
+        border-radius: 10px;
+        border: 1px solid rgba(26, 53, 99, 0.12);
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Dummy Render Verification</h1>
+      <p>This is a placeholder render to validate the Playwright CLI screenshot workflow.</p>
+      <canvas id="map" width="760" height="360"></canvas>
+    </main>
+    <script>
+      const canvas = document.getElementById("map");
+      const context = canvas.getContext("2d");
+
+      context.fillStyle = "#e6f0ff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      context.beginPath();
+      context.moveTo(120, 95);
+      context.bezierCurveTo(250, 10, 480, 20, 640, 140);
+      context.bezierCurveTo(700, 195, 660, 280, 530, 315);
+      context.bezierCurveTo(380, 345, 210, 325, 105, 250);
+      context.bezierCurveTo(55, 210, 40, 140, 120, 95);
+      context.closePath();
+
+      const gradient = context.createLinearGradient(100, 80, 620, 320);
+      gradient.addColorStop(0, "#73b27b");
+      gradient.addColorStop(1, "#2d7a56");
+      context.fillStyle = gradient;
+      context.fill();
+
+      context.strokeStyle = "#1d5a41";
+      context.lineWidth = 2;
+      context.stroke();
+
+      context.fillStyle = "#1f6ab0";
+      context.fillRect(0, 0, 760, 48);
+
+      context.fillStyle = "#f9fcff";
+      context.font = "600 16px IBM Plex Sans, Segoe UI, sans-serif";
+      context.fillText("Seed: dummy-seed-001", 20, 30);
+
+      context.fillStyle = "#0f2c4c";
+      context.beginPath();
+      context.arc(330, 155, 7, 0, Math.PI * 2);
+      context.arc(452, 210, 7, 0, Math.PI * 2);
+      context.arc(560, 175, 7, 0, Math.PI * 2);
+      context.fill();
+    </script>
+  </body>
+</html>
