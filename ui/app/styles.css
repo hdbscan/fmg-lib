@@ -126,6 +126,12 @@ body {
   margin-bottom: 8px;
 }
 
+.transfer-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 label {
   display: block;
   font-size: 12px;
@@ -233,6 +239,10 @@ button:disabled {
   font-size: 12px;
   line-height: 1.5;
   color: #26456f;
+}
+
+.transfer-copy {
+  margin-top: 8px;
 }
 
 .status-pill {
@@ -361,6 +371,18 @@ button:disabled {
   padding: 4px;
 }
 
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 @media (max-width: 980px) {
   .layout {
     grid-template-columns: 1fr;
@@ -384,6 +406,7 @@ button:disabled {
   }
 
   .row,
+  .transfer-actions,
   .color-grid,
   .metric-grid,
   .checkbox-grid {
