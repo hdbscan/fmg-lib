@@ -6,6 +6,7 @@
     "dev": "vite --host 127.0.0.1 --port 4174",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 4174",
+    "smoke": "bun ./scripts/ui-smoke.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
     "bundle:check": "bun ./scripts/check-bundle-size.mjs",
