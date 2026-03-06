@@ -858,7 +858,7 @@ export const App = () => {
   };
 
   return (
-    <div class="layout">
+    <div class="layout" data-screenshot="ui-shell">
       <aside class="panel sidebar">
         <div class="panel-scroll">
           <section class="section hero-section">
@@ -1214,7 +1214,7 @@ export const App = () => {
         </div>
       </aside>
 
-      <main class="panel viewport-shell">
+      <main class="panel viewport-shell" data-screenshot="ui-shell-physical">
         <div class="viewport-toolbar">
           <div>
             <strong>Canvas</strong>
@@ -1233,8 +1233,13 @@ export const App = () => {
             </button>
           </div>
         </div>
-        <div class="viewport" ref={viewportElement}>
+        <div
+          class="viewport"
+          ref={viewportElement}
+          data-screenshot="ui-shell-viewport"
+        >
           <canvas
+            data-screenshot="ui-shell-canvas"
             ref={canvasElement}
             onPointerDown={(event) => {
               if (!canvasElement) {
