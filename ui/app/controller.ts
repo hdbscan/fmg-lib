@@ -8,7 +8,6 @@ import {
 import {
   type CameraState,
   DEFAULT_STYLE,
-  DEFAULT_VISIBILITY,
   type HitTestIndex,
   type LayerVisibilityState,
   PRESET_VISIBILITY,
@@ -50,13 +49,40 @@ export const DEFAULT_GENERATION_CONFIG: GenerationConfig = {
   },
 };
 
+const DEFAULT_PARITY_VISIBILITY: LayerVisibilityState = {
+  physical: false,
+  biomes: false,
+  rivers: true,
+  cultures: false,
+  settlements: true,
+  states: true,
+  routes: false,
+  provinces: false,
+  religions: false,
+  military: false,
+  markers: false,
+  zones: false,
+  labels: true,
+};
+
+const DEFAULT_PARITY_STYLE: StylePreset = {
+  ...DEFAULT_STYLE,
+  oceanColor: "#8da8d6",
+  landColorLow: "#c9d7af",
+  landColorHigh: "#91a97d",
+  riverColor: "#6f9fd4",
+  stateLineColor: "#d78b73",
+  provinceLineColor: "#d8c89e",
+  burgColor: "#24344f",
+};
+
 export const createController = () => {
   let state: ControllerState = {
     world: null,
     renderable: null,
     hitTest: null,
-    visibility: DEFAULT_VISIBILITY,
-    style: DEFAULT_STYLE,
+    visibility: DEFAULT_PARITY_VISIBILITY,
+    style: DEFAULT_PARITY_STYLE,
     camera: {
       x: 0,
       y: 0,

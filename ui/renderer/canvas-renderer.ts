@@ -42,6 +42,125 @@ const buildLandScale = (style: StylePreset): ((height: number) => string) => {
     .clamp(true);
 };
 
+type IndexedEdge = Readonly<{
+  ax: number;
+  ay: number;
+  bx: number;
+  by: number;
+  cellA: number;
+  cellB: number | null;
+}>;
+
+const STATE_FILL_PALETTE = [
+  "#d9e4f5",
+  "#f0d9df",
+  "#d8ead9",
+  "#f5e7b1",
+  "#f3d5c5",
+  "#dce6d0",
+  "#d8e7ea",
+  "#ead9ef",
+] as const;
+
+const CULTURE_FILL_PALETTE = [
+  "rgba(93, 122, 183, 0.18)",
+  "rgba(208, 148, 99, 0.18)",
+  "rgba(109, 155, 112, 0.18)",
+  "rgba(156, 117, 171, 0.18)",
+] as const;
+
+const RELIGION_FILL_PALETTE = [
+  "rgba(226, 200, 130, 0.14)",
+  "rgba(173, 196, 214, 0.14)",
+  "rgba(212, 171, 192, 0.14)",
+  "rgba(180, 205, 174, 0.14)",
+] as const;
+
+const STATE_FORM_LABELS = ["Realm", "Kingdom", "Maritime", "Duchy"] as const;
+
+const hashIndex = (value: number): number => {
+  const seed = Math.imul(value ^ 0x45d9f3b, 0x45d9f3b);
+  return (seed ^ (seed >>> 16)) >>> 0;
+};
+
+const pickPaletteColor = (
+  palette: readonly string[],
+  value: number,
+): string => {
+  return palette[hashIndex(value) % palette.length] ?? palette[0] ?? "#cccccc";
+};
+
+const buildStateLabel = (
+  stateId: number,
+  cultureId: number,
+  form: number,
+): string => {
+  const first = ["A", "Be", "Ca", "Da", "El", "Fa", "Ga", "I", "Lo", "Ma"];
+  const middle = [
+    "ra",
+    "len",
+    "vor",
+    "the",
+    "mir",
+    "dor",
+    "sa",
+    "lia",
+    "ver",
+    "mon",
+  ];
+  const last = ["ia", "on", "or", "en", "ar", "is", "um", "eth", "a", "os"];
+  const seed = hashIndex(stateId * 31 + cultureId * 17 + form * 13);
+  const name = `${first[seed % first.length]}${middle[(seed >>> 4) % middle.length]}${last[(seed >>> 9) % last.length]}`;
+  const formLabel = STATE_FORM_LABELS[form] ?? STATE_FORM_LABELS[0];
+  if (form === 1 || form === 3) {
+    return `${formLabel} of ${name}`;
+  }
+  if (form === 2) {
+    return `${formLabel} ${name}`;
+  }
+  return name;
+};
+
+const edgeKey = (ax: number, ay: number, bx: number, by: number): string => {
+  if (ax < bx || (ax === bx && ay <= by)) {
+    return `${ax},${ay}|${bx},${by}`;
+  }
+  return `${bx},${by}|${ax},${ay}`;
+};
+
+const buildEdges = (world: RenderableWorld): readonly IndexedEdge[] => {
+  const edges = new Map<string, IndexedEdge>();
+
+  for (const cell of world.cells) {
+    const polygon = cell.polygon;
+    for (let index = 0; index < polygon.length; index += 2) {
+      const nextIndex = (index + 2) % polygon.length;
+      const ax = polygon[index] ?? 0;
+      const ay = polygon[index + 1] ?? 0;
+      const bx = polygon[nextIndex] ?? 0;
+      const by = polygon[nextIndex + 1] ?? 0;
+      if (ax === bx && ay === by) {
+        continue;
+      }
+
+      const key = edgeKey(ax, ay, bx, by);
+      const existing = edges.get(key);
+      if (!existing) {
+        edges.set(key, { ax, ay, bx, by, cellA: cell.id, cellB: null });
+        continue;
+      }
+
+      if (existing.cellA === cell.id || existing.cellB === cell.id) {
+        continue;
+      }
+
+      edges.set(key, { ...existing, cellB: cell.id });
+    }
+  }
+
+  return [...edges.values()];
+};
+
 const fillPolygon = (
   context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   polygon: Float32Array,
@@ -59,25 +178,10 @@ const fillPolygon = (
   context.fill();
 };
 
-const strokeBetweenCenters = (
-  context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-  world: RenderableWorld,
-  fromCellId: number,
-  toCellId: number,
-): void => {
-  const fromCell = world.cells[fromCellId];
-  const toCell = world.cells[toCellId];
-  if (!fromCell || !toCell) {
-    return;
-  }
-
-  context.beginPath();
-  context.moveTo(fromCell.centerX, fromCell.centerY);
-  context.lineTo(toCell.centerX, toCell.centerY);
-  context.stroke();
-};
-
-const isVisible = (visibility: LayerVisibilityState, layer: RenderLayer): boolean => {
+const isVisible = (
+  visibility: LayerVisibilityState,
+  layer: RenderLayer,
+): boolean => {
   if (layer === "physical") {
     return visibility.physical || visibility.biomes || visibility.rivers;
   }
@@ -94,7 +198,10 @@ const isVisible = (visibility: LayerVisibilityState, layer: RenderLayer): boolea
 
   if (layer === "entities") {
     return (
-      visibility.settlements || visibility.military || visibility.markers || visibility.zones
+      visibility.settlements ||
+      visibility.military ||
+      visibility.markers ||
+      visibility.zones
     );
   }
 
@@ -113,7 +220,10 @@ export class CanvasMapRenderer implements MapRenderer {
 
   private readonly rootContext: CanvasRenderingContext2D;
 
-  private readonly layerCanvases = new Map<RenderLayer, HTMLCanvasElement | OffscreenCanvas>();
+  private readonly layerCanvases = new Map<
+    RenderLayer,
+    HTMLCanvasElement | OffscreenCanvas
+  >();
 
   private readonly layerContexts = new Map<
     RenderLayer,
@@ -123,6 +233,8 @@ export class CanvasMapRenderer implements MapRenderer {
   private readonly dirty = new Set<RenderLayer>(LAYERS);
 
   private world: RenderableWorld | null = null;
+
+  private edges: readonly IndexedEdge[] = [];
 
   private visibility: LayerVisibilityState;
 
@@ -172,6 +284,7 @@ export class CanvasMapRenderer implements MapRenderer {
 
   public setWorld(world: RenderableWorld | null): void {
     this.world = world;
+    this.edges = world ? buildEdges(world) : [];
     this.markDirty();
   }
 
@@ -240,6 +353,29 @@ export class CanvasMapRenderer implements MapRenderer {
 
     const landScale = buildLandScale(this.style);
 
+    context.strokeStyle = "rgba(255, 255, 255, 0.16)";
+    context.lineWidth = 10;
+    context.lineCap = "round";
+    for (const edge of this.edges) {
+      const cellA = this.world.cells[edge.cellA];
+      const cellB = edge.cellB == null ? null : this.world.cells[edge.cellB];
+      if (!cellA) {
+        continue;
+      }
+
+      const isCoast =
+        (cellA.feature === 1 && (!cellB || cellB.feature !== 1)) ||
+        (cellA.feature !== 1 && cellB?.feature === 1);
+      if (!isCoast) {
+        continue;
+      }
+
+      context.beginPath();
+      context.moveTo(edge.ax, edge.ay);
+      context.lineTo(edge.bx, edge.by);
+      context.stroke();
+    }
+
     for (const cell of this.world.cells) {
       if (cell.feature !== 1) {
         continue;
@@ -250,9 +386,31 @@ export class CanvasMapRenderer implements MapRenderer {
       fillPolygon(context, cell.polygon);
 
       if (this.visibility.biomes && cell.biome > 0) {
-        context.fillStyle = `rgba(${(cell.biome * 53) % 255}, ${(cell.biome * 97) % 255}, ${(cell.biome * 29) % 255}, 0.16)`;
+        context.fillStyle = pickPaletteColor(CULTURE_FILL_PALETTE, cell.biome);
         fillPolygon(context, cell.polygon);
       }
+    }
+
+    context.strokeStyle = "rgba(70, 96, 138, 0.55)";
+    context.lineWidth = 1.2;
+    for (const edge of this.edges) {
+      const cellA = this.world.cells[edge.cellA];
+      const cellB = edge.cellB == null ? null : this.world.cells[edge.cellB];
+      if (!cellA) {
+        continue;
+      }
+
+      const isCoast =
+        (cellA.feature === 1 && (!cellB || cellB.feature !== 1)) ||
+        (cellA.feature !== 1 && cellB?.feature === 1);
+      if (!isCoast) {
+        continue;
+      }
+
+      context.beginPath();
+      context.moveTo(edge.ax, edge.ay);
+      context.lineTo(edge.bx, edge.by);
+      context.stroke();
     }
 
     if (!this.visibility.rivers) {
@@ -260,20 +418,19 @@ export class CanvasMapRenderer implements MapRenderer {
     }
 
     context.strokeStyle = this.style.riverColor;
-    context.lineWidth = 1;
-    for (const cell of this.world.cells) {
-      if (cell.river <= 0) {
+    context.lineWidth = 1.15;
+    context.lineCap = "round";
+    for (const edge of this.edges) {
+      const cellA = this.world.cells[edge.cellA];
+      const cellB = edge.cellB == null ? null : this.world.cells[edge.cellB];
+      if (!cellA || !cellB || cellA.river <= 0 || cellB.river <= 0) {
         continue;
       }
 
-      for (const neighborId of cell.neighbors) {
-        const neighbor = this.world.cells[neighborId];
-        if (!neighbor || neighbor.id <= cell.id || neighbor.river <= 0) {
-          continue;
-        }
-
-        strokeBetweenCenters(context, this.world, cell.id, neighbor.id);
-      }
+      context.beginPath();
+      context.moveTo(edge.ax, edge.ay);
+      context.lineTo(edge.bx, edge.by);
+      context.stroke();
     }
   }
 
@@ -286,12 +443,25 @@ export class CanvasMapRenderer implements MapRenderer {
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, this.rootCanvas.width, this.rootCanvas.height);
 
+    if (this.visibility.states) {
+      for (const cell of this.world.cells) {
+        if (cell.feature !== 1 || cell.state <= 0) {
+          continue;
+        }
+        context.fillStyle = pickPaletteColor(STATE_FILL_PALETTE, cell.state);
+        fillPolygon(context, cell.polygon);
+      }
+    }
+
     if (this.visibility.cultures) {
       for (const cell of this.world.cells) {
         if (cell.culture <= 0) {
           continue;
         }
-        context.fillStyle = `rgba(${(cell.culture * 71) % 255}, ${(cell.culture * 41) % 255}, ${(cell.culture * 113) % 255}, 0.22)`;
+        context.fillStyle = pickPaletteColor(
+          CULTURE_FILL_PALETTE,
+          cell.culture,
+        );
         fillPolygon(context, cell.polygon);
       }
     }
@@ -301,53 +471,58 @@ export class CanvasMapRenderer implements MapRenderer {
         if (cell.religion <= 0) {
           continue;
         }
-        context.fillStyle = `rgba(${(cell.religion * 89) % 255}, ${(cell.religion * 23) % 255}, ${(cell.religion * 59) % 255}, 0.18)`;
+        context.fillStyle = pickPaletteColor(
+          RELIGION_FILL_PALETTE,
+          cell.religion,
+        );
         fillPolygon(context, cell.polygon);
       }
     }
 
     if (this.visibility.states) {
       context.strokeStyle = this.style.stateLineColor;
-      context.lineWidth = 1.6;
-      for (const cell of this.world.cells) {
-        if (cell.state <= 0) {
+      context.lineWidth = 1.8;
+      context.lineCap = "round";
+      for (const edge of this.edges) {
+        const cellA = this.world.cells[edge.cellA];
+        const cellB = edge.cellB == null ? null : this.world.cells[edge.cellB];
+        if (!cellA || !cellB || cellA.feature !== 1 || cellB.feature !== 1) {
           continue;
         }
-        for (const neighborId of cell.neighbors) {
-          if (neighborId <= cell.id) {
-            continue;
-          }
-          const neighbor = this.world.cells[neighborId];
-          if (!neighbor || neighbor.state === cell.state) {
-            continue;
-          }
-          strokeBetweenCenters(context, this.world, cell.id, neighbor.id);
+        if (cellA.state <= 0 || cellA.state === cellB.state) {
+          continue;
         }
+        context.beginPath();
+        context.moveTo(edge.ax, edge.ay);
+        context.lineTo(edge.bx, edge.by);
+        context.stroke();
       }
     }
 
     if (this.visibility.provinces) {
       context.strokeStyle = this.style.provinceLineColor;
       context.lineWidth = 0.85;
-      for (const cell of this.world.cells) {
-        if (cell.province <= 0) {
+      context.lineCap = "round";
+      for (const edge of this.edges) {
+        const cellA = this.world.cells[edge.cellA];
+        const cellB = edge.cellB == null ? null : this.world.cells[edge.cellB];
+        if (!cellA || !cellB || cellA.feature !== 1 || cellB.feature !== 1) {
           continue;
         }
-        for (const neighborId of cell.neighbors) {
-          if (neighborId <= cell.id) {
-            continue;
-          }
-          const neighbor = this.world.cells[neighborId];
-          if (!neighbor || neighbor.province === cell.province) {
-            continue;
-          }
-          strokeBetweenCenters(context, this.world, cell.id, neighbor.id);
+        if (cellA.province <= 0 || cellA.province === cellB.province) {
+          continue;
         }
+        context.beginPath();
+        context.moveTo(edge.ax, edge.ay);
+        context.lineTo(edge.bx, edge.by);
+        context.stroke();
       }
     }
 
     if (this.visibility.routes) {
-      context.strokeStyle = rgb(this.style.stateLineColor).darker(1.2).toString();
+      context.strokeStyle = rgb(this.style.stateLineColor)
+        .darker(1.2)
+        .toString();
       context.lineWidth = 1;
       for (const route of this.world.routes) {
         context.beginPath();
@@ -406,39 +581,54 @@ export class CanvasMapRenderer implements MapRenderer {
       }
     }
 
-    if (this.visibility.labels && this.camera.zoom > 1.3) {
+    if (this.visibility.labels && this.camera.zoom > 0.9) {
       const stateCellCounts = this.world.states.map((state) => state.cells);
       const range = extent(stateCellCounts);
       const minCells = range[0] ?? 0;
       const maxCells = range[1] ?? 1;
       const fontScale = scaleLinear<number>()
         .domain([minCells, maxCells])
-        .range([9, 16])
+        .range([12, 28])
         .clamp(true);
 
-      context.fillStyle = "#f7f7f7";
-      context.strokeStyle = "rgba(0, 0, 0, 0.5)";
-      context.lineWidth = 2;
+      context.fillStyle = "rgba(46, 61, 89, 0.9)";
+      context.strokeStyle = "rgba(255, 255, 255, 0.6)";
+      context.lineWidth = 3;
       context.textAlign = "center";
       context.textBaseline = "middle";
 
       for (const state of this.world.states) {
-        context.font = `${Math.floor(fontScale(state.cells))}px "IBM Plex Sans", "Segoe UI", sans-serif`;
-        const label = `S${state.id}`;
+        if (state.cells < Math.max(12, maxCells * 0.08)) {
+          continue;
+        }
+        context.font = `${Math.floor(fontScale(state.cells))}px "Iowan Old Style", "Times New Roman", serif`;
+        const label = buildStateLabel(
+          state.id,
+          state.culture,
+          state.form,
+        ).toUpperCase();
         context.strokeText(label, state.centerX, state.centerY);
         context.fillText(label, state.centerX, state.centerY);
       }
 
-      if (this.camera.zoom > 2.2) {
-        context.fillStyle = "#111827";
-        context.font = '10px "IBM Plex Sans", "Segoe UI", sans-serif';
-        const maxLabels = 180;
+      if (this.camera.zoom > 1.5) {
+        context.fillStyle = "rgba(34, 50, 78, 0.78)";
+        context.strokeStyle = "rgba(255, 255, 255, 0.55)";
+        context.lineWidth = 2.2;
+        context.font = '11px "Iowan Old Style", "Times New Roman", serif';
+        const maxLabels = 80;
         let rendered = 0;
         for (const burg of this.world.burgs) {
           if (rendered >= maxLabels) {
             break;
           }
-          context.fillText(`B${burg.id}`, burg.x + 4, burg.y + 4);
+          const label = buildStateLabel(
+            burg.id,
+            burg.culture,
+            burg.port > 0 ? 2 : 0,
+          );
+          context.strokeText(label, burg.x + 10, burg.y - 6);
+          context.fillText(label, burg.x + 10, burg.y - 6);
           rendered += 1;
         }
       }
@@ -454,7 +644,11 @@ export class CanvasMapRenderer implements MapRenderer {
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, this.rootCanvas.width, this.rootCanvas.height);
 
-    const drawHighlight = (cellId: number | null, strokeStyle: string, lineWidth: number): void => {
+    const drawHighlight = (
+      cellId: number | null,
+      strokeStyle: string,
+      lineWidth: number,
+    ): void => {
       if (cellId == null) {
         return;
       }
