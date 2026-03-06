@@ -211,6 +211,13 @@ fmg-lib (existing headless core)
 - rendering performance baselines and budgets
 - memory budget checks for geometry caches
 
+## Screenshot review workflow
+
+- Capture each UI milestone with `npm run screenshot:milestone -- --slug <name>` and save the artifact under `screenshots/milestones/`.
+- Prefer upstream-vs-local comparisons with `npm run screenshot:drift -- --slug <name> --upstream-url <url> --local-url <url>` so every milestone has a drift report under `screenshots/drift/`.
+- If the upstream shell cannot run yet, compare against the last approved local artifact via `--baseline <png>` and record that fallback in the report metadata.
+- Keep screenshot selectors stable through `data-screenshot*` attributes instead of DOM-structure-dependent locators.
+
 ## Non-goals
 
 - no port of upstream jQuery/jQuery-UI editor stack
@@ -221,4 +228,5 @@ fmg-lib (existing headless core)
 
 1. Align `docs/todo.md` with SolidJS + constrained-D3 architecture.
 2. Add dependency and import guardrails before building features.
-3. Scaffold SolidJS app shell, then implement `ui/adapter` and renderer passes.
+3. Keep screenshot milestones and drift reports current while the UI shell is still moving.
+4. Scaffold SolidJS app shell, then implement `ui/adapter` and renderer passes.

@@ -28,3 +28,21 @@ Check the following:
 - Keep integration fixtures for representative seeds.
 - Require `bun run check` before merge.
 - Update docs and tests on any schema or stage-order change.
+
+## Screenshot capture fails
+
+- Run `npm run screenshot:install-browser` once if Playwright CLI reports a missing browser.
+- Use `--url` or `--local-url` with a live Vite preview when a file URL is not enough for the current UI slice.
+- Keep capture targets on stable `data-screenshot*` attributes so layout refactors do not break the workflow.
+
+## Drift report is missing an upstream image
+
+- Pass `--upstream-url <url>` when the upstream FMG scenario is runnable.
+- If upstream is not runnable yet, use `--baseline <png>` and document that fallback in `--note`.
+- Review `screenshots/drift/<slug>/report.md` to see which source the comparison used.
+
+## Screenshot changed unexpectedly
+
+- Re-run the same command and compare the new `sha256` in the JSON metadata before treating it as real drift.
+- Check viewport size and selector arguments first; the scripts default to a fixed 1440x960 viewport.
+- Confirm fonts and browser binaries are unchanged if only text metrics moved.

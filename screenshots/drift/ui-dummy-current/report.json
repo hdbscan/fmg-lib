@@ -1,0 +1,25 @@
+{
+  "slug": "ui-dummy-current",
+  "capturedAt": "2026-03-06T18:48:28.812Z",
+  "viewport": "1440x960",
+  "fullPage": false,
+  "status": "different",
+  "note": "Upstream UI shell is not stable yet, so this drift check compares against the approved local dummy baseline.",
+  "local": {
+    "label": "local",
+    "url": "http://127.0.0.1:42423/ui/dummy/index.html",
+    "selector": "[data-screenshot=\"ui-dummy-card\"]",
+    "browser": "firefox",
+    "artifact": "local.png",
+    "sha256": "aa7179eb78edaf263c091514854b9a39906222aed7f4a1b9c97dbf4a8978dd8c"
+  },
+  "reference": {
+    "type": "baseline",
+    "label": "approved-baseline",
+    "url": null,
+    "browser": null,
+    "selector": null,
+    "artifact": "baseline.png",
+    "sha256": "ba84d163b95a68f3593205579ae0287c860ada0bfd24a4dcbc746a7094a1a56e"
+  }
+}

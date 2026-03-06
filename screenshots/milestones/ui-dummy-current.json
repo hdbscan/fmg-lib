@@ -1,0 +1,11 @@
+{
+  "slug": "ui-dummy-current",
+  "capturedAt": "2026-03-06T18:48:28.816Z",
+  "url": "http://127.0.0.1:43049/ui/dummy/index.html",
+  "selector": "[data-screenshot=\"ui-dummy-card\"]",
+  "browser": "firefox",
+  "viewport": "1440x960",
+  "fullPage": false,
+  "artifact": "ui-dummy-current.png",
+  "sha256": "aa7179eb78edaf263c091514854b9a39906222aed7f4a1b9c97dbf4a8978dd8c"
+}
