@@ -924,6 +924,7 @@ export const App = () => {
               with a clear UI error.
             </p>
             <input
+              data-ui-smoke="load-world-input"
               ref={fileInputElement}
               class="visually-hidden"
               type="file"
@@ -1140,14 +1141,18 @@ export const App = () => {
               <h2>Status</h2>
               <span class={nextStatusToneClass()}>{statusTone()}</span>
             </div>
-            <p class="status-line">{statusText()}</p>
+            <p class="status-line" data-ui-smoke="status-line">
+              {statusText()}
+            </p>
             <Show when={errorText()}>
               {(message) => <div class="banner">{message()}</div>}
             </Show>
             <div class="metric-grid compact-grid">
               <div>
                 <span class="metric-label">Cells</span>
-                <strong>{worldCellCountText()}</strong>
+                <strong data-ui-smoke="metric-cells">
+                  {worldCellCountText()}
+                </strong>
               </div>
               <div>
                 <span class="metric-label">States</span>
@@ -1197,7 +1202,7 @@ export const App = () => {
                 <p class="empty-state">Generate a world and hover a cell.</p>
               }
             >
-              <table class="inspector-table">
+              <table class="inspector-table" data-ui-smoke="inspector-table">
                 <tbody>
                   <For each={inspectorRows()}>
                     {(row) => (
@@ -1320,12 +1325,12 @@ export const App = () => {
             }}
           />
           <div class="viewport-overlay">
-            <div class="overlay-chip">
+            <div class="overlay-chip" data-ui-smoke="hover-chip">
               {state().hoverCellId != null
                 ? `Hover ${state().hoverCellId}`
                 : "Hover none"}
             </div>
-            <div class="overlay-chip">
+            <div class="overlay-chip" data-ui-smoke="selected-chip">
               {state().selectedCellId != null
                 ? `Selected ${state().selectedCellId}`
                 : "Selection none"}
