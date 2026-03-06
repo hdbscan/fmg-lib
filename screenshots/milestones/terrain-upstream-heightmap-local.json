@@ -1,0 +1,15 @@
+{
+  "slug": "terrain-upstream-heightmap-local",
+  "capturedAt": "2026-03-06T20:30:14.433Z",
+  "url": "http://127.0.0.1:39663/",
+  "selector": "[data-screenshot=\"ui-shell\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "900x600",
+  "fullPage": false,
+  "delayMs": 1000,
+  "staticRoot": "ui/dist",
+  "staticPath": "/",
+  "artifact": "terrain-upstream-heightmap-local.png",
+  "sha256": "0a07e97a0930316712066122f1d93c606eb2bd0a120280c719b6e73615e9f69b"
+}

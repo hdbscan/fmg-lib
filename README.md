@@ -18,6 +18,7 @@ Current implemented slice:
 - strict TypeScript setup
 - headless config normalization + validation
 - deterministic physical pipeline (grid, height, feature bands, landmasses, waterbodies, land-only packed graph, climate, hydrology-lite, biomes)
+- upstream-FMG-derived heightmap templates ported into the headless terrain stage for closer fixed-seed continent / island shaping
 - optional culture layer generation on packed land cells
 - compact adjacency and serialization (`serializeWorld`/`deserializeWorld`)
 - high-level integration tests for determinism, graph coherence, fixture hashes, and round-trip persistence

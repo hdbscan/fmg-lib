@@ -1,5 +1,6 @@
 import { Delaunay } from "d3-delaunay";
 import type { GenerationContext } from "../types";
+import { hashSeed } from "./random";
 
 const EPSILON = 1e-10;
 
@@ -7,6 +8,651 @@ const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
 
 const clamp01 = (value: number): number => clamp(value, 0, 1);
+
+const lerp = (start: number, end: number, t: number): number =>
+  start + (end - start) * t;
+
+const smoothstep = (value: number): number => value * value * (3 - 2 * value);
+
+const hash2d = (seed: number, x: number, y: number): number => {
+  let hash = seed ^ Math.imul(x, 374_761_393) ^ Math.imul(y, 668_265_263);
+  hash = Math.imul(hash ^ (hash >>> 13), 1_274_126_177);
+  return ((hash ^ (hash >>> 16)) >>> 0) / 4_294_967_295;
+};
+
+const sampleValueNoise = (
+  seed: number,
+  x: number,
+  y: number,
+  frequencyX: number,
+  frequencyY = frequencyX,
+): number => {
+  const scaledX = x * frequencyX;
+  const scaledY = y * frequencyY;
+  const x0 = Math.floor(scaledX);
+  const y0 = Math.floor(scaledY);
+  const x1 = x0 + 1;
+  const y1 = y0 + 1;
+  const tx = smoothstep(scaledX - x0);
+  const ty = smoothstep(scaledY - y0);
+
+  const top = lerp(hash2d(seed, x0, y0), hash2d(seed, x1, y0), tx);
+  const bottom = lerp(hash2d(seed, x0, y1), hash2d(seed, x1, y1), tx);
+  return lerp(top, bottom, ty) * 2 - 1;
+};
+
+const pickRangeValue = (
+  random: () => number,
+  min: number,
+  max: number,
+): number => lerp(min, max, random());
+
+const selectCellInRange = (
+  context: GenerationContext,
+  minX: number,
+  maxX: number,
+  minY: number,
+  maxY: number,
+): number => {
+  const { cellCount, cellsX, cellsY } = context.world;
+  const { width, height } = context.config;
+  const start = Math.floor(context.random() * cellCount);
+
+  for (let offset = 0; offset < cellCount; offset += 1) {
+    const cellId = (start + offset) % cellCount;
+    const x = (cellsX[cellId] ?? 0) / width;
+    const y = (cellsY[cellId] ?? 0) / height;
+    if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
+      return cellId;
+    }
+  }
+
+  return start;
+};
+
+const applyBlob = (
+  context: GenerationContext,
+  field: Float32Array,
+  startCell: number,
+  magnitude: number,
+  decay: number,
+): void => {
+  const seen = new Uint8Array(field.length);
+  const change = new Float32Array(field.length);
+  const queue = [startCell];
+  seen[startCell] = 1;
+  change[startCell] = magnitude;
+
+  while (queue.length > 0) {
+    const cellId = queue.shift();
+    if (cellId === undefined) {
+      break;
+    }
+
+    const delta = change[cellId] ?? 0;
+    field[cellId] = (field[cellId] ?? 0) + delta;
+
+    if (Math.abs(delta) < 1.25) {
+      continue;
+    }
+
+    forEachNeighbor(
+      cellId,
+      context.world.cellNeighborOffsets,
+      context.world.cellNeighbors,
+      (neighborId) => {
+        if ((seen[neighborId] ?? 0) === 1) {
+          return;
+        }
+
+        const variation = 0.84 + context.random() * 0.28;
+        const next = delta * decay * variation;
+        if (Math.abs(next) < 1) {
+          return;
+        }
+
+        seen[neighborId] = 1;
+        change[neighborId] = next;
+        queue.push(neighborId);
+      },
+    );
+  }
+};
+
+const traceRangePath = (
+  context: GenerationContext,
+  startCell: number,
+  endCell: number,
+): number[] => {
+  const { cellsX, cellsY, cellCount } = context.world;
+  const used = new Uint8Array(cellCount);
+  const path = [startCell];
+  let current = startCell;
+  used[current] = 1;
+
+  for (let step = 0; step < cellCount; step += 1) {
+    if (current === endCell) {
+      break;
+    }
+
+    let nextCell = -1;
+    let bestScore = Number.POSITIVE_INFINITY;
+    const endX = cellsX[endCell] ?? 0;
+    const endY = cellsY[endCell] ?? 0;
+
+    forEachNeighbor(
+      current,
+      context.world.cellNeighborOffsets,
+      context.world.cellNeighbors,
+      (neighborId) => {
+        if ((used[neighborId] ?? 0) === 1) {
+          return;
+        }
+
+        const dx = (cellsX[neighborId] ?? 0) - endX;
+        const dy = (cellsY[neighborId] ?? 0) - endY;
+        const score = dx * dx + dy * dy + context.random() * 300;
+        if (score < bestScore) {
+          bestScore = score;
+          nextCell = neighborId;
+        }
+      },
+    );
+
+    if (nextCell === -1) {
+      break;
+    }
+
+    current = nextCell;
+    used[current] = 1;
+    path.push(current);
+  }
+
+  return path;
+};
+
+const applyRange = (
+  context: GenerationContext,
+  field: Float32Array,
+  path: number[],
+  magnitude: number,
+  decay: number,
+): void => {
+  const visited = new Uint8Array(field.length);
+  let frontier = path.slice();
+  let delta = magnitude;
+
+  for (const cellId of path) {
+    visited[cellId] = 1;
+  }
+
+  while (frontier.length > 0 && Math.abs(delta) >= 1.5) {
+    for (const cellId of frontier) {
+      field[cellId] =
+        (field[cellId] ?? 0) + delta * (0.88 + context.random() * 0.2);
+    }
+
+    const nextFrontier: number[] = [];
+    for (const cellId of frontier) {
+      forEachNeighbor(
+        cellId,
+        context.world.cellNeighborOffsets,
+        context.world.cellNeighbors,
+        (neighborId) => {
+          if ((visited[neighborId] ?? 0) === 1) {
+            return;
+          }
+
+          visited[neighborId] = 1;
+          nextFrontier.push(neighborId);
+        },
+      );
+    }
+
+    frontier = nextFrontier;
+    delta *= decay;
+  }
+};
+
+const smoothField = (
+  context: GenerationContext,
+  field: Float32Array,
+  iterations: number,
+): void => {
+  const scratch = new Float32Array(field.length);
+
+  for (let iteration = 0; iteration < iterations; iteration += 1) {
+    for (let cellId = 0; cellId < field.length; cellId += 1) {
+      let sum = field[cellId] ?? 0;
+      let count = 1;
+
+      forEachNeighbor(
+        cellId,
+        context.world.cellNeighborOffsets,
+        context.world.cellNeighbors,
+        (neighborId) => {
+          sum += field[neighborId] ?? 0;
+          count += 1;
+        },
+      );
+
+      scratch[cellId] = sum / count;
+    }
+
+    field.set(scratch);
+  }
+};
+
+const applyEdgeMask = (
+  context: GenerationContext,
+  field: Float32Array,
+  seed: number,
+  strength: number,
+  rimWidth: number,
+): void => {
+  const { width, height } = context.config;
+
+  for (let cellId = 0; cellId < field.length; cellId += 1) {
+    const x = context.world.cellsX[cellId] ?? 0;
+    const y = context.world.cellsY[cellId] ?? 0;
+    const distance =
+      Math.min(x, width - x, y, height - y) / Math.min(width, height);
+    const rim = clamp01(1 - distance / rimWidth);
+    if (rim <= 0) {
+      continue;
+    }
+
+    const xNorm = x / width;
+    const yNorm = y / height;
+    const coastNoise = sampleValueNoise(seed + 17, xNorm, yNorm, 3.1, 2.7);
+    field[cellId] =
+      (field[cellId] ?? 0) -
+      rim * rim * strength * (0.78 + (coastNoise + 1) * 0.22);
+  }
+};
+
+const carveStrait = (
+  context: GenerationContext,
+  field: Float32Array,
+  seed: number,
+  orientation: "vertical" | "horizontal",
+  center: number,
+  widthFraction: number,
+  strength: number,
+): void => {
+  const { width, height } = context.config;
+  const axisSize = orientation === "vertical" ? width : height;
+
+  for (let cellId = 0; cellId < field.length; cellId += 1) {
+    const xNorm = (context.world.cellsX[cellId] ?? 0) / width;
+    const yNorm = (context.world.cellsY[cellId] ?? 0) / height;
+    const axis = orientation === "vertical" ? xNorm : yNorm;
+    const cross = orientation === "vertical" ? yNorm : xNorm;
+    const distance = Math.abs(axis - center);
+    if (distance > widthFraction * 1.6) {
+      continue;
+    }
+
+    const band = clamp01(1 - distance / widthFraction);
+    const waviness = sampleValueNoise(seed + 29, cross, axis, 2.1, 4.3);
+    const along = 0.7 + clamp01((waviness + 1) / 2) * 0.45;
+    field[cellId] =
+      (field[cellId] ?? 0) -
+      band * along * strength * (axisSize / Math.max(width, height));
+  }
+};
+
+const addBlobCluster = (
+  context: GenerationContext,
+  field: Float32Array,
+  count: number,
+  magnitudeMin: number,
+  magnitudeMax: number,
+  minX: number,
+  maxX: number,
+  minY: number,
+  maxY: number,
+  decay: number,
+): void => {
+  for (let index = 0; index < count; index += 1) {
+    const startCell = selectCellInRange(context, minX, maxX, minY, maxY);
+    const magnitude = pickRangeValue(
+      context.random,
+      magnitudeMin,
+      magnitudeMax,
+    );
+    applyBlob(context, field, startCell, magnitude, decay);
+  }
+};
+
+const addRangeCluster = (
+  context: GenerationContext,
+  field: Float32Array,
+  count: number,
+  magnitudeMin: number,
+  magnitudeMax: number,
+  startMinX: number,
+  startMaxX: number,
+  startMinY: number,
+  startMaxY: number,
+  endMinX: number,
+  endMaxX: number,
+  endMinY: number,
+  endMaxY: number,
+  decay: number,
+): void => {
+  for (let index = 0; index < count; index += 1) {
+    const startCell = selectCellInRange(
+      context,
+      startMinX,
+      startMaxX,
+      startMinY,
+      startMaxY,
+    );
+    const endCell = selectCellInRange(
+      context,
+      endMinX,
+      endMaxX,
+      endMinY,
+      endMaxY,
+    );
+    const magnitude = pickRangeValue(
+      context.random,
+      magnitudeMin,
+      magnitudeMax,
+    );
+    const path = traceRangePath(context, startCell, endCell);
+    applyRange(context, field, path, magnitude, decay);
+  }
+};
+
+const normalizeField = (
+  field: Float32Array,
+): Readonly<{ min: number; max: number }> => {
+  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
+
+  for (const value of field) {
+    if (value < min) {
+      min = value;
+    }
+    if (value > max) {
+      max = value;
+    }
+  }
+
+  if (!(max > min)) {
+    max = min + 1;
+  }
+
+  return { min, max };
+};
+
+const BLOB_POWER_BY_CELLS: Readonly<Record<number, number>> = {
+  1000: 0.93,
+  2000: 0.95,
+  5000: 0.97,
+  10000: 0.98,
+  20000: 0.99,
+  30000: 0.991,
+  40000: 0.993,
+  50000: 0.994,
+  60000: 0.995,
+  70000: 0.9955,
+  80000: 0.996,
+  90000: 0.9964,
+  100000: 0.9973,
+};
+
+const LINE_POWER_BY_CELLS: Readonly<Record<number, number>> = {
+  1000: 0.75,
+  2000: 0.77,
+  5000: 0.79,
+  10000: 0.81,
+  20000: 0.82,
+  30000: 0.83,
+  40000: 0.84,
+  50000: 0.86,
+  60000: 0.87,
+  70000: 0.88,
+  80000: 0.91,
+  90000: 0.92,
+  100000: 0.93,
+};
+
+type HeightmapTool =
+  | "Hill"
+  | "Pit"
+  | "Range"
+  | "Trough"
+  | "Strait"
+  | "Mask"
+  | "Add"
+  | "Multiply"
+  | "Smooth";
+
+type HeightmapStep = readonly [HeightmapTool, string, string, string, string];
+
+const HEIGHTMAP_STEPS: Readonly<Record<string, readonly HeightmapStep[]>> = {
+  continents: [
+    ["Hill", "1", "80-85", "60-80", "40-60"],
+    ["Hill", "1", "80-85", "20-30", "40-60"],
+    ["Hill", "6-7", "15-30", "25-75", "15-85"],
+    ["Multiply", "0.6", "land", "0", "0"],
+    ["Hill", "8-10", "5-10", "15-85", "20-80"],
+    ["Range", "1-2", "30-60", "5-15", "25-75"],
+    ["Range", "1-2", "30-60", "80-95", "25-75"],
+    ["Range", "0-3", "30-60", "80-90", "20-80"],
+    ["Strait", "2", "vertical", "0", "0"],
+    ["Strait", "1", "vertical", "0", "0"],
+    ["Smooth", "3", "0", "0", "0"],
+    ["Trough", "3-4", "15-20", "15-85", "20-80"],
+    ["Trough", "3-4", "5-10", "45-55", "45-55"],
+    ["Pit", "3-4", "10-20", "15-85", "20-80"],
+    ["Mask", "4", "0", "0", "0"],
+  ],
+  archipelago: [
+    ["Add", "11", "all", "0", "0"],
+    ["Range", "2-3", "40-60", "20-80", "20-80"],
+    ["Hill", "5", "15-20", "10-90", "30-70"],
+    ["Hill", "2", "10-15", "10-30", "20-80"],
+    ["Hill", "2", "10-15", "60-90", "20-80"],
+    ["Smooth", "3", "0", "0", "0"],
+    ["Trough", "10", "20-30", "5-95", "5-95"],
+    ["Strait", "2", "vertical", "0", "0"],
+    ["Strait", "2", "horizontal", "0", "0"],
+  ],
+  "inland-sea": [
+    ["Range", "4-6", "30-80", "0-100", "0-10"],
+    ["Range", "4-6", "30-80", "0-100", "90-100"],
+    ["Hill", "6-8", "30-50", "10-90", "0-5"],
+    ["Hill", "6-8", "30-50", "10-90", "95-100"],
+    ["Multiply", "0.9", "land", "0", "0"],
+    ["Mask", "-2", "0", "0", "0"],
+    ["Smooth", "1", "0", "0", "0"],
+    ["Hill", "2-3", "30-70", "0-5", "20-80"],
+    ["Hill", "2-3", "30-70", "95-100", "20-80"],
+    ["Trough", "3-6", "40-50", "0-100", "0-10"],
+    ["Trough", "3-6", "40-50", "0-100", "90-100"],
+  ],
+};
+
+const parseNumberSpec = (random: () => number, spec: string): number => {
+  if (!Number.isNaN(Number(spec))) {
+    const value = Number(spec);
+    const integer = Math.trunc(value);
+    const fraction = Math.abs(value - integer);
+    if (fraction > 0 && random() < fraction) {
+      return value >= 0 ? integer + 1 : integer - 1;
+    }
+    return integer;
+  }
+
+  const parts = spec.split("-");
+  const sign = spec.startsWith("-") ? -1 : 1;
+  const minPart = sign === -1 ? parts[1] : parts[0];
+  const maxPart = sign === -1 ? parts[2] : parts[1];
+  const min = Number.parseFloat(minPart ?? "0") * sign;
+  const max = Number.parseFloat(maxPart ?? minPart ?? "0");
+  return Math.round(lerp(min, max, random()));
+};
+
+const parsePercentRange = (spec: string): readonly [number, number] => {
+  const [min = spec, max = spec] = spec.split("-");
+  return [Number.parseFloat(min) / 100, Number.parseFloat(max) / 100];
+};
+
+const getBlobPower = (cells: number): number =>
+  BLOB_POWER_BY_CELLS[cells] ?? 0.98;
+
+const getLinePower = (cells: number): number =>
+  LINE_POWER_BY_CELLS[cells] ?? 0.81;
+
+const modifyHeightField = (
+  field: Float32Array,
+  rangeSpec: string,
+  add: number,
+  multiply: number,
+): void => {
+  const min =
+    rangeSpec === "land"
+      ? 20
+      : rangeSpec === "all"
+        ? 0
+        : Number(rangeSpec.split("-")[0] ?? 0);
+  const max =
+    rangeSpec === "land" || rangeSpec === "all"
+      ? 100
+      : Number(rangeSpec.split("-")[1] ?? 100);
+  const isLand = rangeSpec === "land";
+
+  for (let index = 0; index < field.length; index += 1) {
+    let height = field[index] ?? 0;
+    if (height < min || height > max) {
+      continue;
+    }
+
+    if (add !== 0) {
+      height = isLand ? Math.max(height + add, 20) : height + add;
+    }
+
+    if (multiply !== 1) {
+      height = isLand ? (height - 20) * multiply + 20 : height * multiply;
+    }
+
+    field[index] = clamp(height, 0, 100);
+  }
+};
+
+const smoothHeightField = (
+  context: GenerationContext,
+  field: Float32Array,
+  factor: number,
+): void => {
+  const scratch = new Float32Array(field.length);
+
+  for (let cellId = 0; cellId < field.length; cellId += 1) {
+    let sum = field[cellId] ?? 0;
+    let count = 1;
+
+    forEachNeighbor(
+      cellId,
+      context.world.cellNeighborOffsets,
+      context.world.cellNeighbors,
+      (neighborId) => {
+        sum += field[neighborId] ?? 0;
+        count += 1;
+      },
+    );
+
+    const mean = sum / count;
+    scratch[cellId] = clamp(
+      ((field[cellId] ?? 0) * (factor - 1) + mean) / factor,
+      0,
+      100,
+    );
+  }
+
+  field.set(scratch);
+};
+
+const maskHeightField = (
+  context: GenerationContext,
+  field: Float32Array,
+  power: number,
+): void => {
+  const factor = power === 0 ? 1 : Math.abs(power);
+  const { width, height } = context.config;
+
+  for (let cellId = 0; cellId < field.length; cellId += 1) {
+    const x = context.world.cellsX[cellId] ?? 0;
+    const y = context.world.cellsY[cellId] ?? 0;
+    const nx = (2 * x) / width - 1;
+    const ny = (2 * y) / height - 1;
+    let distance = (1 - nx * nx) * (1 - ny * ny);
+    if (power < 0) {
+      distance = 1 - distance;
+    }
+
+    const base = field[cellId] ?? 0;
+    const masked = base * distance;
+    field[cellId] = clamp((base * (factor - 1) + masked) / factor, 0, 100);
+  }
+};
+
+const applyStrait = (
+  context: GenerationContext,
+  field: Float32Array,
+  widthSpec: string,
+  direction: string,
+): void => {
+  const desiredWidth = Math.max(1, parseNumberSpec(context.random, widthSpec));
+  const vertical = direction === "vertical";
+  const startCell = selectCellInRange(
+    context,
+    vertical ? 0.3 : 0,
+    vertical ? 0.7 : 0.02,
+    vertical ? 0 : 0.3,
+    vertical ? 0.02 : 0.7,
+  );
+  const endCell = selectCellInRange(
+    context,
+    vertical ? 0.3 : 0.98,
+    vertical ? 0.7 : 1,
+    vertical ? 0.98 : 0.3,
+    vertical ? 1 : 0.7,
+  );
+  let frontier = traceRangePath(context, startCell, endCell);
+  const used = new Uint8Array(field.length);
+
+  for (let layer = 0; layer < desiredWidth; layer += 1) {
+    const nextFrontier: number[] = [];
+    const exponent = 0.9 - 0.1;
+
+    for (const cellId of frontier) {
+      forEachNeighbor(
+        cellId,
+        context.world.cellNeighborOffsets,
+        context.world.cellNeighbors,
+        (neighborId) => {
+          if ((used[neighborId] ?? 0) === 1) {
+            return;
+          }
+
+          used[neighborId] = 1;
+          nextFrontier.push(neighborId);
+          field[neighborId] = clamp(
+            (field[neighborId] ?? 0) ** exponent,
+            0,
+            100,
+          );
+        },
+      );
+    }
+
+    frontier = nextFrontier;
+  }
+};
 
 const temperatureAtLatitude = (
   latitude: number,
@@ -332,44 +978,495 @@ export const runGridStage = (context: GenerationContext): void => {
 };
 
 export const runHeightmapStage = (context: GenerationContext): void => {
-  const { width, height, heightNoise, heightTemplate } = context.config;
-  const { cellCount, cellsX, cellsY, cellsH } = context.world;
+  const { width, height, heightNoise, heightTemplate, requestedCells } =
+    context.config;
+  const { cellCount, cellsH } = context.world;
+  const heights = new Uint8Array(cellCount);
+  const blobPower = getBlobPower(requestedCells);
+  const linePower = getLinePower(requestedCells);
+  const steps = HEIGHTMAP_STEPS[heightTemplate] ?? [];
 
-  const centerX = width / 2;
-  const centerY = height / 2;
-  const maxDistance = Math.hypot(centerX, centerY);
-
-  for (let index = 0; index < cellCount; index += 1) {
-    const x = cellsX[index] ?? 0;
-    const y = cellsY[index] ?? 0;
-
-    const distance = Math.hypot(x - centerX, y - centerY);
-    const continentalness = clamp01(1 - distance / maxDistance);
-    const noise = (context.random() * 2 - 1) * heightNoise;
-    const xNorm = x / width;
-    const yNorm = y / height;
-    const ridge = Math.sin(xNorm * Math.PI * 2) * 0.08;
-
-    let baseElevation = 0;
-
-    if (heightTemplate === "continents") {
-      const gradient = continentalness ** 1.35;
-      baseElevation = gradient * 0.75 + ridge;
-    } else if (heightTemplate === "archipelago") {
-      const archipelagoWave =
-        Math.sin(xNorm * Math.PI * 6) * 0.08 +
-        Math.cos(yNorm * Math.PI * 4) * 0.08;
-      baseElevation = continentalness * 0.35 + 0.3 + archipelagoWave;
-    } else {
-      const rim = (1 - continentalness) ** 0.9;
-      const basinWave =
-        Math.cos(xNorm * Math.PI * 2) * Math.sin(yNorm * Math.PI * 2) * 0.06;
-      baseElevation = rim * 0.8 + basinWave;
+  const rand = (min?: number, max?: number): number => {
+    if (min === undefined && max === undefined) {
+      return context.random();
     }
 
-    const elevation = clamp01(baseElevation + noise * 0.45);
-    cellsH[index] = Math.floor(elevation * 100);
+    if (max === undefined) {
+      max = min;
+      min = 0;
+    }
+
+    const low = min ?? 0;
+    const high = max ?? low;
+    return Math.floor(context.random() * (high - low + 1)) + low;
+  };
+
+  const probability = (value: number): boolean => {
+    if (value >= 1) {
+      return true;
+    }
+    if (value <= 0) {
+      return false;
+    }
+    return context.random() < value;
+  };
+
+  const getNumberInRange = (spec: string): number => {
+    if (!Number.isNaN(Number(spec))) {
+      const value = Number(spec);
+      return Math.trunc(value) + Number(probability(value - Math.trunc(value)));
+    }
+
+    const sign = spec[0] === "-" ? -1 : 1;
+    let normalized = spec;
+    if (Number.isNaN(Number(spec[0]))) {
+      normalized = spec.slice(1);
+    }
+    const range = normalized.includes("-") ? normalized.split("-") : null;
+    if (!range) {
+      return 0;
+    }
+
+    const min = Number.parseFloat(range[0] ?? "0") * sign;
+    const max = Number.parseFloat(range[1] ?? range[0] ?? "0");
+    return rand(min, max);
+  };
+
+  const getPointInRange = (spec: string, length: number): number => {
+    const min = Number.parseInt(spec.split("-")[0] ?? "0", 10) / 100 || 0;
+    const max = Number.parseInt(spec.split("-")[1] ?? "0", 10) / 100 || min;
+    return rand(min * length, max * length);
+  };
+
+  const findGridCell = (x: number, y: number): number => {
+    return (
+      Math.floor(Math.min(y / context.grid.spacing, context.grid.cellsY - 1)) *
+        context.grid.cellsX +
+      Math.floor(Math.min(x / context.grid.spacing, context.grid.cellsX - 1))
+    );
+  };
+
+  const neighborsOf = (cellId: number): number[] => {
+    const neighbors: number[] = [];
+    forEachNeighbor(
+      cellId,
+      context.world.cellNeighborOffsets,
+      context.world.cellNeighbors,
+      (neighborId) => {
+        neighbors.push(neighborId);
+      },
+    );
+    return neighbors;
+  };
+
+  const addHill = (
+    count: string,
+    heightSpec: string,
+    rangeX: string,
+    rangeY: string,
+  ): void => {
+    const addOneHill = () => {
+      const change = new Uint8Array(heights.length);
+      let limit = 0;
+      let start = 0;
+      const h = clamp(getNumberInRange(heightSpec), 0, 100);
+
+      do {
+        const x = getPointInRange(rangeX, width);
+        const y = getPointInRange(rangeY, height);
+        start = findGridCell(x, y);
+        limit += 1;
+      } while ((heights[start] ?? 0) + h > 90 && limit < 50);
+
+      change[start] = h;
+      const queue = [start];
+      while (queue.length) {
+        const current = queue.shift() ?? 0;
+        for (const neighbor of neighborsOf(current)) {
+          if ((change[neighbor] ?? 0) !== 0) {
+            continue;
+          }
+
+          change[neighbor] =
+            (change[current] ?? 0) ** blobPower *
+            (context.random() * 0.2 + 0.9);
+          if ((change[neighbor] ?? 0) > 1) {
+            queue.push(neighbor);
+          }
+        }
+      }
+
+      for (let index = 0; index < heights.length; index += 1) {
+        heights[index] = clamp(
+          (heights[index] ?? 0) + (change[index] ?? 0),
+          0,
+          100,
+        );
+      }
+    };
+
+    const desiredCount = getNumberInRange(count);
+    for (let index = 0; index < desiredCount; index += 1) {
+      addOneHill();
+    }
+  };
+
+  const addPit = (
+    count: string,
+    heightSpec: string,
+    rangeX: string,
+    rangeY: string,
+  ): void => {
+    const addOnePit = () => {
+      const used = new Uint8Array(heights.length);
+      let limit = 0;
+      let start = 0;
+      let h = clamp(getNumberInRange(heightSpec), 0, 100);
+
+      do {
+        const x = getPointInRange(rangeX, width);
+        const y = getPointInRange(rangeY, height);
+        start = findGridCell(x, y);
+        limit += 1;
+      } while ((heights[start] ?? 0) < 20 && limit < 50);
+
+      const queue = [start];
+      while (queue.length) {
+        const current = queue.shift() ?? 0;
+        h = h ** blobPower * (context.random() * 0.2 + 0.9);
+        if (h < 1) {
+          return;
+        }
+
+        for (const neighbor of neighborsOf(current)) {
+          if ((used[neighbor] ?? 0) === 1) {
+            continue;
+          }
+
+          heights[neighbor] = clamp(
+            (heights[neighbor] ?? 0) - h * (context.random() * 0.2 + 0.9),
+            0,
+            100,
+          );
+          used[neighbor] = 1;
+          queue.push(neighbor);
+        }
+      }
+    };
+
+    const desiredCount = getNumberInRange(count);
+    for (let index = 0; index < desiredCount; index += 1) {
+      addOnePit();
+    }
+  };
+
+  const tracePath = (
+    startCellId: number,
+    endCellId: number,
+    randomDividerChance: number,
+    used: Uint8Array,
+  ): number[] => {
+    const path = [startCellId];
+    let current = startCellId;
+    used[current] = 1;
+
+    while (current !== endCellId) {
+      let min = Number.POSITIVE_INFINITY;
+      let next = current;
+
+      for (const neighbor of neighborsOf(current)) {
+        if ((used[neighbor] ?? 0) === 1) {
+          continue;
+        }
+
+        let diff =
+          ((context.world.cellsX[endCellId] ?? 0) -
+            (context.world.cellsX[neighbor] ?? 0)) **
+            2 +
+          ((context.world.cellsY[endCellId] ?? 0) -
+            (context.world.cellsY[neighbor] ?? 0)) **
+            2;
+        if (context.random() > randomDividerChance) {
+          diff /= 2;
+        }
+        if (diff < min) {
+          min = diff;
+          next = neighbor;
+        }
+      }
+
+      if (min === Number.POSITIVE_INFINITY) {
+        return path;
+      }
+
+      current = next;
+      path.push(current);
+      used[current] = 1;
+    }
+
+    return path;
+  };
+
+  const shapeRange = (
+    count: string,
+    heightSpec: string,
+    rangeX: string,
+    rangeY: string,
+    isTrough: boolean,
+  ): void => {
+    const addOne = () => {
+      const used = new Uint8Array(heights.length);
+      let h = clamp(getNumberInRange(heightSpec), 0, 100);
+      let startCellId = 0;
+      let endCellId = 0;
+
+      if (rangeX && rangeY) {
+        let startX = getPointInRange(rangeX, width);
+        let startY = getPointInRange(rangeY, height);
+        let limit = 0;
+
+        if (isTrough) {
+          do {
+            startX = getPointInRange(rangeX, width);
+            startY = getPointInRange(rangeY, height);
+            startCellId = findGridCell(startX, startY);
+            limit += 1;
+          } while ((heights[startCellId] ?? 0) < 20 && limit < 50);
+        } else {
+          startCellId = findGridCell(startX, startY);
+        }
+
+        let dist = 0;
+        limit = 0;
+        let endX = 0;
+        let endY = 0;
+        do {
+          endX = context.random() * width * 0.8 + width * 0.1;
+          endY = context.random() * height * 0.7 + height * 0.15;
+          dist = Math.abs(endY - startY) + Math.abs(endX - startX);
+          limit += 1;
+        } while (
+          (dist < width / 8 || dist > width / (isTrough ? 2 : 3)) &&
+          limit < 50
+        );
+
+        endCellId = findGridCell(endX, endY);
+      }
+
+      const ridge = tracePath(
+        startCellId,
+        endCellId,
+        isTrough ? 0.8 : 0.85,
+        used,
+      );
+
+      let queue = ridge.slice();
+      let iterations = 0;
+      while (queue.length) {
+        const frontier = queue.slice();
+        queue = [];
+        iterations += 1;
+
+        for (const cellId of frontier) {
+          heights[cellId] = clamp(
+            (heights[cellId] ?? 0) +
+              (isTrough ? -1 : 1) * h * (context.random() * 0.3 + 0.85),
+            0,
+            100,
+          );
+        }
+
+        h = h ** linePower - 1;
+        if (h < 2) {
+          break;
+        }
+
+        for (const cellId of frontier) {
+          for (const neighbor of neighborsOf(cellId)) {
+            if ((used[neighbor] ?? 0) === 1) {
+              continue;
+            }
+
+            queue.push(neighbor);
+            used[neighbor] = 1;
+          }
+        }
+      }
+
+      ridge.forEach((currentCell, distance) => {
+        if (distance % 6 !== 0) {
+          return;
+        }
+
+        let cursor = currentCell;
+        for (let index = 0; index < iterations; index += 1) {
+          const neighbors = neighborsOf(cursor);
+          if (neighbors.length === 0) {
+            break;
+          }
+
+          let lowest = neighbors[0] ?? 0;
+          for (const neighbor of neighbors) {
+            if ((heights[neighbor] ?? 0) < (heights[lowest] ?? 0)) {
+              lowest = neighbor;
+            }
+          }
+
+          heights[lowest] =
+            ((heights[cursor] ?? 0) * 2 + (heights[lowest] ?? 0)) / 3;
+          cursor = lowest;
+        }
+      });
+    };
+
+    const desiredCount = getNumberInRange(count);
+    for (let index = 0; index < desiredCount; index += 1) {
+      addOne();
+    }
+  };
+
+  const addStrait = (widthSpec: string, direction = "vertical"): void => {
+    const desiredWidth = Math.min(
+      getNumberInRange(widthSpec),
+      context.grid.cellsX / 3,
+    );
+    if (desiredWidth < 1 && probability(desiredWidth)) {
+      return;
+    }
+
+    const used = new Uint8Array(heights.length);
+    const vertical = direction === "vertical";
+    const startX = vertical
+      ? Math.floor(context.random() * width * 0.4 + width * 0.3)
+      : 5;
+    const startY = vertical
+      ? 5
+      : Math.floor(context.random() * height * 0.4 + height * 0.3);
+    const endX = vertical
+      ? Math.floor(
+          width - startX - width * 0.1 + context.random() * width * 0.2,
+        )
+      : width - 5;
+    const endY = vertical
+      ? height - 5
+      : Math.floor(
+          height - startY - height * 0.1 + context.random() * height * 0.2,
+        );
+    const startCellId = findGridCell(startX, startY);
+    const endCellId = findGridCell(endX, endY);
+
+    const getStraitPath = (current: number, end: number): number[] => {
+      const path: number[] = [];
+
+      while (current !== end) {
+        let min = Number.POSITIVE_INFINITY;
+        let next = current;
+
+        for (const neighbor of neighborsOf(current)) {
+          let diff =
+            ((context.world.cellsX[end] ?? 0) -
+              (context.world.cellsX[neighbor] ?? 0)) **
+              2 +
+            ((context.world.cellsY[end] ?? 0) -
+              (context.world.cellsY[neighbor] ?? 0)) **
+              2;
+          if (context.random() > 0.8) {
+            diff /= 2;
+          }
+          if (diff < min) {
+            min = diff;
+            next = neighbor;
+          }
+        }
+
+        current = next;
+        path.push(current);
+      }
+
+      return path;
+    };
+
+    let frontier = getStraitPath(startCellId, endCellId);
+    const step = 0.1 / desiredWidth;
+
+    for (let layer = 0; layer < desiredWidth; layer += 1) {
+      const query: number[] = [];
+      const exponent = 0.9 - step * desiredWidth;
+
+      for (const cellId of frontier) {
+        for (const neighbor of neighborsOf(cellId)) {
+          if ((used[neighbor] ?? 0) === 1) {
+            continue;
+          }
+          used[neighbor] = 1;
+          query.push(neighbor);
+          heights[neighbor] = (heights[neighbor] ?? 0) ** exponent;
+          if ((heights[neighbor] ?? 0) > 100) {
+            heights[neighbor] = 5;
+          }
+        }
+      }
+
+      frontier = query.slice();
+    }
+  };
+
+  for (const [tool, a2, a3, a4, a5] of steps) {
+    if (tool === "Hill") {
+      addHill(a2, a3, a4, a5);
+      continue;
+    }
+    if (tool === "Pit") {
+      addPit(a2, a3, a4, a5);
+      continue;
+    }
+    if (tool === "Range") {
+      shapeRange(a2, a3, a4, a5, false);
+      continue;
+    }
+    if (tool === "Trough") {
+      shapeRange(a2, a3, a4, a5, true);
+      continue;
+    }
+    if (tool === "Strait") {
+      addStrait(a2, a3);
+      continue;
+    }
+    if (tool === "Mask") {
+      maskHeightField(context, heights as unknown as Float32Array, Number(a2));
+      continue;
+    }
+    if (tool === "Add") {
+      modifyHeightField(heights as unknown as Float32Array, a3, Number(a2), 1);
+      continue;
+    }
+    if (tool === "Multiply") {
+      modifyHeightField(heights as unknown as Float32Array, a3, 0, Number(a2));
+      continue;
+    }
+    if (tool === "Smooth") {
+      smoothHeightField(
+        context,
+        heights as unknown as Float32Array,
+        Number(a2),
+      );
+    }
   }
+
+  if (heightNoise > 0) {
+    const noiseSeed = hashSeed(
+      `${context.config.seed}:${heightTemplate}:detail`,
+    );
+    for (let index = 0; index < cellCount; index += 1) {
+      const x = (context.world.cellsX[index] ?? 0) / width;
+      const y = (context.world.cellsY[index] ?? 0) / height;
+      const detail =
+        sampleValueNoise(noiseSeed, x, y, 8, 6.5) * heightNoise * 3;
+      heights[index] = clamp((heights[index] ?? 0) + detail, 0, 100);
+    }
+  }
+
+  cellsH.set(heights);
 };
 
 export const runFeatureStage = (context: GenerationContext): void => {
@@ -838,7 +1935,7 @@ export const runLandmassStage = (context: GenerationContext): void => {
     }
 
     let kind = 3;
-    if (border && size >= continentThreshold) {
+    if (size >= continentThreshold) {
       kind = 1;
     } else if (size >= islandThreshold) {
       kind = 2;
