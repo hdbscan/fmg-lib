@@ -26,3 +26,8 @@ Every release entry should include:
 3. Update changelog section.
 4. Tag release version.
 5. Publish package.
+
+## Preview Artifact
+
+- The first local preview package artifact is packed with Bun at `previews/fmg-lib-0.1.0-preview.0.tgz`.
+- Build additional preview artifacts with `bun pm pack --destination previews`.

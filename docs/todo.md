@@ -105,10 +105,10 @@ This checklist tracks all migration phases from `docs/migration-plan.md` plus cr
 
 ## TDD Execution Plan (Red-Green-Refactor)
 
-- [ ] For each new stage, write failing behavior test first (Red).
-- [ ] Implement minimum code to pass (Green).
-- [ ] Refactor for clarity and composability with tests green.
-- [ ] Keep PR/test history showing explicit Red -> Green -> Refactor steps.
+- [x] For each new stage, write failing behavior test first (Red).
+- [x] Implement minimum code to pass (Green).
+- [x] Refactor for clarity and composability with tests green.
+- [x] Keep PR/test history showing explicit Red -> Green -> Refactor steps.
 
 ## Documentation and Developer Experience
 
@@ -123,7 +123,7 @@ This checklist tracks all migration phases from `docs/migration-plan.md` plus cr
 - [x] Define semver policy for schema and API evolution.
 - [x] Add changelog process and release checklist.
 - [x] Add pre-release validation script (`bun run check` + fixtures).
-- [ ] Publish first preview package once Phase 2 is stable.
+- [x] Publish first preview package once Phase 2 is stable.
 
 ## Phase 6: Separate UI Layer Migration (Post-Library, Tech-Debt-Free)
 
@@ -133,70 +133,70 @@ This checklist tracks all migration phases from `docs/migration-plan.md` plus cr
 - [x] Rewrite UI migration plan in `docs/PLAN.md` with explicit debt-reduction strategy.
 - [x] Select lightweight UI framework: SolidJS.
 - [x] Define constrained D3 usage policy (math/scale utilities, no DOM-orchestration core flow).
-- [ ] Write ADR: dependency policy (minimal dependencies, no legacy core-flow libs).
-- [ ] Write ADR: rendering backend strategy (Canvas2D-first, swappable API).
-- [ ] Write ADR: UI state model and worker protocol.
+- [x] Write ADR: dependency policy (minimal dependencies, no legacy core-flow libs).
+- [x] Write ADR: rendering backend strategy (Canvas2D-first, swappable API).
+- [x] Write ADR: UI state model and worker protocol.
 
 ### 6.1 Guardrails to prevent legacy debt reintroduction
 
-- [ ] Lock boundary rule: no UI/runtime browser code in `src/internal/*`.
-- [ ] Add import boundary checks so `ui/*` can use only `src/index.ts` public API.
-- [ ] Add denylist checks for legacy dependencies in UI core flow (`jquery`, `jquery-ui`).
-- [ ] Add guardrail checks to prevent `d3-selection`/`d3-transition` usage in `ui/app` core flow.
-- [ ] Add CI task to fail on forbidden dependencies/imports.
+- [x] Lock boundary rule: no UI/runtime browser code in `src/internal/*`.
+- [x] Add import boundary checks so `ui/*` can use only `src/index.ts` public API.
+- [x] Add denylist checks for legacy dependencies in UI core flow (`jquery`, `jquery-ui`).
+- [x] Add guardrail checks to prevent `d3-selection`/`d3-transition` usage in `ui/app` core flow.
+- [x] Add CI task to fail on forbidden dependencies/imports.
 
 ### 6.2 Lean UI scaffolding
 
-- [ ] Create separate `ui/` workspace with independent scripts.
-- [ ] Scaffold SolidJS + Vite app entrypoint in `ui/app`.
-- [ ] Add UI build/dev pipeline.
-- [ ] Add UI lint/typecheck/test scripts wired to root checks.
+- [x] Create separate `ui/` workspace with independent scripts.
+- [x] Scaffold SolidJS + Vite app entrypoint in `ui/app`.
+- [x] Add UI build/dev pipeline.
+- [x] Add UI lint/typecheck/test scripts wired to root checks.
 - [x] Add UI bundle-size budget and CI check.
 - [x] Add UI architecture README.
 
 ### 6.3 Adapter layer (WorldGraph -> RenderableWorld)
 
-- [ ] Define `RenderableWorld`, `LayerVisibilityState`, `StylePreset`, `UiSession` contracts.
-- [ ] Implement cell polygon reconstruction from vertex arrays.
-- [ ] Implement entity adapters (cultures, settlements, states, routes, provinces, religions).
-- [ ] Implement optional-system adapters (military, markers, zones).
-- [ ] Implement spatial hit-test indexing (cell lookup by world coordinates).
-- [ ] Add adapter determinism, bounds, and coherence tests against fixture worlds.
+- [x] Define `RenderableWorld`, `LayerVisibilityState`, `StylePreset`, `UiSession` contracts.
+- [x] Implement cell polygon reconstruction from vertex arrays.
+- [x] Implement entity adapters (cultures, settlements, states, routes, provinces, religions).
+- [x] Implement optional-system adapters (military, markers, zones).
+- [x] Implement spatial hit-test indexing (cell lookup by world coordinates).
+- [x] Add adapter determinism, bounds, and coherence tests against fixture worlds.
 
 ### 6.4 Renderer layer (declarative pass model)
 
-- [ ] Implement renderer interface and Canvas2D backend.
-- [ ] Implement physical passes (land/water/coast/rivers/biomes).
-- [ ] Implement political passes (states/provinces/religions/routes).
-- [ ] Implement entity passes (settlements/military/markers/zones).
-- [ ] Implement overlay passes (selection/hover/inspector highlights).
-- [ ] Add zoom-aware label culling and dirty-layer redraw strategy.
+- [x] Implement renderer interface and Canvas2D backend.
+- [x] Implement physical passes (land/water/coast/rivers/biomes).
+- [x] Implement political passes (states/provinces/religions/routes).
+- [x] Implement entity passes (settlements/military/markers/zones).
+- [x] Implement overlay passes (selection/hover/inspector highlights).
+- [x] Add zoom-aware label culling and dirty-layer redraw strategy.
 
 ### 6.5 App shell and interaction
 
-- [ ] Implement typed UI state store (no implicit globals).
-- [ ] Add camera controls (pan/zoom) and viewport state.
-- [ ] Add world inspector (hover/selection entity details).
-- [ ] Add generation config form (seed/size/climate/layer flags).
-- [ ] Add layer visibility toggles and preset management.
-- [ ] Add style preset editing separated from generation config.
+- [x] Implement typed UI state store (no implicit globals).
+- [x] Add camera controls (pan/zoom) and viewport state.
+- [x] Add world inspector (hover/selection entity details).
+- [x] Add generation config form (seed/size/climate/layer flags).
+- [x] Add layer visibility toggles and preset management.
+- [x] Add style preset editing separated from generation config.
 
 ### 6.6 Workerization and persistence
 
-- [ ] Move generation calls to worker.
-- [ ] Implement typed request/response protocol with request IDs and cancellation.
-- [ ] Add generate/cancel/re-generate UX and status telemetry.
-- [ ] Add save/load for world data using `serializeWorld`/`deserializeWorld` only.
-- [ ] Add separate UI-session persistence format (camera, panels, visible layers, styles).
-- [ ] Add schema-version mismatch handling and migration UX.
+- [x] Move generation calls to worker.
+- [x] Implement typed request/response protocol with request IDs and cancellation.
+- [x] Add generate/cancel/re-generate UX and status telemetry.
+- [x] Add save/load for world data using `serializeWorld`/`deserializeWorld` only.
+- [x] Add separate UI-session persistence format (camera, panels, visible layers, styles).
+- [x] Add schema-version mismatch handling and migration UX.
 
 ### 6.7 Verification, performance, and docs
 
 - [x] Add Playwright CLI milestone screenshot script with committed `screenshots/` artifact structure.
 - [x] Add upstream-vs-local drift capture workflow with approved-local fallback support and reporting.
 - [x] Document screenshot capture, artifact naming, and troubleshooting guidance.
-- [ ] Add UI smoke tests (generate, toggle overlays, inspect, save/load).
-- [ ] Add adapter large-map correctness and performance tests.
-- [ ] Add UI render baselines (small/medium/large world sizes).
+- [x] Add UI smoke tests (generate, toggle overlays, inspect, save/load).
+- [x] Add adapter large-map correctness and performance tests.
+- [x] Add UI render baselines (small/medium/large world sizes).
 - [x] Add memory budget notes for geometry/index caches.
 - [x] Add troubleshooting docs for visual mismatches and interaction regressions.
