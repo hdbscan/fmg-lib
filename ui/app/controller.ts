@@ -99,9 +99,21 @@ export const createController = () => {
   };
 
   const applyPreset = (presetName: keyof typeof PRESET_VISIBILITY): void => {
+    const visibility = PRESET_VISIBILITY[presetName];
+    if (!visibility) {
+      return;
+    }
+
     state = {
       ...state,
-      visibility: PRESET_VISIBILITY[presetName],
+      visibility,
+    };
+  };
+
+  const setVisibility = (visibility: LayerVisibilityState): void => {
+    state = {
+      ...state,
+      visibility,
     };
   };
 
@@ -159,6 +171,7 @@ export const createController = () => {
     setWorld,
     setVisibilityLayer,
     applyPreset,
+    setVisibility,
     setStyle,
     setCamera,
     inspectAt,

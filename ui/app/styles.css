@@ -11,9 +11,16 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background:
-    radial-gradient(circle at 10% 10%, #f4f8ff 0, #dce6f5 42%, #cad9ef 100%),
-    linear-gradient(160deg, #e6efff 0%, #d8e5fc 40%, #c8dbf7 100%);
+  background: radial-gradient(
+      circle at 10% 10%,
+      #f4f8ff 0,
+      #dce6f5 42%,
+      #cad9ef 100%
+    ), linear-gradient(160deg, #e6efff 0%, #d8e5fc 40%, #c8dbf7 100%);
+}
+
+#root {
+  min-height: 100vh;
 }
 
 .layout {
@@ -38,6 +45,60 @@ body {
   padding: 14px;
 }
 
+.sidebar {
+  min-width: 0;
+}
+
+.hero-section {
+  background: linear-gradient(
+      145deg,
+      rgba(255, 255, 255, 0.92),
+      rgba(226, 238, 255, 0.86)
+    ),
+    radial-gradient(
+      circle at top left,
+      rgba(67, 121, 209, 0.15),
+      transparent 55%
+    );
+}
+
+.eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #31588d;
+  margin-bottom: 6px;
+}
+
+.hero-section h1 {
+  margin: 0;
+  font-size: 28px;
+  line-height: 1.05;
+  color: #10294d;
+}
+
+.lead {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #28456f;
+}
+
+.hero-actions,
+.mini-actions,
+.section-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hero-actions {
+  margin-top: 14px;
+}
+
 .section {
   border: 1px solid rgba(82, 112, 166, 0.2);
   border-radius: 10px;
@@ -51,6 +112,11 @@ body {
   font-size: 14px;
   color: #12305f;
   letter-spacing: 0.02em;
+}
+
+.hint {
+  font-size: 11px;
+  color: #54739d;
 }
 
 .row {
@@ -116,6 +182,11 @@ button.warn {
   color: #fff;
 }
 
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
 .checkbox-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -133,20 +204,138 @@ button.warn {
 
 .viewport {
   position: relative;
+  height: calc(100vh - 96px);
+  min-height: 420px;
 }
 
 .viewport canvas {
   width: 100%;
-  height: calc(100vh - 28px);
+  height: 100%;
   display: block;
   border-radius: 14px;
   border: 1px solid rgba(60, 92, 150, 0.25);
   background: linear-gradient(180deg, #cfe0fb 0%, #c3d7f6 100%);
+  cursor: grab;
+}
+
+.viewport canvas:active {
+  cursor: grabbing;
 }
 
 .status {
   font-size: 12px;
   color: #183566;
+}
+
+.status-line,
+.empty-state {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #26456f;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.status-idle {
+  background: rgba(66, 121, 209, 0.12);
+  color: #204b83;
+}
+
+.status-working {
+  background: rgba(240, 179, 35, 0.18);
+  color: #8b5d07;
+}
+
+.status-success {
+  background: rgba(53, 139, 96, 0.16);
+  color: #1c6c42;
+}
+
+.status-error {
+  background: rgba(185, 35, 35, 0.12);
+  color: #842222;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.compact-grid {
+  margin-top: 10px;
+}
+
+.metric-grid > div {
+  border: 1px solid rgba(83, 110, 162, 0.18);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.65);
+}
+
+.metric-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 11px;
+  color: #5a7393;
+}
+
+.top-gap {
+  margin-top: 12px;
+}
+
+.color-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.viewport-shell {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+}
+
+.viewport-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 6px 10px;
+}
+
+.viewport-toolbar strong {
+  display: block;
+  color: #112a4d;
+}
+
+.viewport-overlay {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  pointer-events: none;
+}
+
+.overlay-chip {
+  border-radius: 999px;
+  background: rgba(12, 24, 43, 0.74);
+  color: #f8fbff;
+  padding: 6px 10px;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  box-shadow: 0 8px 24px rgba(12, 24, 43, 0.18);
 }
 
 .banner {
@@ -178,8 +367,26 @@ button.warn {
   }
 
   .panel-scroll,
-  .viewport canvas {
+  .viewport {
     height: auto;
     min-height: 420px;
+  }
+
+  .viewport-shell {
+    min-height: 520px;
+  }
+}
+
+@media (max-width: 720px) {
+  .layout {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .row,
+  .color-grid,
+  .metric-grid,
+  .checkbox-grid {
+    grid-template-columns: 1fr;
   }
 }
