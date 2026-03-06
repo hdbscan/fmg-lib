@@ -84,6 +84,7 @@ Plus metadata:
 - Headless: no DOM APIs or renderer dependencies.
 - Physical pipeline is implemented.
 - Optional human-geography layers are supported behind flags: `cultures`, `settlements`, `politics`, `religions`, `military`, `markers`, and `zones`.
+- Settlement placement favors fertile river and harbor cells, and political states expand across pack-cell adjacency instead of direct nearest-capital partitioning.
 - Serialization helpers are available:
 
 ```ts
