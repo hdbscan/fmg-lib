@@ -11,6 +11,8 @@ Build `fmg-lib` as a headless, deterministic, Bun-first TypeScript library with 
 - Keep generation deterministic by seed.
 - Keep dense world data in typed arrays.
 - Keep public API stable and versioned.
+- Use Bun as the only package manager / task runner / script runner for this repo.
+- Do not use npm, pnpm, or yarn for install, build, test, or script execution.
 
 ## Idiomatic TypeScript Rules
 
@@ -58,3 +60,4 @@ Reference material:
 - At each major milestone, capture comparison screenshots from upstream FMG and this implementation to monitor visual drift.
 - Use carefully orchestrated subagents for independent workstreams where possible; divide tasks so they can run in parallel safely.
 - When subagents need to modify code, isolate them in separate git workspaces/worktrees to avoid file conflicts.
+- Ensure Bun is available in PATH for subagents before delegating work.

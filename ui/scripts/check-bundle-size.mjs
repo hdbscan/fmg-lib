@@ -39,7 +39,7 @@ const ensureBuildExists = async () => {
     await readdir(distDir, { withFileTypes: true });
   } catch {
     throw new Error(
-      `Missing UI build output at ${distDir.pathname}. Run \`npm --prefix ui run build\` first.`,
+      `Missing UI build output at ${distDir.pathname}. Run \`bun --cwd ui run build\` first.`,
     );
   }
 };

@@ -1,13 +1,13 @@
 {
   "slug": "ui-dummy-current",
-  "capturedAt": "2026-03-06T18:48:28.812Z",
+  "capturedAt": "2026-03-06T19:03:46.151Z",
   "viewport": "1440x960",
   "fullPage": false,
   "status": "different",
   "note": "Upstream UI shell is not stable yet, so this drift check compares against the approved local dummy baseline.",
   "local": {
     "label": "local",
-    "url": "http://127.0.0.1:42423/ui/dummy/index.html",
+    "url": "http://127.0.0.1:46117/ui/dummy/index.html",
     "selector": "[data-screenshot=\"ui-dummy-card\"]",
     "browser": "firefox",
     "artifact": "local.png",

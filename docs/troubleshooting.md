@@ -31,7 +31,7 @@ Check the following:
 
 ## Screenshot capture fails
 
-- Run `npm run screenshot:install-browser` once if Playwright CLI reports a missing browser.
+- Run `bun run screenshot:install-browser` once if Playwright CLI reports a missing browser.
 - Use `--url` or `--local-url` with a live Vite preview when a file URL is not enough for the current UI slice.
 - Keep capture targets on stable `data-screenshot*` attributes so layout refactors do not break the workflow.
 

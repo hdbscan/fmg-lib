@@ -5,12 +5,12 @@ This repo uses `playwright-cli` for lightweight screenshot capture during UI mig
 ## One-time setup
 
 1. Install dependencies.
-2. Run `npm run screenshot:install-browser`.
+2. Run `bun run screenshot:install-browser`.
 
 ## Milestone capture
 
-- Default dummy target: `npm run screenshot:dummy`
-- Custom target: `npm run screenshot:milestone -- --slug <name> --url <url> --selector <css-selector>`
+- Default dummy target: `bun run screenshot:dummy`
+- Custom target: `bun run screenshot:milestone -- --slug <name> --url <url> --selector <css-selector>`
 - Outputs:
   - `screenshots/milestones/<slug>.png`
   - `screenshots/milestones/<slug>.json`
@@ -20,9 +20,9 @@ The scripts default to Playwright Firefox so they do not depend on a system Chro
 
 ## Drift checks
 
-- Upstream vs local: `npm run screenshot:drift -- --slug <name> --local-url <local-url> --upstream-url <upstream-url> --local-selector <css-selector> --upstream-selector <css-selector>`
-- Approved-local fallback: `npm run screenshot:drift -- --slug <name> --baseline <png> --note "why upstream is unavailable"`
-- Dummy fallback example: `npm run screenshot:dummy:drift`
+- Upstream vs local: `bun run screenshot:drift -- --slug <name> --local-url <local-url> --upstream-url <upstream-url> --local-selector <css-selector> --upstream-selector <css-selector>`
+- Approved-local fallback: `bun run screenshot:drift -- --slug <name> --baseline <png> --note "why upstream is unavailable"`
+- Dummy fallback example: `bun run screenshot:dummy:drift`
 
 Outputs live under `screenshots/drift/<slug>/`:
 

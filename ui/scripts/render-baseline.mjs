@@ -1,4 +1,4 @@
-import { generateWorld } from "../../src/index.ts";
+import { generateWorld } from "fmg-lib";
 import {
   DEFAULT_STYLE,
   DEFAULT_VISIBILITY,

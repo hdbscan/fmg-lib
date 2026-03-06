@@ -213,8 +213,8 @@ fmg-lib (existing headless core)
 
 ## Screenshot review workflow
 
-- Capture each UI milestone with `npm run screenshot:milestone -- --slug <name>` and save the artifact under `screenshots/milestones/`.
-- Prefer upstream-vs-local comparisons with `npm run screenshot:drift -- --slug <name> --upstream-url <url> --local-url <url>` so every milestone has a drift report under `screenshots/drift/`.
+- Capture each UI milestone with `bun run screenshot:milestone -- --slug <name>` and save the artifact under `screenshots/milestones/`.
+- Prefer upstream-vs-local comparisons with `bun run screenshot:drift -- --slug <name> --upstream-url <url> --local-url <url>` so every milestone has a drift report under `screenshots/drift/`.
 - If the upstream shell cannot run yet, compare against the last approved local artifact via `--baseline <png>` and record that fallback in the report metadata.
 - Keep screenshot selectors stable through `data-screenshot*` attributes instead of DOM-structure-dependent locators.
 

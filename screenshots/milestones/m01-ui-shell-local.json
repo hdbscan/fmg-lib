@@ -1,0 +1,11 @@
+{
+  "slug": "m01-ui-shell-local",
+  "capturedAt": "2026-03-06T19:07:28.144Z",
+  "url": "http://127.0.0.1:4174",
+  "selector": "[data-screenshot-root=\"ui-root\"]",
+  "browser": "firefox",
+  "viewport": "1440x960",
+  "fullPage": false,
+  "artifact": "m01-ui-shell-local.png",
+  "sha256": "d8278c15e0663609ca1e6b832244755bd12d12dc75c5fd65e2cd940e57d583e7"
+}

@@ -1,7 +1,7 @@
 {
   "slug": "ui-dummy-current",
-  "capturedAt": "2026-03-06T18:48:28.816Z",
-  "url": "http://127.0.0.1:43049/ui/dummy/index.html",
+  "capturedAt": "2026-03-06T19:02:35.632Z",
+  "url": "http://127.0.0.1:41207/ui/dummy/index.html",
   "selector": "[data-screenshot=\"ui-dummy-card\"]",
   "browser": "firefox",
   "viewport": "1440x960",

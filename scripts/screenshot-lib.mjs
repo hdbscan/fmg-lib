@@ -13,7 +13,7 @@ export const defaultDummyPath = "/ui/dummy/index.html";
 export const defaultDummySelector = '[data-screenshot="ui-dummy-card"]';
 export const defaultBrowser = "firefox";
 
-const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+const bunxCommand = process.platform === "win32" ? "bunx.cmd" : "bunx";
 
 const usageError = (message) => {
   throw new Error(message);
@@ -191,13 +191,7 @@ const runCommand = (command, args) =>
   });
 
 export const runPlaywrightCli = async (session, ...args) =>
-  runCommand(npmCommand, [
-    "exec",
-    "playwright-cli",
-    "--",
-    `-s=${session}`,
-    ...args,
-  ]);
+  runCommand(bunxCommand, ["playwright-cli", `-s=${session}`, ...args]);
 
 const buildCaptureCode = ({ selector, outputPath, fullPage }) => {
   const cssSelector = typeof selector === "string" ? selector : "body";
