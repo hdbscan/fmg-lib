@@ -92,6 +92,7 @@ export type RenderBurg = Readonly<{
   y: number;
   population: number;
   culture: number;
+  capital: number;
   port: number;
 }>;
 
