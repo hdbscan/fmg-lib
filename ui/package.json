@@ -8,8 +8,8 @@
     "preview": "vite preview --host 127.0.0.1 --port 4174",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run",
-    "bundle:check": "node ./scripts/check-bundle-size.mjs",
-    "perf:baseline": "node ./scripts/render-baseline.mjs",
+    "bundle:check": "bun ./scripts/check-bundle-size.mjs",
+    "perf:baseline": "bun ./scripts/render-baseline.mjs",
     "check": "npm run typecheck && npm run test && npm run build && npm run bundle:check"
   },
   "dependencies": {
