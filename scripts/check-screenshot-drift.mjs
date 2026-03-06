@@ -7,9 +7,12 @@ import {
   defaultDummySelector,
   hashFile,
   parseArgs,
+  parseDelayMs,
   parseViewport,
+  repoRoot,
   requireSlug,
   resolvePath,
+  resolveStaticTarget,
   screenshotsRoot,
   startStaticServer,
   writeJson,
@@ -27,29 +30,46 @@ const localSelector =
   typeof args["local-selector"] === "string"
     ? args["local-selector"]
     : defaultDummySelector;
+const localReadySelector =
+  typeof args["local-ready-selector"] === "string"
+    ? args["local-ready-selector"]
+    : localSelector;
 const localLabel =
   typeof args["local-label"] === "string" ? args["local-label"] : "local";
 const browser =
   typeof args.browser === "string" ? args.browser : defaultBrowser;
 const note = typeof args.note === "string" ? args.note : null;
+const defaultDelayMs = parseDelayMs(args["delay-ms"]);
+const localDelayMs = parseDelayMs(args["local-delay-ms"], defaultDelayMs);
 const timestamp = new Date().toISOString();
 
-const server =
-  typeof args["local-url"] === "string" ? null : await startStaticServer();
+const localStaticTarget =
+  typeof args["local-url"] === "string"
+    ? null
+    : resolveStaticTarget({
+        staticRoot: args["local-static-root"],
+        staticPath: args["local-static-path"],
+        defaultPath: defaultDummyPath,
+      });
+const server = localStaticTarget
+  ? await startStaticServer(localStaticTarget.rootDirectory)
+  : null;
 const localUrl =
   typeof args["local-url"] === "string"
     ? args["local-url"]
-    : `${server.baseUrl}${defaultDummyPath}`;
+    : `${server.baseUrl}${localStaticTarget.urlPath}`;
 
 try {
   const localResult = await captureScreenshot({
     session: `drift-local-${slug}`,
     url: localUrl,
     selector: localSelector,
+    readySelector: localReadySelector,
     outputPath: localPath,
     viewport,
     browser,
     fullPage: args["full-page"] === true,
+    delayMs: localDelayMs,
   });
 
   let referenceType = "upstream";
@@ -59,22 +79,65 @@ try {
       : "upstream";
   let referencePath = path.join(reportDirectory, "upstream.png");
   let referenceSha = "";
+  const referenceSelector =
+    typeof args["upstream-selector"] === "string"
+      ? args["upstream-selector"]
+      : "body";
+  const referenceReadySelector =
+    typeof args["upstream-ready-selector"] === "string"
+      ? args["upstream-ready-selector"]
+      : referenceSelector;
+  const referenceDelayMs = parseDelayMs(
+    args["upstream-delay-ms"],
+    defaultDelayMs,
+  );
+  let referenceUrl =
+    typeof args["upstream-url"] === "string" ? args["upstream-url"] : null;
+  let referenceStaticRoot = null;
+  let referenceStaticPath = null;
 
   if (typeof args["upstream-url"] === "string") {
-    const upstreamSelector =
-      typeof args["upstream-selector"] === "string"
-        ? args["upstream-selector"]
-        : "body";
     const upstreamResult = await captureScreenshot({
       session: `drift-upstream-${slug}`,
       url: args["upstream-url"],
-      selector: upstreamSelector,
+      selector: referenceSelector,
+      readySelector: referenceReadySelector,
       outputPath: referencePath,
       viewport,
       browser,
       fullPage: args["full-page"] === true,
+      delayMs: referenceDelayMs,
     });
     referenceSha = upstreamResult.sha256;
+  } else if (typeof args["upstream-static-root"] === "string") {
+    const upstreamStaticTarget = resolveStaticTarget({
+      staticRoot: args["upstream-static-root"],
+      staticPath: args["upstream-static-path"],
+      defaultPath: "/",
+    });
+    referenceStaticRoot =
+      path.relative(repoRoot, upstreamStaticTarget.rootDirectory) || ".";
+    referenceStaticPath = upstreamStaticTarget.urlPath;
+    const upstreamServer = await startStaticServer(
+      upstreamStaticTarget.rootDirectory,
+    );
+    try {
+      referenceUrl = `${upstreamServer.baseUrl}${upstreamStaticTarget.urlPath}`;
+      const upstreamResult = await captureScreenshot({
+        session: `drift-upstream-${slug}`,
+        url: referenceUrl,
+        selector: referenceSelector,
+        readySelector: referenceReadySelector,
+        outputPath: referencePath,
+        viewport,
+        browser,
+        fullPage: args["full-page"] === true,
+        delayMs: referenceDelayMs,
+      });
+      referenceSha = upstreamResult.sha256;
+    } finally {
+      await upstreamServer.close();
+    }
   } else if (typeof args.baseline === "string") {
     referenceType = "baseline";
     referenceLabel =
@@ -86,7 +149,7 @@ try {
     referenceSha = await hashFile(referencePath);
   } else {
     throw new Error(
-      "Expected either --upstream-url <url> or --baseline <png>.",
+      "Expected --upstream-url <url>, --upstream-static-root <dir>, or --baseline <png>.",
     );
   }
 
@@ -103,22 +166,27 @@ try {
       label: localLabel,
       url: localUrl,
       selector: localSelector,
+      readySelector: localReadySelector,
       browser,
+      delayMs: localDelayMs,
+      staticRoot: localStaticTarget
+        ? path.relative(repoRoot, localStaticTarget.rootDirectory) || "."
+        : null,
+      staticPath: localStaticTarget?.urlPath ?? null,
       artifact: "local.png",
       sha256: localResult.sha256,
     },
     reference: {
       type: referenceType,
       label: referenceLabel,
-      url:
-        typeof args["upstream-url"] === "string" ? args["upstream-url"] : null,
+      url: referenceUrl,
       browser: referenceType === "upstream" ? browser : null,
-      selector:
-        typeof args["upstream-selector"] === "string"
-          ? args["upstream-selector"]
-          : referenceType === "upstream"
-            ? "body"
-            : null,
+      selector: referenceType === "upstream" ? referenceSelector : null,
+      readySelector:
+        referenceType === "upstream" ? referenceReadySelector : null,
+      delayMs: referenceType === "upstream" ? referenceDelayMs : null,
+      staticRoot: referenceType === "upstream" ? referenceStaticRoot : null,
+      staticPath: referenceType === "upstream" ? referenceStaticPath : null,
       artifact: path.basename(referencePath),
       sha256: referenceSha,
     },

@@ -73,6 +73,42 @@ export const parseViewport = (value) => {
   };
 };
 
+export const parseDelayMs = (value, fallback = 300) => {
+  if (value == null || value === true) {
+    return fallback;
+  }
+
+  const parsed = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    usageError(`Invalid delay: ${value}. Expected a non-negative integer.`);
+  }
+
+  return parsed;
+};
+
+export const normalizeUrlPath = (value, fallback = "/") => {
+  const raw =
+    typeof value === "string" && value.trim().length > 0
+      ? value.trim()
+      : fallback;
+
+  if (raw === "/") {
+    return raw;
+  }
+
+  return raw.startsWith("/") ? raw : `/${raw}`;
+};
+
+export const resolveStaticTarget = ({
+  staticRoot,
+  staticPath,
+  defaultPath = "/",
+}) => ({
+  rootDirectory:
+    typeof staticRoot === "string" ? resolvePath(staticRoot) : repoRoot,
+  urlPath: normalizeUrlPath(staticPath, defaultPath),
+});
+
 export const resolvePath = (value) =>
   path.isAbsolute(value) ? value : path.join(repoRoot, value);
 
@@ -193,14 +229,25 @@ const runCommand = (command, args) =>
 export const runPlaywrightCli = async (session, ...args) =>
   runCommand(bunxCommand, ["playwright-cli", `-s=${session}`, ...args]);
 
-const buildCaptureCode = ({ selector, outputPath, fullPage }) => {
+const buildCaptureCode = ({
+  selector,
+  readySelector,
+  outputPath,
+  fullPage,
+  delayMs,
+}) => {
   const cssSelector = typeof selector === "string" ? selector : "body";
+  const cssReadySelector =
+    typeof readySelector === "string" ? readySelector : cssSelector;
   const output = JSON.stringify(outputPath);
 
   return `async (page) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(300);
+    const readySelector = ${JSON.stringify(cssReadySelector)};
+    const readyLocator = page.locator(readySelector).first();
+    await readyLocator.waitFor({ state: "visible" });
+    await page.waitForTimeout(${delayMs});
     const selector = ${JSON.stringify(cssSelector)};
     const locator = page.locator(selector).first();
     await locator.waitFor({ state: "visible" });
@@ -217,10 +264,12 @@ export const captureScreenshot = async ({
   session,
   url,
   selector,
+  readySelector,
   outputPath,
   viewport,
   browser = defaultBrowser,
   fullPage = false,
+  delayMs = 300,
 }) => {
   await ensureDirectory(path.dirname(outputPath));
 
@@ -242,7 +291,13 @@ export const captureScreenshot = async ({
     await runPlaywrightCli(
       session,
       "run-code",
-      buildCaptureCode({ selector, outputPath, fullPage }),
+      buildCaptureCode({
+        selector,
+        readySelector,
+        outputPath,
+        fullPage,
+        delayMs,
+      }),
     );
   } finally {
     await runPlaywrightCli(session, "close").catch(() => {});
