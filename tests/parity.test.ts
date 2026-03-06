@@ -83,4 +83,70 @@ describe("parity report", () => {
     expect(snapshot.regions.religions).toHaveLength(world.packCellCount);
     expect(snapshot.burgs).toHaveLength(world.burgCount);
   });
+
+  test("uses explicit burg coordinates in local parity snapshots", () => {
+    const world = generateWorld({
+      seed: "parity-burg-coords",
+      width: 1280,
+      height: 900,
+      cells: 10000,
+      culturesCount: 10,
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+        politics: true,
+        religions: true,
+      },
+    });
+
+    expect(world.burgCount).toBeGreaterThan(0);
+
+    const snapshot = buildLocalParitySnapshot(world);
+    const firstBurg = snapshot.burgs[0];
+    expect(firstBurg).toBeDefined();
+
+    const burgId = firstBurg?.id ?? 0;
+    expect(firstBurg?.x).toBe(world.burgX[burgId]);
+    expect(firstBurg?.y).toBe(world.burgY[burgId]);
+  });
+
+  test("reports worse metrics when region labels drift", () => {
+    const shiftedLocal: ParitySnapshot = {
+      ...oracleFixture,
+      kind: "local-world",
+      regions: {
+        ...oracleFixture.regions,
+        states: [0],
+        religions: [0],
+      },
+      counts: {
+        ...oracleFixture.counts,
+        states: 0,
+        religions: 0,
+      },
+    };
+
+    const report = computeParityReport(oracleFixture, shiftedLocal, 64);
+
+    expect(report.politics.iou).toBeLessThan(1);
+    expect(report.religions.iou).toBeLessThan(1);
+    expect(report.counts.states.delta).toBe(-1);
+    expect(report.counts.religions.delta).toBe(-1);
+  });
+
+  test("reports worse metrics when burg positions drift", () => {
+    const shiftedLocal: ParitySnapshot = {
+      ...oracleFixture,
+      kind: "local-world",
+      burgs: [{ id: 1, x: 80, y: 80, cell: 0, name: "A" }],
+    };
+
+    const report = computeParityReport(oracleFixture, shiftedLocal, 64);
+
+    expect(report.burgs.meanNearestDistance).toBeGreaterThan(0);
+    expect(report.burgs.medianNearestDistance).toBeGreaterThan(0);
+    expect(report.burgs.oracleRecallWithinThreshold).toBeLessThan(1);
+    expect(report.burgs.localPrecisionWithinThreshold).toBeLessThan(1);
+  });
 });

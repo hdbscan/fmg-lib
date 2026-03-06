@@ -558,8 +558,8 @@ export const buildLocalParitySnapshot = (
       const cell = world.burgCell[id] ?? 0;
       return {
         id,
-        x: world.cellsX[cell] ?? 0,
-        y: world.cellsY[cell] ?? 0,
+        x: world.burgX[id] ?? world.cellsX[cell] ?? 0,
+        y: world.burgY[id] ?? world.cellsY[cell] ?? 0,
         cell,
         name: `burg-${id}`,
       };

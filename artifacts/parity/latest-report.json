@@ -1,0 +1,83 @@
+{
+  "oracle": {
+    "seed": "42424242",
+    "width": 1280,
+    "height": 900,
+    "sourceUrl": "https://azgaar.github.io/Fantasy-Map-Generator/?seed=42424242&options=default"
+  },
+  "local": {
+    "seed": "42424242",
+    "width": 1280,
+    "height": 900,
+    "config": {
+      "seed": "42424242",
+      "width": 1280,
+      "height": 900,
+      "cells": 9996,
+      "culturesCount": 9,
+      "layers": {
+        "physical": true,
+        "cultures": true,
+        "settlements": true,
+        "politics": true,
+        "religions": true
+      }
+    }
+  },
+  "raster": {
+    "width": 256,
+    "height": 180
+  },
+  "terrain": {
+    "pixelIntersection": 10669,
+    "pixelUnion": 21231,
+    "iou": 0.5025199001460129
+  },
+  "politics": {
+    "oracleRegionCount": 23,
+    "localRegionCount": 15,
+    "matchedRegionPairs": 14,
+    "pixelIntersection": 4794,
+    "pixelUnion": 25103,
+    "iou": 0.19097319045532407
+  },
+  "religions": {
+    "oracleRegionCount": 14,
+    "localRegionCount": 27,
+    "matchedRegionPairs": 9,
+    "pixelIntersection": 3939,
+    "pixelUnion": 25656,
+    "iou": 0.1535313376987839
+  },
+  "burgs": {
+    "oracleCount": 796,
+    "localCount": 604,
+    "threshold": 10.735273561459707,
+    "oracleRecallWithinThreshold": 0.314070351758794,
+    "localPrecisionWithinThreshold": 0.32450331125827814,
+    "meanNearestDistance": 22.081914436357913,
+    "medianNearestDistance": 16.12161863236439
+  },
+  "counts": {
+    "landmasses": {
+      "oracle": 10,
+      "local": 19,
+      "delta": 9
+    },
+    "states": {
+      "oracle": 23,
+      "local": 15,
+      "delta": -8
+    },
+    "religions": {
+      "oracle": 16,
+      "local": 27,
+      "delta": 11
+    },
+    "burgs": {
+      "oracle": 796,
+      "local": 604,
+      "delta": -192
+    }
+  }
+}

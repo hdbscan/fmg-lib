@@ -2117,6 +2117,101 @@ export const runWaterbodyStage = (context: GenerationContext): void => {
   context.world.waterbodySize = Uint32Array.from(waterbodySize);
 };
 
+export const runOpenNearSeaLakesStage = (
+  context: GenerationContext,
+): boolean => {
+  const { seaLevel } = context.config;
+  const {
+    cellCount,
+    cellsH,
+    cellsFeature,
+    cellsCoast,
+    cellsWaterbody,
+    waterbodyType,
+    cellNeighborOffsets,
+    cellNeighbors,
+  } = context.world;
+
+  const breachLimit = seaLevel + 2;
+  let openedAnyLake = false;
+
+  for (let cellId = 0; cellId < cellCount; cellId += 1) {
+    if ((cellsFeature[cellId] ?? 0) !== 0) {
+      continue;
+    }
+
+    const lakeId = cellsWaterbody[cellId] ?? 0;
+    if (lakeId <= 0 || (waterbodyType[lakeId] ?? 0) !== 2) {
+      continue;
+    }
+
+    let thresholdCellId = -1;
+    let oceanNeighborId = -1;
+
+    forEachNeighbor(
+      cellId,
+      cellNeighborOffsets,
+      cellNeighbors,
+      (neighborId) => {
+        if (thresholdCellId >= 0) {
+          return;
+        }
+
+        if ((cellsFeature[neighborId] ?? 0) !== 1) {
+          return;
+        }
+
+        if ((cellsH[neighborId] ?? 0) > breachLimit) {
+          return;
+        }
+
+        if ((cellsCoast[neighborId] ?? 0) !== 1) {
+          return;
+        }
+
+        let foundOcean = -1;
+        forEachNeighbor(
+          neighborId,
+          cellNeighborOffsets,
+          cellNeighbors,
+          (secondNeighborId) => {
+            if (foundOcean >= 0 || secondNeighborId === cellId) {
+              return;
+            }
+
+            if ((cellsFeature[secondNeighborId] ?? 0) !== 0) {
+              return;
+            }
+
+            const waterbodyId = cellsWaterbody[secondNeighborId] ?? 0;
+            if (waterbodyId <= 0 || waterbodyId === lakeId) {
+              return;
+            }
+
+            if ((waterbodyType[waterbodyId] ?? 0) === 1) {
+              foundOcean = secondNeighborId;
+            }
+          },
+        );
+
+        if (foundOcean >= 0) {
+          thresholdCellId = neighborId;
+          oceanNeighborId = foundOcean;
+        }
+      },
+    );
+
+    if (thresholdCellId < 0 || oceanNeighborId < 0) {
+      continue;
+    }
+
+    cellsH[thresholdCellId] = Math.max(0, seaLevel - 1);
+    openedAnyLake = true;
+  }
+
+  return openedAnyLake;
+};
+
 export const runClimateStage = (context: GenerationContext): void => {
   const {
     height,

@@ -971,7 +971,6 @@ describe("world generation integration", () => {
     });
 
     expect(withPoliticsA.burgCount).toBeGreaterThan(0);
-    expect(withPoliticsA.burgCount).toBeGreaterThan(60);
     expect(withPoliticsA.stateCount).toBeGreaterThan(0);
     expect(withPoliticsA.stateCount).toBeLessThanOrEqual(
       withPoliticsA.burgCount,

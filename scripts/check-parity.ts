@@ -1,14 +1,16 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { generateWorld } from "../src/index";
 import {
   type ParityReport,
+  type ParitySnapshot,
   buildLocalParitySnapshot,
   computeParityReport,
 } from "../src/parity";
 import { fetchUpstreamOracle } from "./fetch-upstream-oracle";
 
 const DEFAULT_OUTPUT = "artifacts/parity/latest-report.json";
+const DEFAULT_ORACLE_CACHE = "artifacts/parity/upstream-oracle.json";
 
 const parseArgs = (argv: string[]): Record<string, string> => {
   const values: Record<string, string> = {};
@@ -55,9 +57,29 @@ const printReport = (report: ParityReport): void => {
   );
 };
 
+const loadCachedOracle = async (
+  oraclePath: string,
+): Promise<ParitySnapshot | null> => {
+  try {
+    const raw = await readFile(oraclePath, "utf8");
+    return JSON.parse(raw) as ParitySnapshot;
+  } catch {
+    return null;
+  }
+};
+
 if (import.meta.main) {
   const args = parseArgs(process.argv.slice(2));
-  const oracle = await fetchUpstreamOracle(args.url);
+  const oraclePath = path.resolve(
+    process.cwd(),
+    args.oracle ?? DEFAULT_ORACLE_CACHE,
+  );
+  const refreshOracle = args.refresh === "true";
+  const oracle = refreshOracle
+    ? await fetchUpstreamOracle(args.url)
+    : ((await loadCachedOracle(oraclePath)) ??
+      (await fetchUpstreamOracle(args.url)));
+
   const config = {
     seed: oracle.seed,
     width: oracle.width,
@@ -72,14 +94,18 @@ if (import.meta.main) {
       religions: true,
     },
   } as const;
+
   const world = generateWorld(config);
   const local = buildLocalParitySnapshot(world, config);
   const report = computeParityReport(oracle, local, Number(args.raster ?? 256));
 
   const outputPath = path.resolve(process.cwd(), args.output ?? DEFAULT_OUTPUT);
   await mkdir(path.dirname(outputPath), { recursive: true });
+  await mkdir(path.dirname(oraclePath), { recursive: true });
+  await writeFile(oraclePath, `${JSON.stringify(oracle, null, 2)}\n`, "utf8");
   await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
 
   printReport(report);
+  console.log(`oracle_json: ${oraclePath}`);
   console.log(`report_json: ${outputPath}`);
 }

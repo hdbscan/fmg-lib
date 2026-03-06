@@ -12,6 +12,7 @@ import {
   runLandmassStage,
   runMarkersZonesStage,
   runMilitaryStage,
+  runOpenNearSeaLakesStage,
   runPackFeatureStage,
   runPackStage,
   runProvincesStage,
@@ -298,10 +299,15 @@ export const generateWorld = (options: GenerateOptions): WorldGraphV1 => {
   runGridStage(context);
   runHeightmapStage(context);
   runFeatureStage(context);
-  runPackStage(context);
-  runPackFeatureStage(context);
   runLandmassStage(context);
   runWaterbodyStage(context);
+  if (runOpenNearSeaLakesStage(context)) {
+    runFeatureStage(context);
+    runLandmassStage(context);
+    runWaterbodyStage(context);
+  }
+  runPackStage(context);
+  runPackFeatureStage(context);
   runGridFeatureMarkupStage(context);
   runClimateStage(context);
   runHydrologyStage(context);
