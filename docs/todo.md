@@ -151,8 +151,8 @@ This checklist tracks all migration phases from `docs/migration-plan.md` plus cr
 - [ ] Scaffold SolidJS + Vite app entrypoint in `ui/app`.
 - [ ] Add UI build/dev pipeline.
 - [ ] Add UI lint/typecheck/test scripts wired to root checks.
-- [ ] Add UI bundle-size budget and CI check.
-- [ ] Add UI architecture README.
+- [x] Add UI bundle-size budget and CI check.
+- [x] Add UI architecture README.
 
 ### 6.3 Adapter layer (WorldGraph -> RenderableWorld)
 
@@ -198,5 +198,5 @@ This checklist tracks all migration phases from `docs/migration-plan.md` plus cr
 - [ ] Add UI smoke tests (generate, toggle overlays, inspect, save/load).
 - [ ] Add adapter large-map correctness and performance tests.
 - [ ] Add UI render baselines (small/medium/large world sizes).
-- [ ] Add memory budget notes for geometry/index caches.
-- [ ] Add troubleshooting docs for visual mismatches and interaction regressions.
+- [x] Add memory budget notes for geometry/index caches.
+- [x] Add troubleshooting docs for visual mismatches and interaction regressions.
