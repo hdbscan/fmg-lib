@@ -133,4 +133,28 @@ describe("runWorkerRequest", () => {
     expect(response.message.length).toBeGreaterThan(0);
     expect(extractWorldFromResponse(response)).toBeNull();
   });
+
+  it("surfaces unsupported schema versions during deserialize", () => {
+    const world = JSON.parse(serializeWorld(getFixtureWorld())) as {
+      schemaVersion: number;
+    };
+    world.schemaVersion = 99;
+
+    const response = runWorkerRequest(
+      {
+        type: "deserialize",
+        requestId: "deserialize-schema-mismatch",
+        payload: JSON.stringify(world),
+      },
+      () => false,
+    );
+
+    expect(response.type).toBe("error");
+    if (response.type !== "error") {
+      return;
+    }
+
+    expect(response.message).toBe("unsupported schemaVersion");
+    expect(extractWorldFromResponse(response)).toBeNull();
+  });
 });

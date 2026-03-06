@@ -25,6 +25,12 @@ import {
   createController,
 } from "./controller";
 import { loadUiSession, saveUiSession } from "./session";
+import {
+  SUPPORTED_WORLD_SCHEMA_VERSION,
+  createWorldDownloadName,
+  formatWorldLoadError,
+  getSerializedWorldSchemaVersion,
+} from "./world-transfer";
 
 type GenerationDraft = {
   seed: string;
@@ -47,6 +53,8 @@ type VisibilityKey = keyof LayerVisibilityState;
 type StyleKey = keyof StylePreset;
 
 type StatusTone = "idle" | "working" | "success" | "error";
+
+type RequestKind = "generate" | "serialize" | "deserialize";
 
 const GENERATION_PRESETS: readonly GenerationPreset[] = [
   {
@@ -246,14 +254,24 @@ export const App = () => {
   const [errorText, setErrorText] = createSignal<string | null>(null);
   const [lastGenerateMs, setLastGenerateMs] = createSignal<number | null>(null);
   const [canvasSize, setCanvasSize] = createSignal({ width: 960, height: 720 });
+  const [activeRequest, setActiveRequest] = createSignal<Readonly<{
+    id: string;
+    kind: RequestKind;
+  }> | null>(null);
+  const [pendingLoadName, setPendingLoadName] = createSignal<string | null>(
+    null,
+  );
+  const [pendingLoadPayload, setPendingLoadPayload] = createSignal<
+    string | null
+  >(null);
 
   let viewportElement: HTMLDivElement | undefined;
   let canvasElement: HTMLCanvasElement | undefined;
+  let fileInputElement: HTMLInputElement | undefined;
   let renderer: CanvasMapRenderer | null = null;
   let resizeObserver: ResizeObserver | null = null;
   let renderFrame = 0;
   let worker: Worker | null = null;
-  let activeRequestId: string | null = null;
   let restoredCamera: CameraState | null = null;
   let mounted = false;
   let dragPointerId: number | null = null;
@@ -261,6 +279,14 @@ export const App = () => {
   let dragStartX = 0;
   let dragStartY = 0;
   let dragStartCamera: CameraState = state().camera;
+
+  const isGenerating = createMemo(() => activeRequest()?.kind === "generate");
+  const isSaving = createMemo(() => activeRequest()?.kind === "serialize");
+  const isLoading = createMemo(() => activeRequest()?.kind === "deserialize");
+  const hasWorld = createMemo(() => state().world !== null);
+  const generateButtonLabel = createMemo(() =>
+    hasWorld() ? "Re-generate world" : "Generate world",
+  );
 
   const refreshState = (): ControllerState => {
     const nextState = controller.getState();
@@ -318,6 +344,7 @@ export const App = () => {
     world: WorldGraphV1,
     elapsedMs: number | null,
     fitView: boolean,
+    successText?: string,
   ): void => {
     controller.setWorld(world);
     let nextState = refreshState();
@@ -337,10 +364,43 @@ export const App = () => {
     setLastGenerateMs(elapsedMs);
     setStatusTone("success");
     setStatusText(
-      `Rendered ${formatCount(world.cellCount)} cells at ${world.width}x${world.height}.`,
+      successText ??
+        `Rendered ${formatCount(world.cellCount)} cells at ${world.width}x${world.height}.`,
     );
     setErrorText(null);
     syncRendererState(nextState);
+  };
+
+  const clearActiveRequest = (requestId?: string): void => {
+    const current = activeRequest();
+    if (!current) {
+      return;
+    }
+
+    if (requestId && current.id !== requestId) {
+      return;
+    }
+
+    setActiveRequest(null);
+  };
+
+  const downloadSerializedWorld = (payload: string): void => {
+    const world = state().world;
+    if (!world) {
+      return;
+    }
+
+    const fileName = createWorldDownloadName(world.seed);
+    const blob = new Blob([payload], { type: "application/json" });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = fileName;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    setStatusTone("success");
+    setStatusText(`Saved ${fileName}.`);
+    setErrorText(null);
   };
 
   const postGenerateRequest = (config: GenerationConfig): void => {
@@ -358,7 +418,7 @@ export const App = () => {
     }
 
     const requestId = createRequestId();
-    activeRequestId = requestId;
+    setActiveRequest({ id: requestId, kind: "generate" });
     setStatusTone("working");
     setStatusText(
       `Generating ${config.heightTemplate ?? "continents"} preset...`,
@@ -368,6 +428,116 @@ export const App = () => {
       type: "generate",
       requestId,
       config,
+    } satisfies WorkerRequest);
+  };
+
+  const requestSaveWorld = (): void => {
+    const world = state().world;
+    if (!world) {
+      return;
+    }
+
+    if (!worker) {
+      try {
+        downloadSerializedWorld(controller.saveWorld());
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatusTone("error");
+        setStatusText("Save failed.");
+        setErrorText(message);
+      }
+      return;
+    }
+
+    const requestId = createRequestId();
+    setActiveRequest({ id: requestId, kind: "serialize" });
+    setStatusTone("working");
+    setStatusText("Preparing world download...");
+    setErrorText(null);
+    worker.postMessage({
+      type: "serialize",
+      requestId,
+      world,
+    } satisfies WorkerRequest);
+  };
+
+  const openLoadDialog = (): void => {
+    fileInputElement?.click();
+  };
+
+  const requestLoadWorld = (payload: string, fileName: string): void => {
+    const schemaVersion = getSerializedWorldSchemaVersion(payload);
+    if (
+      schemaVersion !== null &&
+      schemaVersion !== SUPPORTED_WORLD_SCHEMA_VERSION
+    ) {
+      setStatusTone("error");
+      setStatusText(`Could not load ${fileName}.`);
+      setErrorText(formatWorldLoadError(payload, "unsupported schemaVersion"));
+      return;
+    }
+
+    if (!worker) {
+      try {
+        controller.loadWorld(payload);
+        applyWorld(
+          controller.getState().world as WorldGraphV1,
+          null,
+          true,
+          `Loaded ${fileName}.`,
+        );
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setStatusTone("error");
+        setStatusText(`Could not load ${fileName}.`);
+        setErrorText(formatWorldLoadError(payload, message));
+      }
+      return;
+    }
+
+    const requestId = createRequestId();
+    setPendingLoadName(fileName);
+    setPendingLoadPayload(payload);
+    setActiveRequest({ id: requestId, kind: "deserialize" });
+    setStatusTone("working");
+    setStatusText(`Loading ${fileName}...`);
+    setErrorText(null);
+    worker.postMessage({
+      type: "deserialize",
+      requestId,
+      payload,
+    } satisfies WorkerRequest);
+  };
+
+  const handleLoadFile = async (file: File | undefined): Promise<void> => {
+    if (!file) {
+      return;
+    }
+
+    try {
+      const payload = await file.text();
+      requestLoadWorld(payload, file.name || "world.json");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setStatusTone("error");
+      setStatusText(`Could not read ${file.name || "world.json"}.`);
+      setErrorText(message);
+    }
+  };
+
+  const cancelGeneration = (): void => {
+    const current = activeRequest();
+    if (!worker || !current || current.kind !== "generate") {
+      return;
+    }
+
+    setStatusTone("working");
+    setStatusText(
+      "Cancellation requested. The worker will stop after the current step.",
+    );
+    worker.postMessage({
+      type: "cancel",
+      requestId: current.id,
     } satisfies WorkerRequest);
   };
 
@@ -507,26 +677,78 @@ export const App = () => {
     if (worker) {
       worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
         const message = event.data;
-        if (message.requestId !== activeRequestId) {
+        const current = activeRequest();
+        if (!current || message.requestId !== current.id) {
           return;
         }
 
         if (message.type === "status") {
+          if (message.stage === "cancelled") {
+            clearActiveRequest(message.requestId);
+            setStatusTone("idle");
+            setStatusText("Generation cancelled.");
+            setErrorText(null);
+            return;
+          }
+
           if (message.stage === "running") {
             setStatusTone("working");
+            if (current.kind === "serialize") {
+              setStatusText("Saving world...");
+              return;
+            }
+            if (current.kind === "deserialize") {
+              setStatusText(`Loading ${pendingLoadName() ?? "world.json"}...`);
+              return;
+            }
           }
           setStatusText(message.message);
           return;
         }
 
         if (message.type === "generated") {
+          clearActiveRequest(message.requestId);
           applyWorld(message.world, message.elapsedMs, true);
           return;
         }
 
+        if (message.type === "serialized") {
+          clearActiveRequest(message.requestId);
+          downloadSerializedWorld(message.payload);
+          return;
+        }
+
+        if (message.type === "deserialized") {
+          const fileName = pendingLoadName() ?? "world.json";
+          clearActiveRequest(message.requestId);
+          setPendingLoadName(null);
+          setPendingLoadPayload(null);
+          applyWorld(
+            message.world,
+            message.elapsedMs,
+            true,
+            `Loaded ${fileName}.`,
+          );
+          return;
+        }
+
         if (message.type === "error") {
+          const kind = current.kind;
+          clearActiveRequest(message.requestId);
           setStatusTone("error");
-          setStatusText("Generation failed.");
+          if (kind === "deserialize") {
+            const fileName = pendingLoadName() ?? "world.json";
+            const payload = pendingLoadPayload() ?? "";
+            setPendingLoadName(null);
+            setPendingLoadPayload(null);
+            setStatusText(`Could not load ${fileName}.`);
+            setErrorText(formatWorldLoadError(payload, message.message));
+            return;
+          }
+
+          setStatusText(
+            kind === "serialize" ? "Save failed." : "Generation failed.",
+          );
           setErrorText(message.message);
         }
       };
@@ -647,8 +869,21 @@ export const App = () => {
               exposed by the adapter and renderer scaffold.
             </p>
             <div class="hero-actions">
-              <button class="primary" type="button" onClick={runGeneration}>
-                Generate world
+              <button
+                class="primary"
+                type="button"
+                onClick={runGeneration}
+                disabled={isGenerating() || isSaving() || isLoading()}
+              >
+                {generateButtonLabel()}
+              </button>
+              <button
+                class="warn"
+                type="button"
+                onClick={cancelGeneration}
+                disabled={!isGenerating()}
+              >
+                Cancel generate
               </button>
               <button
                 type="button"
@@ -658,6 +893,46 @@ export const App = () => {
                 Reset view
               </button>
             </div>
+          </section>
+
+          <section class="section">
+            <div class="section-title-row">
+              <h2>World file</h2>
+              <span class="hint">Worker-backed save and load</span>
+            </div>
+            <div class="transfer-actions">
+              <button
+                type="button"
+                onClick={requestSaveWorld}
+                disabled={
+                  !hasWorld() || isSaving() || isGenerating() || isLoading()
+                }
+              >
+                Save world
+              </button>
+              <button
+                type="button"
+                onClick={openLoadDialog}
+                disabled={isSaving() || isGenerating() || isLoading()}
+              >
+                Load world
+              </button>
+            </div>
+            <p class="empty-state transfer-copy">
+              Export the current world as serialized JSON, then load it back
+              into the same renderer. Unsupported schema versions are blocked
+              with a clear UI error.
+            </p>
+            <input
+              ref={fileInputElement}
+              class="visually-hidden"
+              type="file"
+              accept="application/json,.json"
+              onChange={(event) => {
+                void handleLoadFile(event.currentTarget.files?.[0]);
+                event.currentTarget.value = "";
+              }}
+            />
           </section>
 
           <section class="section">
