@@ -73,7 +73,10 @@ export type WorldGraphV1 = Readonly<{
   cellsBurg: Uint16Array;
   burgCount: number;
   burgCell: Uint32Array;
+  burgX: Float32Array;
+  burgY: Float32Array;
   burgPopulation: Uint16Array;
+  burgCapital: Uint8Array;
   burgPort: Uint8Array;
   burgCulture: Uint16Array;
   cellsState: Uint16Array;
@@ -187,7 +190,10 @@ export type SerializedWorldV1 = Readonly<{
     cultureSize: SerializedTypedArray;
     cellsBurg: SerializedTypedArray;
     burgCell: SerializedTypedArray;
+    burgX: SerializedTypedArray;
+    burgY: SerializedTypedArray;
     burgPopulation: SerializedTypedArray;
+    burgCapital: SerializedTypedArray;
     burgPort: SerializedTypedArray;
     burgCulture: SerializedTypedArray;
     cellsState: SerializedTypedArray;
@@ -300,7 +306,10 @@ export type GenerationContext = {
     cellsBurg: Uint16Array;
     burgCount: number;
     burgCell: Uint32Array;
+    burgX: Float32Array;
+    burgY: Float32Array;
     burgPopulation: Uint16Array;
+    burgCapital: Uint8Array;
     burgPort: Uint8Array;
     burgCulture: Uint16Array;
     cellsState: Uint16Array;

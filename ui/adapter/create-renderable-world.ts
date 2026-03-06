@@ -168,10 +168,11 @@ const collectBurgs = (world: WorldGraphV1): readonly RenderBurg[] => {
     burgs.push({
       id: burgId,
       cell,
-      x: world.cellsX[cell] ?? 0,
-      y: world.cellsY[cell] ?? 0,
+      x: world.burgX[burgId] ?? world.cellsX[cell] ?? 0,
+      y: world.burgY[burgId] ?? world.cellsY[cell] ?? 0,
       population: world.burgPopulation[burgId] ?? 0,
       culture: world.burgCulture[burgId] ?? 0,
+      capital: world.burgCapital[burgId] ?? 0,
       port: world.burgPort[burgId] ?? 0,
     });
   }

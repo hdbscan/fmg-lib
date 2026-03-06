@@ -105,7 +105,10 @@ export const serializeWorld = (world: WorldGraphV1): string => {
       cultureSize: encodeTypedArray(world.cultureSize, "u32"),
       cellsBurg: encodeTypedArray(world.cellsBurg, "u16"),
       burgCell: encodeTypedArray(world.burgCell, "u32"),
+      burgX: encodeTypedArray(world.burgX, "f32"),
+      burgY: encodeTypedArray(world.burgY, "f32"),
       burgPopulation: encodeTypedArray(world.burgPopulation, "u16"),
+      burgCapital: encodeTypedArray(world.burgCapital, "u8"),
       burgPort: encodeTypedArray(world.burgPort, "u8"),
       burgCulture: encodeTypedArray(world.burgCulture, "u16"),
       cellsState: encodeTypedArray(world.cellsState, "u16"),
@@ -271,7 +274,10 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
   const cultureSize = decodeTypedArray(world.arrays.cultureSize);
   const cellsBurg = decodeTypedArray(world.arrays.cellsBurg);
   const burgCell = decodeTypedArray(world.arrays.burgCell);
+  const burgX = decodeTypedArray(world.arrays.burgX);
+  const burgY = decodeTypedArray(world.arrays.burgY);
   const burgPopulation = decodeTypedArray(world.arrays.burgPopulation);
+  const burgCapital = decodeTypedArray(world.arrays.burgCapital);
   const burgPort = decodeTypedArray(world.arrays.burgPort);
   const burgCulture = decodeTypedArray(world.arrays.burgCulture);
   const cellsState = decodeTypedArray(world.arrays.cellsState);
@@ -363,7 +369,10 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     !(cultureSize instanceof Uint32Array) ||
     !(cellsBurg instanceof Uint16Array) ||
     !(burgCell instanceof Uint32Array) ||
+    !(burgX instanceof Float32Array) ||
+    !(burgY instanceof Float32Array) ||
     !(burgPopulation instanceof Uint16Array) ||
+    !(burgCapital instanceof Uint8Array) ||
     !(burgPort instanceof Uint8Array) ||
     !(burgCulture instanceof Uint16Array) ||
     !(cellsState instanceof Uint16Array) ||
@@ -463,7 +472,10 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     cellsBurg,
     burgCount: world.burgCount,
     burgCell,
+    burgX,
+    burgY,
     burgPopulation,
+    burgCapital,
     burgPort,
     burgCulture,
     cellsState,
