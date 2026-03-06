@@ -192,6 +192,9 @@ This checklist tracks all migration phases from `docs/migration-plan.md` plus cr
 
 ### 6.7 Verification, performance, and docs
 
+- [x] Add Playwright CLI milestone screenshot script with committed `screenshots/` artifact structure.
+- [x] Add upstream-vs-local drift capture workflow with approved-local fallback support and reporting.
+- [x] Document screenshot capture, artifact naming, and troubleshooting guidance.
 - [ ] Add UI smoke tests (generate, toggle overlays, inspect, save/load).
 - [ ] Add adapter large-map correctness and performance tests.
 - [ ] Add UI render baselines (small/medium/large world sizes).

@@ -25,7 +25,12 @@
     "ui:build": "npm --prefix ui run build",
     "ui:typecheck": "npm --prefix ui run typecheck",
     "ui:test": "npm --prefix ui run test",
-    "ui:perf": "npm --prefix ui run perf:baseline"
+    "ui:perf": "npm --prefix ui run perf:baseline",
+    "screenshot:install-browser": "npm exec playwright -- install firefox",
+    "screenshot:milestone": "node ./scripts/capture-milestone-screenshot.mjs",
+    "screenshot:drift": "node ./scripts/check-screenshot-drift.mjs",
+    "screenshot:dummy": "node ./scripts/capture-milestone-screenshot.mjs --slug ui-dummy-current",
+    "screenshot:dummy:drift": "node ./scripts/check-screenshot-drift.mjs --slug ui-dummy-current --baseline ./screenshots/ui-dummy-step-01.png --note \"Upstream UI shell is not stable yet, so this drift check compares against the approved local dummy baseline.\""
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
