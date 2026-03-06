@@ -11,7 +11,16 @@ Library-only extraction/fork of Azgaar's Fantasy Map Generator (FMG) focused on 
 This project is **not** aiming to track upstream parity over time; we freeze at a chosen FMG commit and refactor for our needs.
 
 ## Status
-Planning + scaffolding.
+Active migration.
+
+Current implemented slice:
+- Bun-native API scaffold (`generateWorld`)
+- strict TypeScript setup
+- headless config normalization + validation
+- deterministic physical pipeline (grid, height, feature bands, landmasses, waterbodies, land-only packed graph, climate, hydrology-lite, biomes)
+- optional culture layer generation on packed land cells
+- compact adjacency and serialization (`serializeWorld`/`deserializeWorld`)
+- high-level integration tests for determinism, graph coherence, fixture hashes, and round-trip persistence
 
 ## Why
 FMG is an excellent generator but is structured as a browser app (DOM + rendering + globals). We want:
@@ -20,3 +29,14 @@ FMG is an excellent generator but is structured as a browser app (DOM + renderin
 - deterministic results
 
 See `docs/PLAN.md`.
+
+Additional docs:
+- `docs/migration-plan.md`
+- `docs/todo.md`
+- `docs/architecture.md`
+- `docs/usage.md`
+- `docs/dependency-graph.md`
+- `docs/contributing-stages.md`
+- `docs/release-policy.md`
+- `docs/performance.md`
+- `docs/schema-compatibility.md`

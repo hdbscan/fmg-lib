@@ -55,3 +55,6 @@ Reference material:
 - For UI migration increments, render and capture a Playwright CLI screenshot.
 - Save screenshot artifacts under `screenshots/` for traceable progress.
 - Commit and push in small, frequent increments after each verified UI step.
+- At each major milestone, capture comparison screenshots from upstream FMG and this implementation to monitor visual drift.
+- Use carefully orchestrated subagents for independent workstreams where possible; divide tasks so they can run in parallel safely.
+- When subagents need to modify code, isolate them in separate git workspaces/worktrees to avoid file conflicts.

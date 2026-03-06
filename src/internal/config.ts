@@ -1,0 +1,109 @@
+import type {
+  GenerationConfig,
+  HeightTemplate,
+  LayerFlags,
+  NormalizedGenerationConfig,
+} from "../types";
+
+const HEIGHT_TEMPLATES: HeightTemplate[] = [
+  "continents",
+  "archipelago",
+  "inland-sea",
+];
+
+const DEFAULT_LAYERS: LayerFlags = {
+  physical: true,
+  cultures: false,
+  settlements: false,
+  politics: false,
+  religions: false,
+  military: false,
+  markers: false,
+  zones: false,
+};
+
+const isPositiveInteger = (value: number): boolean =>
+  Number.isInteger(value) && value > 0;
+
+const inRange = (value: number, min: number, max: number): boolean =>
+  value >= min && value <= max;
+
+export const normalizeConfig = (
+  config: GenerationConfig,
+): NormalizedGenerationConfig => {
+  if (config.seed.trim().length === 0) {
+    throw new Error("seed must be a non-empty string");
+  }
+
+  if (!isPositiveInteger(config.width)) {
+    throw new Error("width must be a positive integer");
+  }
+
+  if (!isPositiveInteger(config.height)) {
+    throw new Error("height must be a positive integer");
+  }
+
+  if (!isPositiveInteger(config.cells)) {
+    throw new Error("cells must be a positive integer");
+  }
+
+  const culturesCount = config.culturesCount ?? 12;
+  if (!Number.isInteger(culturesCount) || !inRange(culturesCount, 1, 512)) {
+    throw new Error("culturesCount must be an integer within [1, 512]");
+  }
+
+  const jitter = config.jitter ?? 0.9;
+  if (!inRange(jitter, 0, 1)) {
+    throw new Error("jitter must be within [0, 1]");
+  }
+
+  const heightNoise = config.heightNoise ?? 0.35;
+  if (!inRange(heightNoise, 0, 1)) {
+    throw new Error("heightNoise must be within [0, 1]");
+  }
+
+  const heightTemplate = config.heightTemplate ?? "continents";
+  if (!HEIGHT_TEMPLATES.includes(heightTemplate)) {
+    throw new Error(
+      "heightTemplate must be one of: continents, archipelago, inland-sea",
+    );
+  }
+
+  const seaLevel = config.seaLevel ?? 20;
+  if (!Number.isInteger(seaLevel) || !inRange(seaLevel, 1, 99)) {
+    throw new Error("seaLevel must be an integer within [1, 99]");
+  }
+
+  const temperatureEquator = config.climate?.temperatureEquator ?? 27;
+  const temperatureNorthPole = config.climate?.temperatureNorthPole ?? -30;
+  const temperatureSouthPole = config.climate?.temperatureSouthPole ?? -15;
+  const elevationExponent = config.climate?.elevationExponent ?? 1;
+
+  if (!inRange(elevationExponent, 0.5, 3)) {
+    throw new Error("climate.elevationExponent must be within [0.5, 3]");
+  }
+
+  const layers: LayerFlags = {
+    ...DEFAULT_LAYERS,
+    ...(config.layers ?? {}),
+  };
+
+  return {
+    seed: config.seed,
+    width: config.width,
+    height: config.height,
+    requestedCells: config.cells,
+    culturesCount,
+    jitter,
+    heightNoise,
+    heightTemplate,
+    seaLevel,
+    climate: {
+      temperatureEquator,
+      temperatureNorthPole,
+      temperatureSouthPole,
+      elevationExponent,
+    },
+    layers,
+  };
+};

@@ -1,0 +1,30 @@
+{
+  "name": "fmg-ui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4174",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4174",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "bundle:check": "node ./scripts/check-bundle-size.mjs",
+    "perf:baseline": "node ./scripts/render-baseline.mjs",
+    "check": "npm run typecheck && npm run test && npm run build && npm run bundle:check"
+  },
+  "dependencies": {
+    "d3-array": "^3.2.4",
+    "d3-color": "^3.1.0",
+    "d3-interpolate": "^3.0.1",
+    "d3-scale": "^4.0.2",
+    "d3-shape": "^3.2.0",
+    "solid-js": "^1.9.9"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.3",
+    "vite-plugin-solid": "^2.11.8",
+    "vitest": "^3.2.4"
+  }
+}
