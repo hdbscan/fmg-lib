@@ -1,7 +1,7 @@
 {
   "slug": "m01-ui-shell-local",
-  "capturedAt": "2026-03-06T19:21:44.755Z",
-  "url": "http://127.0.0.1:42291/",
+  "capturedAt": "2026-03-06T19:55:31.996Z",
+  "url": "http://127.0.0.1:43083/",
   "selector": "[data-screenshot=ui-shell]",
   "readySelector": "[data-screenshot=ui-shell-canvas]",
   "browser": "firefox",
@@ -11,5 +11,5 @@
   "staticRoot": "ui/dist",
   "staticPath": "/",
   "artifact": "m01-ui-shell-local.png",
-  "sha256": "d8278c15e0663609ca1e6b832244755bd12d12dc75c5fd65e2cd940e57d583e7"
+  "sha256": "daca72082b218eb3bd3e6c65e4884d505a3e720085aae08b8ffb3f6f86218adb"
 }

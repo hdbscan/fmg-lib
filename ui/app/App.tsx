@@ -204,8 +204,10 @@ const fitCameraToWorld = (
 ): CameraState => {
   const safeWidth = Math.max(1, width);
   const safeHeight = Math.max(1, height);
-  const availableWidth = Math.max(160, safeWidth - 36);
-  const availableHeight = Math.max(160, safeHeight - 36);
+  const horizontalPadding = Math.max(72, Math.round(safeWidth * 0.09));
+  const verticalPadding = Math.max(72, Math.round(safeHeight * 0.1));
+  const availableWidth = Math.max(160, safeWidth - horizontalPadding * 2);
+  const availableHeight = Math.max(160, safeHeight - verticalPadding * 2);
   const zoom = clampZoom(
     Math.min(availableWidth / worldWidth, availableHeight / worldHeight),
   );
@@ -858,7 +860,7 @@ export const App = () => {
   };
 
   return (
-    <div class="layout" data-screenshot="ui-shell">
+    <div class="layout">
       <aside class="panel sidebar">
         <div class="panel-scroll">
           <section class="section hero-section">
@@ -1219,7 +1221,11 @@ export const App = () => {
         </div>
       </aside>
 
-      <main class="panel viewport-shell" data-screenshot="ui-shell-physical">
+      <main
+        class="panel viewport-shell"
+        data-screenshot="ui-shell"
+        data-screenshot-viewport="ui-shell-physical"
+      >
         <div class="viewport-toolbar">
           <div>
             <strong>Canvas</strong>
