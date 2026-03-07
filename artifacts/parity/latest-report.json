@@ -43,9 +43,9 @@
     "height": 180
   },
   "terrain": {
-    "pixelIntersection": 12155,
-    "pixelUnion": 21077,
-    "iou": 0.5766949755657826
+    "pixelIntersection": 12187,
+    "pixelUnion": 21069,
+    "iou": 0.5784327685224738
   },
   "politics": {
     "oracleRegionCount": 23,
