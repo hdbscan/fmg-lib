@@ -1676,6 +1676,44 @@ describe("world generation integration", () => {
     );
   });
 
+  test("keeps religion spread ties stable on a tie-heavy seed", () => {
+    const world = generateWorld({
+      seed: "tie-18",
+      width: 360,
+      height: 240,
+      cells: 1200,
+      culturesCount: 10,
+      statesCount: 20,
+      townsCount: 1000,
+      hiddenControls: {
+        sizeVariety: 7.5,
+        growthRate: 1.6,
+        religionsNumber: 12,
+      },
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+        politics: true,
+        religions: true,
+      },
+    });
+
+    expect(world.religionCount).toBe(22);
+    expect(createHash("sha256").update(world.cellsReligion).digest("hex")).toBe(
+      "4c64c4533c87bfe37b356847a49dfe3d18dcf12269679622f346b9732b3d4a8b",
+    );
+    expect(
+      createHash("sha256").update(world.religionSeedCell).digest("hex"),
+    ).toBe("544c40241fb4dd94923e7b5de95f5d1a04527dbdfcf0bf2c86a7acea97e03a19");
+    expect(createHash("sha256").update(world.religionType).digest("hex")).toBe(
+      "59f1d84c0259b4278ff9007acf67d003e5f3863b51976917a4f90c2e87982ed4",
+    );
+    expect(createHash("sha256").update(world.religionSize).digest("hex")).toBe(
+      "c3311b8dc010924563f1b741880aa029e30f05b5bcceb12affdb3b5e37721f89",
+    );
+  });
+
   test("assigns state forms after religions are available", () => {
     const sharedConfig = {
       ...baseConfig,
