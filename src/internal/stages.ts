@@ -1923,94 +1923,76 @@ export const runFeatureStage = (context: GenerationContext): void => {
     cellNeighbors,
   } = context.world;
 
+  const featureIds = new Uint32Array(cellCount);
+
   for (let cellId = 0; cellId < cellCount; cellId += 1) {
     const height = cellsH[cellId] ?? 0;
     cellsFeature[cellId] = height >= seaLevel ? 1 : 0;
     cellsCoast[cellId] = 0;
   }
 
-  for (let cellId = 0; cellId < cellCount; cellId += 1) {
-    const isLand = cellsFeature[cellId] === 1;
-    let touchesOpposite = false;
+  let nextFeatureId = 0;
 
-    forEachNeighbor(
-      cellId,
-      cellNeighborOffsets,
-      cellNeighbors,
-      (neighborId) => {
-        if (touchesOpposite) {
-          return;
-        }
-
-        const neighborIsLand = cellsFeature[neighborId] === 1;
-        if (neighborIsLand !== isLand) {
-          touchesOpposite = true;
-        }
-      },
-    );
-
-    if (touchesOpposite) {
-      cellsCoast[cellId] = isLand ? 1 : -1;
+  for (let startCell = 0; startCell < cellCount; startCell += 1) {
+    if ((featureIds[startCell] ?? 0) !== 0) {
+      continue;
     }
-  }
 
-  const MAX_DISTANCE = 10;
+    nextFeatureId += 1;
+    const queue = [startCell];
+    featureIds[startCell] = nextFeatureId;
+    const land = (cellsFeature[startCell] ?? 0) === 1;
 
-  for (let distance = 2; distance <= MAX_DISTANCE; distance += 1) {
-    for (let cellId = 0; cellId < cellCount; cellId += 1) {
-      if (cellsFeature[cellId] !== 1 || cellsCoast[cellId] !== 0) {
-        continue;
+    while (queue.length > 0) {
+      const cellId = queue.pop();
+      if (cellId === undefined) {
+        break;
       }
 
-      let reachesPreviousBand = false;
       forEachNeighbor(
         cellId,
         cellNeighborOffsets,
         cellNeighbors,
         (neighborId) => {
-          if (reachesPreviousBand) {
+          const neighborIsLand = (cellsFeature[neighborId] ?? 0) === 1;
+
+          if (land === neighborIsLand) {
+            if ((featureIds[neighborId] ?? 0) !== 0) {
+              return;
+            }
+
+            featureIds[neighborId] = nextFeatureId;
+            queue.push(neighborId);
             return;
           }
 
-          if (cellsCoast[neighborId] === distance - 1) {
-            reachesPreviousBand = true;
+          if (land) {
+            cellsCoast[cellId] = 1;
+            cellsCoast[neighborId] = -1;
           }
         },
       );
-
-      if (reachesPreviousBand) {
-        cellsCoast[cellId] = distance;
-      }
     }
   }
 
-  for (let distance = -2; distance >= -MAX_DISTANCE; distance -= 1) {
-    for (let cellId = 0; cellId < cellCount; cellId += 1) {
-      if (cellsFeature[cellId] !== 0 || cellsCoast[cellId] !== 0) {
-        continue;
-      }
-
-      let reachesPreviousBand = false;
-      forEachNeighbor(
-        cellId,
-        cellNeighborOffsets,
-        cellNeighbors,
-        (neighborId) => {
-          if (reachesPreviousBand) {
-            return;
-          }
-
-          if (cellsCoast[neighborId] === distance + 1) {
-            reachesPreviousBand = true;
-          }
-        },
-      );
-
-      if (reachesPreviousBand) {
-        cellsCoast[cellId] = distance;
-      }
-    }
-  }
+  markDistanceField(
+    cellsCoast,
+    cellCount,
+    cellNeighborOffsets,
+    cellNeighbors,
+    2,
+    1,
+    11,
+  );
+  markDistanceField(
+    cellsCoast,
+    cellCount,
+    cellNeighborOffsets,
+    cellNeighbors,
+    -2,
+    -1,
+    -10,
+  );
 };
 
 export const runDeepDepressionLakeStage = (
