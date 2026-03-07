@@ -43,11 +43,16 @@ export type ParitySnapshot = Readonly<{
   burgs: readonly BurgParityPoint[];
   counts: ParityCounts;
   cultureCount?: number;
+  heightmapTemplate?: string;
   statesNumber?: number;
   townsNumber?: number;
   sizeVariety?: number;
   growthRate?: number;
   religionsNumber?: number;
+  temperatureEquator?: number;
+  temperatureNorthPole?: number;
+  temperatureSouthPole?: number;
+  elevationExponent?: number;
   lakeElevationLimit?: number;
   precipitation?: number;
   mapSize?: number;

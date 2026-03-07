@@ -282440,15 +282440,28 @@
     "burgs": 796
   },
   "cultureCount": 9,
+  "heightmapTemplate": "continents",
   "statesNumber": 23,
   "townsNumber": 1000,
   "sizeVariety": 7.5,
   "growthRate": 1.6,
   "religionsNumber": 7,
+  "temperatureEquator": 27,
+  "temperatureNorthPole": -31,
+  "temperatureSouthPole": -14,
+  "elevationExponent": 2,
   "lakeElevationLimit": 20,
   "precipitation": 94,
   "mapSize": 100,
   "latitude": 50,
   "longitude": 50,
+  "winds": [
+    225,
+    45,
+    225,
+    315,
+    135,
+    315
+  ],
   "sourceUrl": "https://azgaar.github.io/Fantasy-Map-Generator/?seed=42424242&options=default"
 }
