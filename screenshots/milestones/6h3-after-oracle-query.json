@@ -1,0 +1,15 @@
+{
+  "slug": "6h3-after-oracle-query",
+  "capturedAt": "2026-03-07T18:36:29.784Z",
+  "url": "http://127.0.0.1:33323/?seed=42424242&options=default",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "1440x960",
+  "fullPage": false,
+  "delayMs": 1500,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&options=default",
+  "artifact": "6h3-after-oracle-query.png",
+  "sha256": "573aaf673d8f33d4baa325f0b89b51f581c12ae8739fafffc8ac988b9ce93130"
+}

@@ -6,6 +6,9 @@ import {
   generateWorld,
   serializeWorld,
 } from "../src/index";
+import { normalizeConfig } from "../src/internal/config";
+import { runOpenNearSeaLakesStage } from "../src/internal/stages";
+import type { GenerationContext } from "../src/types";
 
 const baseConfig: GenerationConfig = {
   seed: "world-seed-alpha",
@@ -148,6 +151,276 @@ const countUnassignedWaterReligionBridges = (
 };
 
 describe("world generation integration", () => {
+  test("converts a breached near-sea lake into ocean water immediately", () => {
+    const context: GenerationContext = {
+      config: normalizeConfig({
+        seed: "near-sea-lake",
+        width: 100,
+        height: 100,
+        cells: 4,
+      }),
+      random: () => 0.5,
+      grid: {
+        spacing: 1,
+        cellsX: 2,
+        cellsY: 2,
+      },
+      internal: {
+        cultureTypes: ["Generic"],
+      },
+      world: {
+        cellCount: 4,
+        cellsX: new Float32Array(4),
+        cellsY: new Float32Array(4),
+        cellsBorder: new Uint8Array(4),
+        cellsArea: new Float32Array(4),
+        cellsH: new Uint8Array([19, 21, 19, 19]),
+        cellsCulture: new Uint16Array(4),
+        cultureCount: 0,
+        cultureSeedCell: new Uint32Array(0),
+        cultureSize: new Uint32Array(0),
+        cellsBurg: new Uint16Array(4),
+        burgCount: 0,
+        burgCell: new Uint32Array(0),
+        burgX: new Float32Array(0),
+        burgY: new Float32Array(0),
+        burgPopulation: new Uint16Array(0),
+        burgCapital: new Uint8Array(0),
+        burgPort: new Uint8Array(0),
+        burgCulture: new Uint16Array(0),
+        cellsState: new Uint16Array(4),
+        stateCount: 0,
+        stateCenterBurg: new Uint16Array(0),
+        stateCulture: new Uint16Array(0),
+        stateForm: new Uint8Array(0),
+        stateCells: new Uint32Array(0),
+        routeCount: 0,
+        routeFromState: new Uint16Array(0),
+        routeToState: new Uint16Array(0),
+        routeKind: new Uint8Array(0),
+        routeWeight: new Uint16Array(0),
+        cellsProvince: new Uint16Array(4),
+        provinceCount: 0,
+        provinceState: new Uint16Array(0),
+        provinceCenterCell: new Uint32Array(0),
+        provinceCells: new Uint32Array(0),
+        cellsReligion: new Uint16Array(4),
+        religionCount: 0,
+        religionSeedCell: new Uint32Array(0),
+        religionType: new Uint8Array(0),
+        religionSize: new Uint32Array(0),
+        cellsMilitary: new Uint16Array(4),
+        militaryCount: 0,
+        militaryCell: new Uint32Array(0),
+        militaryState: new Uint16Array(0),
+        militaryType: new Uint8Array(0),
+        militaryStrength: new Uint16Array(0),
+        markerCount: 0,
+        markerCell: new Uint32Array(0),
+        markerType: new Uint8Array(0),
+        markerStrength: new Uint8Array(0),
+        cellsZone: new Uint16Array(4),
+        zoneCount: 0,
+        zoneSeedCell: new Uint32Array(0),
+        zoneType: new Uint8Array(0),
+        zoneCells: new Uint32Array(0),
+        cellsFeature: new Uint8Array([0, 1, 0, 0]),
+        cellsFeatureId: new Uint32Array(4),
+        featureCount: 0,
+        featureType: new Uint8Array(0),
+        featureLand: new Uint8Array(0),
+        featureBorder: new Uint8Array(0),
+        featureSize: new Uint32Array(0),
+        featureFirstCell: new Uint32Array(0),
+        cellsCoast: new Int8Array([0, 1, 0, 0]),
+        cellsLandmass: new Uint32Array(4),
+        landmassCount: 0,
+        landmassKind: new Uint8Array(0),
+        landmassSize: new Uint32Array(0),
+        landmassBorder: new Uint8Array(0),
+        cellsTemp: new Int8Array(4),
+        cellsPrec: new Uint8Array(4),
+        cellsFlow: new Uint32Array(4),
+        cellsRiver: new Uint8Array(4),
+        cellsBiome: new Uint8Array(4),
+        cellsWaterbody: new Uint32Array([1, 0, 2, 1]),
+        waterbodyCount: 2,
+        waterbodyType: new Uint8Array([0, 2, 1]),
+        waterbodySize: new Uint32Array([0, 2, 1]),
+        packCellCount: 0,
+        gridToPack: new Int32Array(4),
+        packToGrid: new Uint32Array(0),
+        packX: new Float32Array(0),
+        packY: new Float32Array(0),
+        packH: new Uint8Array(0),
+        packArea: new Float32Array(0),
+        packNeighborOffsets: new Uint32Array(1),
+        packNeighbors: new Uint32Array(0),
+        packCellsFeatureId: new Uint32Array(0),
+        packFeatureCount: 0,
+        packFeatureType: new Uint8Array(0),
+        packFeatureBorder: new Uint8Array(0),
+        packFeatureSize: new Uint32Array(0),
+        packFeatureFirstCell: new Uint32Array(0),
+        packCoast: new Int8Array(0),
+        packHaven: new Int32Array(0),
+        packHarbor: new Uint8Array(0),
+        packVertexX: new Float32Array(0),
+        packVertexY: new Float32Array(0),
+        packCellVertexOffsets: new Uint32Array(1),
+        packCellVertices: new Uint32Array(0),
+        vertexX: new Float32Array(0),
+        vertexY: new Float32Array(0),
+        cellVertexOffsets: new Uint32Array(5),
+        cellVertices: new Uint32Array(0),
+        cellNeighborOffsets: new Uint32Array([0, 2, 4, 5, 6]),
+        cellNeighbors: new Uint32Array([1, 3, 0, 2, 1, 0]),
+      },
+    };
+
+    expect(runOpenNearSeaLakesStage(context)).toBe(true);
+    expect(Array.from(context.world.cellsWaterbody)).toEqual([2, 2, 2, 2]);
+    expect(context.world.cellsH[1]).toBe(19);
+    expect(context.world.cellsFeature[1]).toBe(0);
+    expect(context.world.cellsCoast[1]).toBe(-1);
+    expect(context.world.waterbodyType[1]).toBe(1);
+  });
+
+  test("opens a second lake after the first breach creates an ocean channel", () => {
+    const context: GenerationContext = {
+      config: normalizeConfig({
+        seed: "near-sea-lake-cascade",
+        width: 100,
+        height: 100,
+        cells: 5,
+      }),
+      random: () => 0.5,
+      grid: {
+        spacing: 1,
+        cellsX: 5,
+        cellsY: 1,
+      },
+      internal: {
+        cultureTypes: ["Generic"],
+      },
+      world: {
+        cellCount: 5,
+        cellsX: new Float32Array(5),
+        cellsY: new Float32Array(5),
+        cellsBorder: new Uint8Array(5),
+        cellsArea: new Float32Array(5),
+        cellsH: new Uint8Array([19, 21, 19, 19, 21]),
+        cellsCulture: new Uint16Array(5),
+        cultureCount: 0,
+        cultureSeedCell: new Uint32Array(0),
+        cultureSize: new Uint32Array(0),
+        cellsBurg: new Uint16Array(5),
+        burgCount: 0,
+        burgCell: new Uint32Array(0),
+        burgX: new Float32Array(0),
+        burgY: new Float32Array(0),
+        burgPopulation: new Uint16Array(0),
+        burgCapital: new Uint8Array(0),
+        burgPort: new Uint8Array(0),
+        burgCulture: new Uint16Array(0),
+        cellsState: new Uint16Array(5),
+        stateCount: 0,
+        stateCenterBurg: new Uint16Array(0),
+        stateCulture: new Uint16Array(0),
+        stateForm: new Uint8Array(0),
+        stateCells: new Uint32Array(0),
+        routeCount: 0,
+        routeFromState: new Uint16Array(0),
+        routeToState: new Uint16Array(0),
+        routeKind: new Uint8Array(0),
+        routeWeight: new Uint16Array(0),
+        cellsProvince: new Uint16Array(5),
+        provinceCount: 0,
+        provinceState: new Uint16Array(0),
+        provinceCenterCell: new Uint32Array(0),
+        provinceCells: new Uint32Array(0),
+        cellsReligion: new Uint16Array(5),
+        religionCount: 0,
+        religionSeedCell: new Uint32Array(0),
+        religionType: new Uint8Array(0),
+        religionSize: new Uint32Array(0),
+        cellsMilitary: new Uint16Array(5),
+        militaryCount: 0,
+        militaryCell: new Uint32Array(0),
+        militaryState: new Uint16Array(0),
+        militaryType: new Uint8Array(0),
+        militaryStrength: new Uint16Array(0),
+        markerCount: 0,
+        markerCell: new Uint32Array(0),
+        markerType: new Uint8Array(0),
+        markerStrength: new Uint8Array(0),
+        cellsZone: new Uint16Array(5),
+        zoneCount: 0,
+        zoneSeedCell: new Uint32Array(0),
+        zoneType: new Uint8Array(0),
+        zoneCells: new Uint32Array(0),
+        cellsFeature: new Uint8Array([0, 1, 0, 0, 1]),
+        cellsFeatureId: new Uint32Array(5),
+        featureCount: 0,
+        featureType: new Uint8Array(0),
+        featureLand: new Uint8Array(0),
+        featureBorder: new Uint8Array(0),
+        featureSize: new Uint32Array(0),
+        featureFirstCell: new Uint32Array(0),
+        cellsCoast: new Int8Array([0, 1, 0, 0, 1]),
+        cellsLandmass: new Uint32Array(5),
+        landmassCount: 0,
+        landmassKind: new Uint8Array(0),
+        landmassSize: new Uint32Array(0),
+        landmassBorder: new Uint8Array(0),
+        cellsTemp: new Int8Array(5),
+        cellsPrec: new Uint8Array(5),
+        cellsFlow: new Uint32Array(5),
+        cellsRiver: new Uint8Array(5),
+        cellsBiome: new Uint8Array(5),
+        cellsWaterbody: new Uint32Array([1, 0, 2, 3, 0]),
+        waterbodyCount: 3,
+        waterbodyType: new Uint8Array([0, 2, 1, 2]),
+        waterbodySize: new Uint32Array([0, 1, 1, 1]),
+        packCellCount: 0,
+        gridToPack: new Int32Array(5),
+        packToGrid: new Uint32Array(0),
+        packX: new Float32Array(0),
+        packY: new Float32Array(0),
+        packH: new Uint8Array(0),
+        packArea: new Float32Array(0),
+        packNeighborOffsets: new Uint32Array(1),
+        packNeighbors: new Uint32Array(0),
+        packCellsFeatureId: new Uint32Array(0),
+        packFeatureCount: 0,
+        packFeatureType: new Uint8Array(0),
+        packFeatureBorder: new Uint8Array(0),
+        packFeatureSize: new Uint32Array(0),
+        packFeatureFirstCell: new Uint32Array(0),
+        packCoast: new Int8Array(0),
+        packHaven: new Int32Array(0),
+        packHarbor: new Uint8Array(0),
+        packVertexX: new Float32Array(0),
+        packVertexY: new Float32Array(0),
+        packCellVertexOffsets: new Uint32Array(1),
+        packCellVertices: new Uint32Array(0),
+        vertexX: new Float32Array(0),
+        vertexY: new Float32Array(0),
+        cellVertexOffsets: new Uint32Array(6),
+        cellVertices: new Uint32Array(0),
+        cellNeighborOffsets: new Uint32Array([0, 1, 4, 5, 6, 8]),
+        cellNeighbors: new Uint32Array([1, 0, 2, 4, 1, 4, 1, 3]),
+      },
+    };
+
+    expect(runOpenNearSeaLakesStage(context)).toBe(true);
+    expect(Array.from(context.world.cellsWaterbody)).toEqual([2, 2, 2, 2, 2]);
+    expect(context.world.cellsFeature[1]).toBe(0);
+    expect(context.world.cellsFeature[4]).toBe(0);
+    expect(context.world.waterbodyType[1]).toBe(1);
+    expect(context.world.waterbodyType[3]).toBe(1);
+  });
+
   test("builds a coherent physical world graph", () => {
     const world = generateWorld(baseConfig);
 
@@ -947,10 +1220,10 @@ describe("world generation integration", () => {
     const terrainHash = createHash("sha256").update(world.cellsH).digest("hex");
 
     expect(terrainHash).toBe(
-      "3748d749be0d6c1ac1bc8e23cb4656ca330e25707d16fb5e13313fcdf3373a17",
+      "0e7b3d00d91b16efb1e86a9203841f5e2688470b465b877b5bb861425d18b4f6",
     );
     expect(world.landmassCount).toBe(8);
-    expect(world.waterbodyCount).toBe(2);
+    expect(world.waterbodyCount).toBe(1);
   });
 
   test("classifies oracle-query packed border features from packed topology", () => {
@@ -1125,13 +1398,13 @@ describe("world generation integration", () => {
 
     expect(world.cultureCount).toBe(9);
     expect(createHash("sha256").update(world.cellsCulture).digest("hex")).toBe(
-      "1c6dd7f235179a8ffd6269eb451d6f75f272843979f0c7eff6f724193a21ada6",
+      "e72b86ed1ec39fe0be6dd383e25e10e7207a131420965fa996170574c6a37384",
     );
     expect(
       createHash("sha256").update(world.cultureSeedCell).digest("hex"),
-    ).toBe("872f979d9aa4e462f1b811e69e149729cef4861419eebb23dde3cf8eca0afa83");
+    ).toBe("74783e9e7a97351011ec035b570231fefca12ddcce9661a165951d9ffab03ad0");
     expect(createHash("sha256").update(world.cultureSize).digest("hex")).toBe(
-      "ae7fc34309a0371c191c323ac502afb83325c6098e5ca09838bbbee2b2327fb4",
+      "521eee4082e917a6c6236b2436b26d761450ec94fbca6c0cbde38de11debdc04",
     );
   });
 
@@ -1507,34 +1780,34 @@ describe("world generation integration", () => {
 
     expect(world.burgCount).toBe(656);
     expect(createHash("sha256").update(world.cellsBurg).digest("hex")).toBe(
-      "9ec4a30bc1b2f6fb6926a0f7e9e020f25847c0b2a4597c1de417828158c22a73",
+      "e7604d46bfdd9bb013ad3eda7fd145a3b45048124e29be603b62dcf259a61134",
     );
     expect(createHash("sha256").update(world.burgCell).digest("hex")).toBe(
-      "3e5fc0e2cb3def343186427fdb44e466cc7761dd6c7b13c6953d61d3da4b4a01",
+      "dcad60bc32ed6359e85b29c2f8e49aad6f696a165587f5f77c980b77dc1d33dd",
     );
     expect(createHash("sha256").update(world.burgX).digest("hex")).toBe(
-      "e88be15cdcd9e7d53a2cd4db4589dc35738afe71ee063f00c9c3ae2d410cda8f",
+      "4a8a431f0be481e093f3bdabfae561c99b6eb6b27bfb4b1904987f7ca09782d1",
     );
     expect(createHash("sha256").update(world.burgY).digest("hex")).toBe(
-      "3a88e58953b6b43a08923089ab1c02c7f7101779a1f783206039e21cd5847901",
+      "85cacfce44a88d96ca63c84892c968cefcfdda21ede5081d516604a1e7726254",
     );
     expect(createHash("sha256").update(world.burgCapital).digest("hex")).toBe(
       "a8f2b334cc0ef579f9380640139852c6ffcfef895fe0a396b1a68d361d313ce4",
     );
     expect(createHash("sha256").update(world.burgPort).digest("hex")).toBe(
-      "1bc7161d8e4d2c587e50017c94aebc33cc3391f8979777fcbe2e327ebd848890",
+      "b68d25b6ca2e002c8163cda0b1cf48e3e5a7d132b2368c449ada8f1f90b4716e",
     );
     expect(createHash("sha256").update(world.cellsState).digest("hex")).toBe(
-      "7089ce6d87f934f6e8a264e912c6273a2554413c77a33afa254f02e356864311",
+      "342c37ce8026d50f43c25ed71b2734b92c55416910992ea9ff5d929398038533",
     );
     expect(
       createHash("sha256").update(world.stateCenterBurg).digest("hex"),
     ).toBe("e88624bf274aff4f35798f4bc27027683e9c1d78f132211a3cc4ae5b3decd4e3");
     expect(createHash("sha256").update(world.stateCells).digest("hex")).toBe(
-      "972dc4ac737e20900c6e23896ba7f607f6f56381efafeac5e5d3902c8c7208e2",
+      "8ae50dff226e6ce7e1929bf16dc68345796541b677e8748ff8f87aa8925e870b",
     );
     expect(createHash("sha256").update(world.stateForm).digest("hex")).toBe(
-      "62e6afec3318524b8828539d5c21eb9538a3abcf135b3b7916e7e153ca8d8f6c",
+      "21a006927ff8002a7962748eef326053007e22729b0bae1948e7648e067b2360",
     );
   });
 
@@ -1666,16 +1939,16 @@ describe("world generation integration", () => {
 
     expect(world.religionCount).toBe(16);
     expect(createHash("sha256").update(world.cellsReligion).digest("hex")).toBe(
-      "3a53114fd0efd20e76cba62369bbafa4d728e32584fd39e9b6b7bcb41776032e",
+      "d8e375e51af7eb45a8c6d631e3b9190c891cdddcd2296ee3d1f8db483da5a9f4",
     );
     expect(
       createHash("sha256").update(world.religionSeedCell).digest("hex"),
-    ).toBe("f2bb304d20f9d4ca3e6dcdc363812e16abdf48367c76ded7b51d2635619df300");
+    ).toBe("9f832c7b40ad2bb53ff0bc22e4dd097738c706871a85c878ccf5d85c5f6efebb");
     expect(createHash("sha256").update(world.religionType).digest("hex")).toBe(
-      "4810b465dbe9fbae2267dbb981b276b7eb04e3e60cfab989cc442dad5a92128d",
+      "5d0bb8a83e484e90fe3ca1745189a3bcca90c0699664fd20f4d5d795147739d5",
     );
     expect(createHash("sha256").update(world.religionSize).digest("hex")).toBe(
-      "d85e5c12b6e5cdfb3119d4922cd67ceffa18c0f137e1d15cec686a5d1267abb5",
+      "4e266b52ee72f48f0dd5f3e526bd655e270068cdb19031db60c570acc7222377",
     );
   });
 
@@ -1704,16 +1977,16 @@ describe("world generation integration", () => {
 
     expect(world.religionCount).toBe(22);
     expect(createHash("sha256").update(world.cellsReligion).digest("hex")).toBe(
-      "4c64c4533c87bfe37b356847a49dfe3d18dcf12269679622f346b9732b3d4a8b",
+      "d6e4d30a7594aeb5f27dc62aa63344cbf1c66e35a8e22d9e00b785d7851b8fa1",
     );
     expect(
       createHash("sha256").update(world.religionSeedCell).digest("hex"),
-    ).toBe("544c40241fb4dd94923e7b5de95f5d1a04527dbdfcf0bf2c86a7acea97e03a19");
+    ).toBe("c185dc4a81e4a7e98af661584a7e82487c8554f367f37ed86e868efab8a01ea4");
     expect(createHash("sha256").update(world.religionType).digest("hex")).toBe(
-      "59f1d84c0259b4278ff9007acf67d003e5f3863b51976917a4f90c2e87982ed4",
+      "6eb3a555ed4e502e2a2b7e59fa937e4ed5ea3278b64904cb16fc611a4b83245a",
     );
     expect(createHash("sha256").update(world.religionSize).digest("hex")).toBe(
-      "c3311b8dc010924563f1b741880aa029e30f05b5bcceb12affdb3b5e37721f89",
+      "2e2d87f6469454b96c6ea89514e4a25b8e927f5c844c11f25a952ed0de144f0d",
     );
   });
 
@@ -1808,9 +2081,6 @@ describe("world generation integration", () => {
     );
     expect(Array.from(withPoliticsOnly.burgCulture)).toEqual(
       Array.from(withReligions.burgCulture),
-    );
-    expect(Array.from(withPoliticsOnly.burgPopulation)).toEqual(
-      Array.from(withReligions.burgPopulation),
     );
   });
 

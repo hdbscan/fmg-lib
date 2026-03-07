@@ -1,0 +1,7 @@
+# Drift Report: 6h3-lake-conversion-oracle-query
+- status: different
+- capturedAt: 2026-03-07T18:36:45.035Z
+- viewport: 1280x900
+- local: local-6h3-oracle-query -> local.png (4446733e13ae57c09973089f8e0c4178b6659cb49011fa644b2aee82aa0750e4)
+- reference: upstream-fmg-seed-42424242-default -> upstream.png (855809c24d33f7995e9a4a4e08a8d251919a8d1d5ef54d5e66324655fccb4efb)
+- note: Near-sea lake conversion semantics check for oracle query seed 42424242.

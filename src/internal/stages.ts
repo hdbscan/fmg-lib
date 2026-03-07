@@ -2448,8 +2448,40 @@ export const runOpenNearSeaLakesStage = (
     cellNeighbors,
   } = context.world;
 
-  const breachLimit = seaLevel + 2;
+  const breachLimit = 22;
   let openedAnyLake = false;
+
+  const removeLake = (
+    thresholdCellId: number,
+    lakeId: number,
+    oceanId: number,
+  ): void => {
+    cellsH[thresholdCellId] = seaLevel - 1;
+    cellsFeature[thresholdCellId] = 0;
+    cellsCoast[thresholdCellId] = -1;
+    cellsWaterbody[thresholdCellId] = oceanId;
+
+    forEachNeighbor(
+      thresholdCellId,
+      cellNeighborOffsets,
+      cellNeighbors,
+      (neighborId) => {
+        if ((cellsH[neighborId] ?? 0) >= seaLevel) {
+          cellsCoast[neighborId] = 1;
+        }
+      },
+    );
+
+    for (let lakeCellId = 0; lakeCellId < cellCount; lakeCellId += 1) {
+      if ((cellsWaterbody[lakeCellId] ?? 0) !== lakeId) {
+        continue;
+      }
+
+      cellsWaterbody[lakeCellId] = oceanId;
+    }
+
+    waterbodyType[lakeId] = 1;
+  };
 
   for (let cellId = 0; cellId < cellCount; cellId += 1) {
     if ((cellsFeature[cellId] ?? 0) !== 0) {
@@ -2521,7 +2553,7 @@ export const runOpenNearSeaLakesStage = (
       continue;
     }
 
-    cellsH[thresholdCellId] = Math.max(0, seaLevel - 1);
+    removeLake(thresholdCellId, lakeId, cellsWaterbody[oceanNeighborId] ?? 0);
     openedAnyLake = true;
   }
 
