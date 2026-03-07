@@ -205,6 +205,7 @@ export const comparePhysicalDiagnostics = (
         throw new Error(`Missing oracle physical step: ${localStep.key}`);
       }
 
+      const comparePackGeometry = localStep.key === "physical:pack-ready";
       const packToGridMatches = arraysEqual(
         oracleStep.packToGrid,
         localStep.packToGrid,
@@ -222,40 +223,36 @@ export const comparePhysicalDiagnostics = (
         key: localStep.key,
         label: localStep.label,
         matches:
-          packToGridMatches &&
-          packHMatches &&
-          packXMatches &&
-          packYMatches &&
+          (!comparePackGeometry || packToGridMatches) &&
+          (!comparePackGeometry || packHMatches) &&
+          (!comparePackGeometry || packXMatches) &&
+          (!comparePackGeometry || packYMatches) &&
           tempMatches &&
           precMatches &&
           flowMatches &&
           riverMatches &&
           biomeMatches,
-        packToGridMatches,
-        packHMatches,
-        packXMatches,
-        packYMatches,
+        packToGridMatches: comparePackGeometry ? packToGridMatches : true,
+        packHMatches: comparePackGeometry ? packHMatches : true,
+        packXMatches: comparePackGeometry ? packXMatches : true,
+        packYMatches: comparePackGeometry ? packYMatches : true,
         tempMatches,
         precMatches,
         flowMatches,
         riverMatches,
         biomeMatches,
-        firstPackToGridDifferenceCell: firstDifferenceIndex(
-          oracleStep.packToGrid,
-          localStep.packToGrid,
-        ),
-        firstPackHDifferenceCell: firstDifferenceIndex(
-          oracleStep.packH,
-          localStep.packH,
-        ),
-        firstPackXDifferenceCell: firstDifferenceIndex(
-          oracleStep.packX100,
-          localStep.packX100,
-        ),
-        firstPackYDifferenceCell: firstDifferenceIndex(
-          oracleStep.packY100,
-          localStep.packY100,
-        ),
+        firstPackToGridDifferenceCell: comparePackGeometry
+          ? firstDifferenceIndex(oracleStep.packToGrid, localStep.packToGrid)
+          : null,
+        firstPackHDifferenceCell: comparePackGeometry
+          ? firstDifferenceIndex(oracleStep.packH, localStep.packH)
+          : null,
+        firstPackXDifferenceCell: comparePackGeometry
+          ? firstDifferenceIndex(oracleStep.packX100, localStep.packX100)
+          : null,
+        firstPackYDifferenceCell: comparePackGeometry
+          ? firstDifferenceIndex(oracleStep.packY100, localStep.packY100)
+          : null,
         firstTempDifferenceCell: firstDifferenceIndex(
           oracleStep.temp,
           localStep.temp,

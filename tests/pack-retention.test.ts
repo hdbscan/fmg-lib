@@ -23,6 +23,7 @@ const config: NormalizedGenerationConfig = {
     statesGrowthRate: 1,
     provincesRatio: 40,
     religionsNumber: null,
+    cellsDesired: 4,
   },
   climate: {
     temperatureEquator: 27,
