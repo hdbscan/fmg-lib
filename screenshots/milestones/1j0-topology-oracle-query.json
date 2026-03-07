@@ -1,0 +1,15 @@
+{
+  "slug": "1j0-topology-oracle-query",
+  "capturedAt": "2026-03-07T11:54:17.872Z",
+  "url": "http://127.0.0.1:46587/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "900x600",
+  "fullPage": false,
+  "delayMs": 2000,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "1j0-topology-oracle-query.png",
+  "sha256": "71a1f634a2fbfb7cdf50255cd5a3b3b00aff3f83748599d4a551067072e800ab"
+}

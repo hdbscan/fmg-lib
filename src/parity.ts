@@ -528,6 +528,14 @@ export const buildLocalParitySnapshot = (
   world: WorldGraphV1,
   config?: GenerationConfig,
 ): ParitySnapshot => {
+  const packLandFeatureCount = Array.from(
+    { length: world.packFeatureCount },
+    (_, index) => index + 1,
+  ).reduce(
+    (count, featureId) =>
+      count + ((world.packFeatureType[featureId] ?? 0) === 3 ? 1 : 0),
+    0,
+  );
   const vertices = toPoints(world.vertexX, world.vertexY);
   const terrainPolygons = collectCellPolygons(
     world.cellVertexOffsets,
@@ -576,7 +584,7 @@ export const buildLocalParitySnapshot = (
       };
     }),
     counts: {
-      landmasses: world.landmassCount,
+      landmasses: packLandFeatureCount,
       states: world.stateCount,
       religions: world.religionCount,
       burgs: world.burgCount,
