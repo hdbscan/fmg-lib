@@ -1874,9 +1874,8 @@ export const runPackStage = (context: GenerationContext): void => {
     cellsX,
     cellsY,
     cellsH,
-    cellsCoast,
     cellsArea,
-    cellsFeature,
+    cellsCoast,
     cellsWaterbody,
     waterbodyType,
     cellNeighborOffsets,
@@ -1985,8 +1984,12 @@ export const runPackStage = (context: GenerationContext): void => {
     packY,
     context.config.width,
     context.config.height,
+    getBoundaryPoints(
+      context.config.width,
+      context.config.height,
+      context.grid.spacing,
+    ),
   );
-
   packHaven.fill(-1);
 
   for (let packId = 0; packId < packCellCount; packId += 1) {
@@ -1994,12 +1997,11 @@ export const runPackStage = (context: GenerationContext): void => {
     const isPrimaryPackCell =
       Math.abs((packX[packId] ?? 0) - (cellsX[gridCellId] ?? 0)) < 1e-6 &&
       Math.abs((packY[packId] ?? 0) - (cellsY[gridCellId] ?? 0)) < 1e-6;
-
     if (isPrimaryPackCell && (gridToPack[gridCellId] ?? -1) === -1) {
       gridToPack[gridCellId] = packId;
     }
 
-    if ((cellsFeature[gridCellId] ?? 0) !== 1) {
+    if ((cellsH[gridCellId] ?? 0) < 20) {
       continue;
     }
 
@@ -2012,7 +2014,7 @@ export const runPackStage = (context: GenerationContext): void => {
       cellNeighborOffsets,
       cellNeighbors,
       (neighborCellId) => {
-        if ((cellsFeature[neighborCellId] ?? 0) === 1) {
+        if ((cellsH[neighborCellId] ?? 0) >= 20) {
           return;
         }
 
@@ -2049,6 +2051,7 @@ export const runPackStage = (context: GenerationContext): void => {
 
 export const runPackFeatureStage = (context: GenerationContext): void => {
   const {
+    packH,
     packCellCount,
     packNeighborOffsets,
     packNeighbors,
@@ -2056,6 +2059,7 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
     cellsBorder,
     packCellsFeatureId,
   } = context.world;
+  const { seaLevel } = context.config;
 
   packCellsFeatureId.fill(0);
 
@@ -2073,6 +2077,8 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
   const packFeatureBorder: number[] = [0];
   const packFeatureSize: number[] = [0];
   const packFeatureFirstCell: number[] = [0];
+  const isLandPackCell = (packId: number): boolean =>
+    (packH[packId] ?? 0) >= seaLevel;
 
   for (
     let startPackCell = 0;
@@ -2090,6 +2096,7 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
 
     let size = 0;
     let border = false;
+    const land = isLandPackCell(startPackCell);
 
     while (queue.length > 0) {
       const packCellId = queue.pop();
@@ -2108,7 +2115,12 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
         packNeighborOffsets,
         packNeighbors,
         (neighborPackId) => {
-          if ((packCellsFeatureId[neighborPackId] ?? 0) !== 0) {
+          const neighborIsLand = isLandPackCell(neighborPackId);
+
+          if (
+            (packCellsFeatureId[neighborPackId] ?? 0) !== 0 ||
+            neighborIsLand !== land
+          ) {
             return;
           }
 
@@ -2118,7 +2130,7 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
       );
     }
 
-    packFeatureType[packFeatureId] = 3;
+    packFeatureType[packFeatureId] = land ? 3 : border ? 1 : 2;
     packFeatureBorder[packFeatureId] = border ? 1 : 0;
     packFeatureSize[packFeatureId] = size;
     packFeatureFirstCell[packFeatureId] = startPackCell;

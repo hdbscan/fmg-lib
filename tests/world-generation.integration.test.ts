@@ -540,6 +540,8 @@ describe("world generation integration", () => {
     expect(summedPackArea).toBeGreaterThanOrEqual(summedPrimaryLandPackArea);
 
     let accountedPackFeatureCells = 0;
+    let packLandFeatures = 0;
+    let packWaterFeatures = 0;
     for (
       let packFeatureId = 1;
       packFeatureId <= world.packFeatureCount;
@@ -550,17 +552,28 @@ describe("world generation integration", () => {
       const size = world.packFeatureSize[packFeatureId] ?? 0;
       const firstPackCell = world.packFeatureFirstCell[packFeatureId] ?? 0;
 
-      expect(type).toBe(3);
+      expect(type === 1 || type === 2 || type === 3).toBe(true);
       expect(border === 0 || border === 1).toBe(true);
       expect(size).toBeGreaterThan(0);
       expect(firstPackCell).toBeGreaterThanOrEqual(0);
       expect(firstPackCell).toBeLessThan(world.packCellCount);
       expect(world.packCellsFeatureId[firstPackCell]).toBe(packFeatureId);
 
+      const firstGridCell = world.packToGrid[firstPackCell] ?? 0;
+      if (type === 3) {
+        expect(world.cellsFeature[firstGridCell]).toBe(1);
+        packLandFeatures += 1;
+      } else {
+        expect(world.cellsFeature[firstGridCell]).toBe(0);
+        packWaterFeatures += 1;
+      }
+
       accountedPackFeatureCells += size;
     }
 
     expect(accountedPackFeatureCells).toBe(world.packCellCount);
+    expect(packLandFeatures).toBeGreaterThan(0);
+    expect(packWaterFeatures).toBeGreaterThan(0);
   });
 
   test("is deterministic for same seed and config", () => {
