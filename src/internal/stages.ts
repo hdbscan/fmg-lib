@@ -1089,7 +1089,7 @@ const polygonArea = (
 
 export const runGridStage = (context: GenerationContext): void => {
   const { width, height, requestedCells, jitter } = context.config;
-  const gridRandom = createAlea(context.config.seed);
+  const gridRandom = context.random;
 
   const spacing = rn(Math.sqrt((width * height) / requestedCells), 2);
   const cellsX = Math.max(
@@ -1267,7 +1267,6 @@ export const runHeightmapStage = (context: GenerationContext): void => {
     context.config;
   const { cellCount, cellsH } = context.world;
   const heights = new Uint8Array(cellCount);
-  context.random = createAlea(context.config.seed);
   const heightmapRandom = context.random;
   const blobPower = getBlobPower(requestedCells);
   const linePower = getLinePower(requestedCells);
