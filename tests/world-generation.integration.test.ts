@@ -1195,7 +1195,7 @@ describe("world generation integration", () => {
         Number.isFinite(withSettlementsA.burgY[burgId] ?? Number.NaN),
       ).toBe(true);
 
-      const isPort = (withSettlementsA.burgPort[burgId] ?? 0) === 1;
+      const isPort = (withSettlementsA.burgPort[burgId] ?? 0) > 0;
       if (isPort) {
         portCount += 1;
       }
