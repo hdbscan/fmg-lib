@@ -1,0 +1,15 @@
+{
+  "slug": "h72-oracle-query-packed-geometry",
+  "capturedAt": "2026-03-07T16:40:23.171Z",
+  "url": "http://127.0.0.1:45491/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50&heightTemplate=continents",
+  "selector": "[data-screenshot=\"ui-shell\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "1440x960",
+  "fullPage": false,
+  "delayMs": 1500,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50&heightTemplate=continents",
+  "artifact": "h72-oracle-query-packed-geometry.png",
+  "sha256": "88a6bd56b4ad49814b716daf0375d7ad81cfda7025958e951e53bd0562015e1a"
+}

@@ -176,6 +176,13 @@ export const serializeWorld = (world: WorldGraphV1): string => {
       packCoast: encodeTypedArray(world.packCoast, "i8"),
       packHaven: encodeTypedArray(world.packHaven, "i32"),
       packHarbor: encodeTypedArray(world.packHarbor, "u8"),
+      packVertexX: encodeTypedArray(world.packVertexX, "f32"),
+      packVertexY: encodeTypedArray(world.packVertexY, "f32"),
+      packCellVertexOffsets: encodeTypedArray(
+        world.packCellVertexOffsets,
+        "u32",
+      ),
+      packCellVertices: encodeTypedArray(world.packCellVertices, "u32"),
       vertexX: encodeTypedArray(world.vertexX, "f32"),
       vertexY: encodeTypedArray(world.vertexY, "f32"),
       cellVertexOffsets: encodeTypedArray(world.cellVertexOffsets, "u32"),
@@ -349,6 +356,12 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
   const packCoast = decodeTypedArray(world.arrays.packCoast);
   const packHaven = decodeTypedArray(world.arrays.packHaven);
   const packHarbor = decodeTypedArray(world.arrays.packHarbor);
+  const packVertexX = decodeTypedArray(world.arrays.packVertexX);
+  const packVertexY = decodeTypedArray(world.arrays.packVertexY);
+  const packCellVertexOffsets = decodeTypedArray(
+    world.arrays.packCellVertexOffsets,
+  );
+  const packCellVertices = decodeTypedArray(world.arrays.packCellVertices);
   const vertexX = decodeTypedArray(world.arrays.vertexX);
   const vertexY = decodeTypedArray(world.arrays.vertexY);
   const cellVertexOffsets = decodeTypedArray(world.arrays.cellVertexOffsets);
@@ -440,6 +453,10 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     !(packCoast instanceof Int8Array) ||
     !(packHaven instanceof Int32Array) ||
     !(packHarbor instanceof Uint8Array) ||
+    !(packVertexX instanceof Float32Array) ||
+    !(packVertexY instanceof Float32Array) ||
+    !(packCellVertexOffsets instanceof Uint32Array) ||
+    !(packCellVertices instanceof Uint32Array) ||
     !(vertexX instanceof Float32Array) ||
     !(vertexY instanceof Float32Array) ||
     !(cellVertexOffsets instanceof Uint32Array) ||
@@ -555,6 +572,10 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     packCoast,
     packHaven,
     packHarbor,
+    packVertexX,
+    packVertexY,
+    packCellVertexOffsets,
+    packCellVertices,
     vertexX,
     vertexY,
     cellVertexOffsets,
