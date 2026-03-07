@@ -25,6 +25,8 @@ const createConfig = (): NormalizedGenerationConfig => ({
   hiddenControls: {
     sizeVariety: 1,
     growthRate: 1,
+    statesGrowthRate: 1,
+    provincesRatio: 40,
     religionsNumber: null,
   },
   climate: {

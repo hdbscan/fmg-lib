@@ -68,6 +68,8 @@ describe("oracle config replay", () => {
       townsNumber: 1000,
       sizeVariety: 5,
       growthRate: 1.7,
+      statesGrowthRate: 1.35,
+      provincesRatio: 72,
       religionsNumber: 8,
       temperatureEquator: 31,
       temperatureNorthPole: -27,
@@ -88,6 +90,8 @@ describe("oracle config replay", () => {
     expect(config.hiddenControls).toEqual({
       sizeVariety: 5,
       growthRate: 1.7,
+      statesGrowthRate: 1.35,
+      provincesRatio: 72,
       religionsNumber: 8,
     });
     expect(config.climate).toEqual({
@@ -113,5 +117,17 @@ describe("oracle config replay", () => {
     });
 
     expect(normalized.climate.elevationExponent).toBe(1.8);
+  });
+
+  test("uses upstream political control defaults in normalized config", () => {
+    const normalized = normalizeConfig({
+      seed: "default-politics",
+      width: 100,
+      height: 80,
+      cells: 100,
+    });
+
+    expect(normalized.hiddenControls.statesGrowthRate).toBe(1);
+    expect(normalized.hiddenControls.provincesRatio).toBe(40);
   });
 });

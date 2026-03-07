@@ -100,6 +100,16 @@ export const normalizeConfig = (
     throw new Error("hiddenControls.growthRate must be within [0.1, 2]");
   }
 
+  const statesGrowthRate = config.hiddenControls?.statesGrowthRate ?? 1;
+  if (!inRange(statesGrowthRate, 0.1, 3)) {
+    throw new Error("hiddenControls.statesGrowthRate must be within [0.1, 3]");
+  }
+
+  const provincesRatio = config.hiddenControls?.provincesRatio ?? 40;
+  if (!inRange(provincesRatio, 0, 100)) {
+    throw new Error("hiddenControls.provincesRatio must be within [0, 100]");
+  }
+
   const religionsNumber = config.hiddenControls?.religionsNumber ?? null;
   if (
     religionsNumber !== null &&
@@ -176,6 +186,8 @@ export const normalizeConfig = (
     hiddenControls: {
       sizeVariety,
       growthRate,
+      statesGrowthRate,
+      provincesRatio,
       religionsNumber,
     },
     climate: {
