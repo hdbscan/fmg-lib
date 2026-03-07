@@ -98,12 +98,14 @@ const collectHydrologyStats = (
   riverCells: number;
   maxLandFlow: number;
   riverThreshold: number;
+  uniqueRivers: number;
   biomeCount: number;
 }> => {
   let riverCells = 0;
   let maxLandFlow = 0;
   const biomes = new Set<number>();
-  const riverThreshold = Math.max(600, Math.floor(world.cellCount / 10));
+  const rivers = new Set<number>();
+  const riverThreshold = 30;
 
   for (let index = 0; index < world.cellCount; index += 1) {
     const feature = world.cellsFeature[index] ?? 0;
@@ -116,8 +118,9 @@ const collectHydrologyStats = (
       maxLandFlow = Math.max(maxLandFlow, flow);
     }
 
-    if (river === 1) {
+    if (river > 0) {
       riverCells += 1;
+      rivers.add(river);
       expect(feature).toBe(1);
       expect(flow).toBeGreaterThanOrEqual(riverThreshold);
       expect(biome).not.toBe(0);
@@ -134,6 +137,7 @@ const collectHydrologyStats = (
     riverCells,
     maxLandFlow,
     riverThreshold,
+    uniqueRivers: rivers.size,
     biomeCount: biomes.size,
   };
 };
@@ -385,7 +389,7 @@ describe("world generation integration", () => {
       expect(p).toBeGreaterThanOrEqual(0);
       expect(p).toBeLessThanOrEqual(255);
       expect(flow).toBeGreaterThanOrEqual(0);
-      expect(river === 0 || river === 1).toBe(true);
+      expect(river).toBeGreaterThanOrEqual(0);
       expect(biome).toBeGreaterThanOrEqual(0);
       expect(biome).toBeLessThanOrEqual(8);
 
@@ -2396,16 +2400,18 @@ describe("world generation integration", () => {
   });
 
   test("keeps river and biome outputs structurally consistent", () => {
-    const zeroRiverWorld = generateWorld(baseConfig);
-    const zeroRiverStats = collectHydrologyStats(zeroRiverWorld);
+    const baseRiverWorld = generateWorld(baseConfig);
+    const baseRiverStats = collectHydrologyStats(baseRiverWorld);
 
-    expect(zeroRiverStats.riverCells).toBe(0);
-    expect(zeroRiverStats.biomeCount).toBeGreaterThan(2);
+    expect(baseRiverStats.riverCells).toBeGreaterThan(0);
+    expect(baseRiverStats.uniqueRivers).toBeGreaterThan(0);
+    expect(baseRiverStats.biomeCount).toBeGreaterThan(2);
 
     const riverWorld = generateWorld({ ...baseConfig, seed: "38" });
     const riverStats = collectHydrologyStats(riverWorld);
 
     expect(riverStats.riverCells).toBeGreaterThan(0);
+    expect(riverStats.uniqueRivers).toBeGreaterThan(0);
     expect(riverStats.maxLandFlow).toBeGreaterThanOrEqual(
       riverStats.riverThreshold,
     );

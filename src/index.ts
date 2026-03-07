@@ -145,7 +145,7 @@ const createContext = (
       cellsTemp: new Int8Array(0),
       cellsPrec: new Uint8Array(0),
       cellsFlow: new Uint32Array(0),
-      cellsRiver: new Uint8Array(0),
+      cellsRiver: new Uint32Array(0),
       cellsBiome: new Uint8Array(0),
       cellsWaterbody: new Uint32Array(0),
       waterbodyCount: 0,

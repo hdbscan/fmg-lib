@@ -1182,7 +1182,7 @@ export const runGridStage = (context: GenerationContext): void => {
   context.world.cellsTemp = new Int8Array(cellCount);
   context.world.cellsPrec = new Uint8Array(cellCount);
   context.world.cellsFlow = new Uint32Array(cellCount);
-  context.world.cellsRiver = new Uint8Array(cellCount);
+  context.world.cellsRiver = new Uint32Array(cellCount);
   context.world.cellsBiome = new Uint8Array(cellCount);
   context.world.cellsWaterbody = new Uint32Array(cellCount);
   context.world.waterbodyCount = 0;
@@ -2954,25 +2954,110 @@ export const runClimateStage = (context: GenerationContext): void => {
 export const runHydrologyStage = (context: GenerationContext): void => {
   const {
     cellCount,
+    cellsBorder,
     cellsH,
     cellsPrec,
     cellsFeature,
+    cellsTemp,
+    cellsWaterbody,
+    waterbodyCount,
+    waterbodyType,
+    waterbodySize,
+    featureFirstCell,
     cellNeighborOffsets,
     cellNeighbors,
     cellsFlow,
     cellsRiver,
   } = context.world;
 
-  const order = Array.from({ length: cellCount }, (_, index) => index).sort(
-    (a, b) => {
-      const hA = cellsH[a] ?? 0;
-      const hB = cellsH[b] ?? 0;
-      return hB - hA;
-    },
+  const MIN_FLUX_TO_FORM_RIVER = 30;
+  const MAX_DEPRESSION_ITERATIONS = 100;
+  const depressionLakeCheckIteration = Math.floor(
+    MAX_DEPRESSION_ITERATIONS * 0.85,
+  );
+  const depressionLakeCloseIteration = Math.floor(
+    MAX_DEPRESSION_ITERATIONS * 0.75,
   );
 
-  const downhill = new Int32Array(cellCount);
-  downhill.fill(-1);
+  const adjustedHeights = Float64Array.from(cellsH);
+  const lakeSurfaceHeight = new Float64Array(waterbodyCount + 1);
+  const lakeOutletCell = new Int32Array(waterbodyCount + 1);
+  const lakeOutletWaterCell = new Int32Array(waterbodyCount + 1);
+  const lakeClosed = new Uint8Array(waterbodyCount + 1);
+  const lakeInflow = new Uint32Array(waterbodyCount + 1);
+  const lakeEvaporation = new Uint32Array(waterbodyCount + 1);
+  const lakeDominantRiver = new Uint32Array(waterbodyCount + 1);
+  const lakeDominantFlux = new Uint32Array(waterbodyCount + 1);
+  const riverAtCell = new Uint32Array(cellCount);
+  const riverDominantFlux = new Uint32Array(cellCount);
+  const riverConfluenceFlux = new Uint32Array(cellCount);
+  const lakeOutletsByCell: number[][] = Array.from(
+    { length: cellCount },
+    () => [],
+  );
+  const shorelineByLake: number[][] = Array.from(
+    { length: waterbodyCount + 1 },
+    () => [],
+  );
+
+  lakeOutletCell.fill(-1);
+  lakeOutletWaterCell.fill(-1);
+
+  const getEffectiveHeight = (cellId: number, excludedLakeId = 0): number => {
+    if ((cellsFeature[cellId] ?? 0) === 1) {
+      return adjustedHeights[cellId] ?? 0;
+    }
+
+    const waterbodyId = cellsWaterbody[cellId] ?? 0;
+    if (
+      waterbodyId > 0 &&
+      (waterbodyType[waterbodyId] ?? 0) === 2 &&
+      waterbodyId !== excludedLakeId
+    ) {
+      return lakeSurfaceHeight[waterbodyId] ?? 19;
+    }
+
+    return cellsH[cellId] ?? 0;
+  };
+
+  const updateLakeOutlet = (lakeId: number, landCellId: number): void => {
+    const shorelineHeight = adjustedHeights[landCellId] ?? 0;
+    const currentOutlet = lakeOutletCell[lakeId] ?? -1;
+    const currentHeight =
+      currentOutlet >= 0
+        ? (adjustedHeights[currentOutlet] ?? Number.POSITIVE_INFINITY)
+        : Number.POSITIVE_INFINITY;
+
+    if (
+      shorelineHeight > currentHeight ||
+      (shorelineHeight === currentHeight &&
+        currentOutlet >= 0 &&
+        currentOutlet <= landCellId)
+    ) {
+      return;
+    }
+
+    let bestWaterCell = -1;
+    forEachNeighbor(
+      landCellId,
+      cellNeighborOffsets,
+      cellNeighbors,
+      (neighborId) => {
+        if (
+          bestWaterCell >= 0 ||
+          (cellsFeature[neighborId] ?? 0) !== 0 ||
+          (cellsWaterbody[neighborId] ?? 0) !== lakeId
+        ) {
+          return;
+        }
+
+        bestWaterCell = neighborId;
+      },
+    );
+
+    lakeOutletCell[lakeId] = landCellId;
+    lakeOutletWaterCell[lakeId] = bestWaterCell;
+  };
 
   for (let cellId = 0; cellId < cellCount; cellId += 1) {
     cellsFlow[cellId] = cellsPrec[cellId] ?? 0;
@@ -2982,62 +3067,367 @@ export const runHydrologyStage = (context: GenerationContext): void => {
       continue;
     }
 
-    const currentHeight = cellsH[cellId] ?? 0;
+    forEachNeighbor(
+      cellId,
+      cellNeighborOffsets,
+      cellNeighbors,
+      (neighborId) => {
+        if ((cellsFeature[neighborId] ?? 0) !== 0) {
+          return;
+        }
+
+        const lakeId = cellsWaterbody[neighborId] ?? 0;
+        if (lakeId <= 0 || (waterbodyType[lakeId] ?? 0) !== 2) {
+          return;
+        }
+
+        shorelineByLake[lakeId]?.push(cellId);
+        updateLakeOutlet(lakeId, cellId);
+      },
+    );
+  }
+
+  for (let lakeId = 1; lakeId <= waterbodyCount; lakeId += 1) {
+    if ((waterbodyType[lakeId] ?? 0) !== 2) {
+      continue;
+    }
+
+    const outletCellId = lakeOutletCell[lakeId] ?? -1;
+    lakeSurfaceHeight[lakeId] =
+      outletCellId >= 0 ? (adjustedHeights[outletCellId] ?? 19) - 1 : 19;
+  }
+
+  const landCells = Array.from({ length: cellCount }, (_, index) => index)
+    .filter(
+      (cellId) =>
+        (cellsFeature[cellId] ?? 0) === 1 && (cellsBorder[cellId] ?? 0) !== 1,
+    )
+    .sort((a, b) => (adjustedHeights[a] ?? 0) - (adjustedHeights[b] ?? 0));
+
+  let previousDepressions: number | null = null;
+  const depressionProgress: number[] = [];
+
+  for (
+    let iteration = 0;
+    iteration < MAX_DEPRESSION_ITERATIONS;
+    iteration += 1
+  ) {
+    if (depressionProgress.length > 5) {
+      let worsening = 0;
+      for (const delta of depressionProgress) worsening += delta;
+      if (worsening > 0) {
+        break;
+      }
+    }
+
+    let depressions = 0;
+
+    if (iteration < depressionLakeCheckIteration) {
+      for (let lakeId = 1; lakeId <= waterbodyCount; lakeId += 1) {
+        if (
+          (waterbodyType[lakeId] ?? 0) !== 2 ||
+          (lakeClosed[lakeId] ?? 0) === 1
+        ) {
+          continue;
+        }
+
+        const shoreline = shorelineByLake[lakeId] ?? [];
+        if (shoreline.length === 0) {
+          continue;
+        }
+
+        let minHeight = Number.POSITIVE_INFINITY;
+        let bestOutletCell = -1;
+        for (const shorelineCellId of shoreline) {
+          const shorelineHeight = adjustedHeights[shorelineCellId] ?? 0;
+          if (
+            shorelineHeight < minHeight ||
+            (shorelineHeight === minHeight &&
+              bestOutletCell >= 0 &&
+              shorelineCellId < bestOutletCell)
+          ) {
+            minHeight = shorelineHeight;
+            bestOutletCell = shorelineCellId;
+          }
+        }
+
+        if (
+          !Number.isFinite(minHeight) ||
+          minHeight >= 100 ||
+          (lakeSurfaceHeight[lakeId] ?? 19) > minHeight
+        ) {
+          continue;
+        }
+
+        if (iteration > depressionLakeCloseIteration) {
+          lakeClosed[lakeId] = 1;
+          lakeSurfaceHeight[lakeId] = minHeight - 1;
+          if (bestOutletCell >= 0) {
+            lakeOutletCell[lakeId] = bestOutletCell;
+            updateLakeOutlet(lakeId, bestOutletCell);
+          }
+          continue;
+        }
+
+        lakeSurfaceHeight[lakeId] = minHeight + 0.2;
+        if (bestOutletCell >= 0) {
+          lakeOutletCell[lakeId] = bestOutletCell;
+          updateLakeOutlet(lakeId, bestOutletCell);
+        }
+        depressions += 1;
+      }
+    }
+
+    for (const cellId of landCells) {
+      let minNeighborHeight = Number.POSITIVE_INFINITY;
+      forEachNeighbor(
+        cellId,
+        cellNeighborOffsets,
+        cellNeighbors,
+        (neighborId) => {
+          const neighborHeight = getEffectiveHeight(neighborId);
+          if (neighborHeight < minNeighborHeight) {
+            minNeighborHeight = neighborHeight;
+          }
+        },
+      );
+
+      if (
+        !Number.isFinite(minNeighborHeight) ||
+        minNeighborHeight >= 100 ||
+        (adjustedHeights[cellId] ?? 0) > minNeighborHeight
+      ) {
+        continue;
+      }
+
+      adjustedHeights[cellId] = minNeighborHeight + 0.1;
+      depressions += 1;
+    }
+
+    if (depressions === 0) {
+      break;
+    }
+
+    if (previousDepressions !== null) {
+      depressionProgress.push(depressions - previousDepressions);
+      if (depressionProgress.length > 6) {
+        depressionProgress.shift();
+      }
+    }
+    previousDepressions = depressions;
+  }
+
+  for (let lakeId = 1; lakeId <= waterbodyCount; lakeId += 1) {
+    if ((waterbodyType[lakeId] ?? 0) !== 2) {
+      continue;
+    }
+
+    const outletCellId = lakeOutletCell[lakeId] ?? -1;
+    if (outletCellId >= 0) {
+      lakeOutletsByCell[outletCellId]?.push(lakeId);
+    }
+
+    const lakeCellCount = Math.max(waterbodySize[lakeId] ?? 0, 1);
+    const firstCell = featureFirstCell[lakeId] ?? 0;
+    const lakeTemp = cellsTemp[firstCell] ?? 0;
+    const rimHeight =
+      outletCellId >= 0
+        ? Math.max(adjustedHeights[outletCellId] ?? 20, 20)
+        : 20;
+    const heightAboveSea = Math.max(rimHeight - 18, 0);
+    const elevatedHeight =
+      heightAboveSea ** context.config.climate.elevationExponent;
+    const evaporationRate =
+      ((700 * (lakeTemp + 0.006 * elevatedHeight)) / 50 + 75) /
+      Math.max(80 - lakeTemp, 1);
+
+    lakeEvaporation[lakeId] = Math.max(
+      Math.round(Math.max(evaporationRate, 0) * lakeCellCount),
+      0,
+    );
+  }
+
+  const order = Array.from({ length: cellCount }, (_, index) => index)
+    .filter((cellId) => (cellsFeature[cellId] ?? 0) === 1)
+    .sort((a, b) => {
+      const hA = adjustedHeights[a] ?? 0;
+      const hB = adjustedHeights[b] ?? 0;
+      if (hB !== hA) {
+        return hB - hA;
+      }
+      return a - b;
+    });
+
+  const selectDownhill = (
+    cellId: number,
+    excludedLakeIds: readonly number[] = [],
+  ): number => {
+    const currentHeight = adjustedHeights[cellId] ?? 0;
     let target = -1;
     let targetHeight = currentHeight;
-    let waterTarget = -1;
-    let waterTargetHeight = Number.POSITIVE_INFINITY;
 
     forEachNeighbor(
       cellId,
       cellNeighborOffsets,
       cellNeighbors,
       (neighborId) => {
-        const neighborHeight = cellsH[neighborId] ?? 0;
-        const neighborIsWater = (cellsFeature[neighborId] ?? 0) === 0;
-
-        if (neighborIsWater && neighborHeight < waterTargetHeight) {
-          waterTarget = neighborId;
-          waterTargetHeight = neighborHeight;
+        const waterbodyId = cellsWaterbody[neighborId] ?? 0;
+        if (
+          excludedLakeIds.length > 0 &&
+          (cellsFeature[neighborId] ?? 0) === 0 &&
+          excludedLakeIds.includes(waterbodyId)
+        ) {
+          return;
         }
 
-        if (neighborHeight < targetHeight) {
+        const neighborHeight = getEffectiveHeight(neighborId, 0);
+        if (
+          neighborHeight < targetHeight ||
+          (neighborHeight === targetHeight &&
+            target >= 0 &&
+            neighborId < target)
+        ) {
           target = neighborId;
           targetHeight = neighborHeight;
         }
       },
     );
 
-    if (target < 0 && waterTarget >= 0) {
-      target = waterTarget;
+    return target;
+  };
+
+  let nextRiverId = 1;
+
+  const receiveRiverFlux = (
+    cellId: number,
+    flux: number,
+    riverId: number,
+  ): void => {
+    if (flux <= 0) {
+      return;
     }
 
-    downhill[cellId] = target;
-  }
+    const currentRiver = riverAtCell[cellId] ?? 0;
+    const currentDominantFlux = riverDominantFlux[cellId] ?? 0;
+
+    if (currentRiver === 0) {
+      riverAtCell[cellId] = riverId;
+      riverDominantFlux[cellId] = flux;
+    } else if (riverId !== currentRiver) {
+      if (flux > currentDominantFlux) {
+        riverConfluenceFlux[cellId] =
+          (riverConfluenceFlux[cellId] ?? 0) + currentDominantFlux;
+        riverAtCell[cellId] = riverId;
+        riverDominantFlux[cellId] = flux;
+      } else {
+        riverConfluenceFlux[cellId] = (riverConfluenceFlux[cellId] ?? 0) + flux;
+      }
+    } else if (flux > currentDominantFlux) {
+      riverDominantFlux[cellId] = flux;
+    }
+
+    cellsFlow[cellId] = (cellsFlow[cellId] ?? 0) + flux;
+  };
+
+  const receiveLakeFlux = (
+    cellId: number,
+    flux: number,
+    riverId: number,
+  ): void => {
+    if (flux <= 0) {
+      return;
+    }
+
+    const lakeId = cellsWaterbody[cellId] ?? 0;
+    if (lakeId <= 0 || (waterbodyType[lakeId] ?? 0) !== 2) {
+      return;
+    }
+
+    lakeInflow[lakeId] = (lakeInflow[lakeId] ?? 0) + flux;
+    if (flux > (lakeDominantFlux[lakeId] ?? 0)) {
+      lakeDominantFlux[lakeId] = flux;
+      lakeDominantRiver[lakeId] = riverId;
+    }
+  };
 
   for (const cellId of order) {
-    if ((cellsFeature[cellId] ?? 0) !== 1) {
+    const outletLakes = lakeOutletsByCell[cellId] ?? [];
+    for (const lakeId of outletLakes) {
+      const remainingFlux = Math.max(
+        (lakeInflow[lakeId] ?? 0) - (lakeEvaporation[lakeId] ?? 0),
+        0,
+      );
+      if (remainingFlux <= 0) {
+        continue;
+      }
+
+      let outletRiverId = lakeDominantRiver[lakeId] ?? 0;
+      if (outletRiverId === 0) {
+        outletRiverId = nextRiverId;
+        nextRiverId += 1;
+      }
+
+      receiveRiverFlux(cellId, remainingFlux, outletRiverId);
+    }
+
+    if ((cellsBorder[cellId] ?? 0) === 1 && (riverAtCell[cellId] ?? 0) > 0) {
       continue;
     }
 
     const flow = cellsFlow[cellId] ?? 0;
-    const target = downhill[cellId] ?? -1;
-    if (target >= 0) {
-      cellsFlow[target] = (cellsFlow[target] ?? 0) + flow;
+    const target = selectDownhill(cellId, outletLakes);
+    if (
+      target < 0 ||
+      (adjustedHeights[cellId] ?? 0) <= getEffectiveHeight(target)
+    ) {
+      continue;
     }
+
+    if (flow < MIN_FLUX_TO_FORM_RIVER) {
+      if ((cellsFeature[target] ?? 0) === 1) {
+        cellsFlow[target] = (cellsFlow[target] ?? 0) + flow;
+      }
+      continue;
+    }
+
+    if ((riverAtCell[cellId] ?? 0) === 0) {
+      riverAtCell[cellId] = nextRiverId;
+      riverDominantFlux[cellId] = flow;
+      nextRiverId += 1;
+    } else if (flow > (riverDominantFlux[cellId] ?? 0)) {
+      riverDominantFlux[cellId] = flow;
+    }
+
+    const riverId = riverAtCell[cellId] ?? 0;
+    if ((cellsFeature[target] ?? 0) === 0) {
+      receiveLakeFlux(target, flow, riverId);
+      continue;
+    }
+
+    receiveRiverFlux(target, flow, riverId);
   }
 
-  const riverThreshold = Math.max(600, Math.floor(cellCount / 10));
-
+  const riverCellCounts = new Uint32Array(nextRiverId + 1);
   for (let cellId = 0; cellId < cellCount; cellId += 1) {
     if ((cellsFeature[cellId] ?? 0) !== 1) {
       continue;
     }
 
-    const flow = cellsFlow[cellId] ?? 0;
-    if (flow >= riverThreshold && (downhill[cellId] ?? -1) >= 0) {
-      cellsRiver[cellId] = 1;
+    const riverId = riverAtCell[cellId] ?? 0;
+    if (riverId > 0 && (cellsFlow[cellId] ?? 0) >= MIN_FLUX_TO_FORM_RIVER) {
+      riverCellCounts[riverId] = (riverCellCounts[riverId] ?? 0) + 1;
     }
+  }
+
+  for (let cellId = 0; cellId < cellCount; cellId += 1) {
+    if ((cellsFeature[cellId] ?? 0) !== 1) {
+      cellsRiver[cellId] = 0;
+      continue;
+    }
+
+    const riverId = riverAtCell[cellId] ?? 0;
+    cellsRiver[cellId] =
+      riverId > 0 && (riverCellCounts[riverId] ?? 0) >= 3 ? riverId : 0;
   }
 };
 
@@ -3061,7 +3451,7 @@ export const runBiomeStage = (context: GenerationContext): void => {
     const temp = cellsTemp[cellId] ?? 0;
     const prec = cellsPrec[cellId] ?? 0;
     const river = cellsRiver[cellId] ?? 0;
-    const wetness = Math.min(255, prec + river * 30);
+    const wetness = Math.min(255, prec + (river > 0 ? 30 : 0));
 
     if (temp < -15) {
       cellsBiome[cellId] = wetness > 100 ? 2 : 1;
@@ -4094,7 +4484,7 @@ export const runMarkersZonesStage = (context: GenerationContext): void => {
 
         const score =
           h * 1.2 +
-          river * 120 +
+          (river > 0 ? 120 : 0) +
           flow / 10 +
           (coast === 1 ? 80 : 0) +
           (burg > 0 ? 90 : 0) +
@@ -4161,7 +4551,7 @@ export const runMarkersZonesStage = (context: GenerationContext): void => {
       let type = 4;
       if (h >= 75) {
         type = 1;
-      } else if (river === 1) {
+      } else if (river > 0) {
         type = 2;
       } else if (coast === 1) {
         type = 3;
