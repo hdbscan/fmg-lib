@@ -506,6 +506,91 @@ const computeRankedSuitability = (context: GenerationContext): Float64Array => {
   return suitability;
 };
 
+const computeBurgCellSuitability = (context: GenerationContext): Int16Array => {
+  const {
+    cellCount,
+    cellsFeature,
+    cellsFlow,
+    cellsBiome,
+    cellsH,
+    cellsRiver,
+    cellsWaterbody,
+    cellsCoast,
+    waterbodyType,
+    packHarbor,
+    packHaven,
+    gridToPack,
+  } = context.world;
+  const suitability = new Int16Array(cellCount);
+  const downhill = computeDownhill(context);
+  const confluence = computeConfluenceStrength(context, downhill);
+  const lakeMetadata = computeLakeFeatureMetadata(context, downhill);
+  const positiveFlow: number[] = [];
+  let maxFlow = 0;
+  let maxConfluence = 0;
+
+  for (let cellId = 0; cellId < cellCount; cellId += 1) {
+    const flow = cellsFlow[cellId] ?? 0;
+    if (flow > 0) positiveFlow.push(flow);
+    if (flow > maxFlow) maxFlow = flow;
+    const conflux = confluence[cellId] ?? 0;
+    if (conflux > maxConfluence) maxConfluence = conflux;
+  }
+
+  positiveFlow.sort((left, right) => left - right);
+  const flowMidpoint = Math.floor(positiveFlow.length / 2);
+  const meanFlux =
+    positiveFlow.length === 0
+      ? 0
+      : positiveFlow.length % 2 === 0
+        ? ((positiveFlow[flowMidpoint - 1] ?? 0) +
+            (positiveFlow[flowMidpoint] ?? 0)) /
+          2
+        : (positiveFlow[flowMidpoint] ?? 0);
+  const maxFlux = maxFlow + maxConfluence;
+
+  for (let cellId = 0; cellId < cellCount; cellId += 1) {
+    if ((cellsFeature[cellId] ?? 0) !== 1) continue;
+
+    let score = biomeHabitability[cellsBiome[cellId] ?? 0] ?? 0;
+    if (score <= 0) continue;
+
+    if (meanFlux > 0 && maxFlux > meanFlux) {
+      score +=
+        normalize(
+          (cellsFlow[cellId] ?? 0) + (confluence[cellId] ?? 0),
+          meanFlux,
+          maxFlux,
+        ) * 250;
+    }
+
+    score -= ((cellsH[cellId] ?? 0) - 50) / 5;
+
+    const packId = gridToPack[cellId] ?? -1;
+    const haven = packId >= 0 ? (packHaven[packId] ?? -1) : -1;
+    if ((cellsCoast[cellId] ?? 0) === 1 && haven >= 0) {
+      if ((cellsRiver[cellId] ?? 0) > 0) score += rankScoreMap.estuary;
+
+      const waterbodyId = cellsWaterbody[haven] ?? 0;
+      const adjacentWaterType = waterbodyType[waterbodyId] ?? 0;
+      if (adjacentWaterType === 2) {
+        score += getLakeGroupSuitabilityBonus(
+          lakeMetadata.group[waterbodyId] ?? 0,
+        );
+      } else if (adjacentWaterType === 1) {
+        score += rankScoreMap.oceanCoast;
+        if (packId >= 0 && (packHarbor[packId] ?? 0) === 1) {
+          score += rankScoreMap.safeHarbor;
+        }
+      }
+    }
+
+    suitability[cellId] = Math.trunc(score / 5);
+  }
+
+  return suitability;
+};
+
 export const computePoliticalSuitability = (
   context: GenerationContext,
 ): Int16Array => {
@@ -640,33 +725,33 @@ const getTargetTowns = (
   return clamp(raw, 0, populatedCount);
 };
 
-const hasBurgNear = (
+const hasCellBurgNear = (
   context: GenerationContext,
-  selectedPackIds: readonly number[],
-  packId: number,
+  selectedCellIds: readonly number[],
+  cellId: number,
   spacing: number,
 ): boolean => {
-  const x = context.world.packX[packId] ?? 0;
-  const y = context.world.packY[packId] ?? 0;
+  const x = context.world.cellsX[cellId] ?? 0;
+  const y = context.world.cellsY[cellId] ?? 0;
   const spacingSq = spacing * spacing;
-  for (const selectedPackId of selectedPackIds) {
-    const dx = (context.world.packX[selectedPackId] ?? 0) - x;
-    const dy = (context.world.packY[selectedPackId] ?? 0) - y;
+  for (const selectedCellId of selectedCellIds) {
+    const dx = (context.world.cellsX[selectedCellId] ?? 0) - x;
+    const dy = (context.world.cellsY[selectedCellId] ?? 0) - y;
     if (dx * dx + dy * dy <= spacingSq) return true;
   }
   return false;
 };
 
-const sortPackIdsByScore = (
-  packIds: readonly number[],
-  getScore: (packId: number) => number,
+const sortCellIdsByScore = (
+  cellIds: readonly number[],
+  getScore: (cellId: number) => number,
 ): number[] =>
-  packIds
-    .map((packId) => ({ packId, score: getScore(packId) }))
+  cellIds
+    .map((cellId) => ({ cellId, score: getScore(cellId) }))
     .sort(
-      (left, right) => right.score - left.score || left.packId - right.packId,
+      (left, right) => right.score - left.score || left.cellId - right.cellId,
     )
-    .map(({ packId }) => packId);
+    .map(({ cellId }) => cellId);
 
 const isPrimaryPackCell = (
   context: GenerationContext,
@@ -781,11 +866,7 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
   const {
     cellsBurg,
     cellsCulture,
-    packCellCount,
-    packToGrid,
     gridToPack,
-    packX,
-    packY,
     packHaven,
     packHarbor,
     cellsWaterbody,
@@ -796,74 +877,73 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
     cellsFlow,
   } = context.world;
   cellsBurg.fill(0);
-  if (packCellCount <= 0) {
+  if (context.world.cellCount <= 0) {
     resetBurgs(context);
     return;
   }
 
-  const suitability = computeRankedSuitability(context);
-  const populatedPackIds = Array.from(
-    { length: packCellCount },
-    (_, packId) => packId,
-  ).filter(
-    (packId) =>
-      isPoliticalPackCell(context, packId) &&
-      (suitability[packId] ?? 0) > 0 &&
-      (cellsCulture[packToGrid[packId] ?? 0] ?? 0) > 0,
-  );
-  if (populatedPackIds.length === 0) {
+  const suitability = computeBurgCellSuitability(context);
+  const populatedCellIds = Array.from(
+    { length: context.world.cellCount },
+    (_, cellId) => cellId,
+  ).filter((cellId) => {
+    if ((context.world.cellsFeature[cellId] ?? 0) !== 1) return false;
+    if ((cellsCulture[cellId] ?? 0) <= 0) return false;
+    return (suitability[cellId] ?? 0) > 0;
+  });
+  if (populatedCellIds.length === 0) {
     resetBurgs(context);
     return;
   }
 
-  const capitalsNumber = getTargetStates(context, populatedPackIds.length);
+  const capitalsNumber = getTargetStates(context, populatedCellIds.length);
   let capitals: number[] = [];
   let spacing =
     (context.config.width + context.config.height) / 2 / capitalsNumber;
-  const capitalOrder = sortPackIdsByScore(
-    populatedPackIds,
-    (packId) => (suitability[packId] ?? 0) * (0.5 + context.random() * 0.5),
+  const capitalOrder = sortCellIdsByScore(
+    populatedCellIds,
+    (cellId) => (suitability[cellId] ?? 0) * (0.5 + context.random() * 0.5),
   );
 
   while (capitals.length < capitalsNumber && spacing > 1) {
     capitals = [];
-    for (const packId of capitalOrder) {
-      if (!hasBurgNear(context, capitals, packId, spacing))
-        capitals.push(packId);
+    for (const cellId of capitalOrder) {
+      if (!hasCellBurgNear(context, capitals, cellId, spacing)) {
+        capitals.push(cellId);
+      }
       if (capitals.length >= capitalsNumber) break;
     }
     if (capitals.length < capitalsNumber) spacing /= 1.2;
   }
 
-  const townsNumber = getTargetTowns(context, populatedPackIds.length);
-  const townOrder = sortPackIdsByScore(
-    populatedPackIds,
-    (packId) =>
-      (suitability[packId] ?? 0) * gauss(context.random, 1, 3, 0, 20, 3),
+  const townsNumber = getTargetTowns(context, populatedCellIds.length);
+  const townOrder = sortCellIdsByScore(
+    populatedCellIds,
+    (cellId) =>
+      (suitability[cellId] ?? 0) * gauss(context.random, 1, 3, 0, 20, 3),
   );
 
-  const burgPackIds = capitals.slice();
+  const burgCellIds = capitals.slice();
   let townSpacing =
     (context.config.width + context.config.height) /
     150 /
     (Math.max(townsNumber, 1) ** 0.7 / 66);
   while (
-    burgPackIds.length - capitals.length < townsNumber &&
+    burgCellIds.length - capitals.length < townsNumber &&
     townSpacing > 1
   ) {
-    for (const packId of townOrder) {
-      if (burgPackIds.length - capitals.length >= townsNumber) break;
-      const cellId = packToGrid[packId] ?? 0;
+    for (const cellId of townOrder) {
+      if (burgCellIds.length - capitals.length >= townsNumber) break;
       if ((cellsBurg[cellId] ?? 0) > 0) continue;
       const minSpacing = townSpacing * gauss(context.random, 1, 0.3, 0.2, 2, 2);
-      if (hasBurgNear(context, burgPackIds, packId, minSpacing)) continue;
-      burgPackIds.push(packId);
-      cellsBurg[cellId] = burgPackIds.length;
+      if (hasCellBurgNear(context, burgCellIds, cellId, minSpacing)) continue;
+      burgCellIds.push(cellId);
+      cellsBurg[cellId] = burgCellIds.length;
     }
     townSpacing *= 0.5;
   }
 
-  const burgCount = burgPackIds.length;
+  const burgCount = burgCellIds.length;
   const burgCell = new Uint32Array(burgCount + 1);
   const burgX = new Float32Array(burgCount + 1);
   const burgY = new Float32Array(burgCount + 1);
@@ -875,13 +955,13 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
   cellsBurg.fill(0);
   for (let index = 0; index < burgCount; index += 1) {
     const burgId = index + 1;
-    const packId = burgPackIds[index] ?? 0;
-    const cellId = packToGrid[packId] ?? 0;
+    const cellId = burgCellIds[index] ?? 0;
+    const packId = gridToPack[cellId] ?? -1;
     const capital = index < capitals.length ? 1 : 0;
-    const harbor = packHarbor[packId] ?? 0;
-    const haven = packHaven[packId] ?? -1;
+    const harbor = packId >= 0 ? (packHarbor[packId] ?? 0) : 0;
+    const haven = packId >= 0 ? (packHaven[packId] ?? -1) : -1;
     const waterbodyId = haven >= 0 ? (cellsWaterbody[haven] ?? 0) : 0;
-    const isFrozen = haven >= 0 ? (cellsTemp[haven] ?? 0) <= 0 : false;
+    const isFrozen = (cellsTemp[cellId] ?? 0) <= 0;
     const isMulticell = (waterbodySize[waterbodyId] ?? 0) > 1;
     const isHarbor = (harbor > 0 && capital === 1) || harbor === 1;
     const isPortCandidate =
@@ -893,8 +973,8 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
 
     cellsBurg[cellId] = burgId;
     burgCell[burgId] = cellId;
-    burgX[burgId] = rn(packX[packId] ?? 0, 2);
-    burgY[burgId] = rn(packY[packId] ?? 0, 2);
+    burgX[burgId] = rn(context.world.cellsX[cellId] ?? 0, 2);
+    burgY[burgId] = rn(context.world.cellsY[cellId] ?? 0, 2);
     burgCapital[burgId] = capital;
     burgPort[burgId] = 0;
     burgCulture[burgId] = cellsCulture[cellId] ?? 0;
