@@ -390,6 +390,7 @@ describe("world generation integration", () => {
     expect(world.cellsCoast.length).toBe(world.cellCount);
     expect(world.featureCount).toBe(world.landmassCount + world.waterbodyCount);
     expect(world.featureType.length).toBe(world.featureCount + 1);
+    expect(world.featureGroup.length).toBe(world.featureCount + 1);
     expect(world.featureLand.length).toBe(world.featureCount + 1);
     expect(world.featureBorder.length).toBe(world.featureCount + 1);
     expect(world.featureSize.length).toBe(world.featureCount + 1);
@@ -416,6 +417,7 @@ describe("world generation integration", () => {
     expect(world.packCellsFeatureId.length).toBe(world.packCellCount);
     expect(world.packFeatureCount).toBeGreaterThan(0);
     expect(world.packFeatureType.length).toBe(world.packFeatureCount + 1);
+    expect(world.packFeatureFeatureId.length).toBe(world.packFeatureCount + 1);
     expect(world.packFeatureBorder.length).toBe(world.packFeatureCount + 1);
     expect(world.packFeatureSize.length).toBe(world.packFeatureCount + 1);
     expect(world.packFeatureFirstCell.length).toBe(world.packFeatureCount + 1);
@@ -430,6 +432,7 @@ describe("world generation integration", () => {
     );
     expect(world.waterbodyCount).toBeGreaterThan(0);
     expect(world.waterbodyType.length).toBe(world.waterbodyCount + 1);
+    expect(world.waterbodyGroup.length).toBe(world.waterbodyCount + 1);
     expect(world.waterbodySize.length).toBe(world.waterbodyCount + 1);
     expect(world.vertexX.length).toBeGreaterThan(world.cellCount);
     expect(world.vertexX.length).toBe(world.vertexY.length);
@@ -548,7 +551,11 @@ describe("world generation integration", () => {
         expect(landmass).toBe(0);
         expect(waterbody).toBeGreaterThan(0);
         const bodyType = world.waterbodyType[waterbody];
+        const bodyGroup = world.waterbodyGroup[waterbody];
         expect(bodyType === 1 || bodyType === 2).toBe(true);
+        expect(bodyGroup).toBeGreaterThanOrEqual(1);
+        expect(bodyGroup).toBeLessThanOrEqual(9);
+        expect(world.featureGroup[featureId]).toBe(bodyGroup);
         expect(featureId).toBe(waterbody);
       } else {
         expect(gridPackId).toBeGreaterThanOrEqual(0);
@@ -556,6 +563,8 @@ describe("world generation integration", () => {
         expect(landmass).toBeGreaterThan(0);
         const massKind = world.landmassKind[landmass];
         expect(massKind === 1 || massKind === 2 || massKind === 3).toBe(true);
+        expect(world.featureGroup[featureId]).toBeGreaterThanOrEqual(10);
+        expect(world.featureGroup[featureId]).toBeLessThanOrEqual(13);
         expect(waterbody).toBe(0);
         expect(featureId).toBe(world.waterbodyCount + landmass);
       }
@@ -613,12 +622,18 @@ describe("world generation integration", () => {
     ) {
       const size = world.waterbodySize[waterbodyId] ?? 0;
       const kind = world.waterbodyType[waterbodyId] ?? 0;
+      const group = world.waterbodyGroup[waterbodyId] ?? 0;
 
       expect(size).toBeGreaterThan(0);
       expect(kind === 1 || kind === 2).toBe(true);
+      expect(group).toBeGreaterThanOrEqual(1);
+      expect(group).toBeLessThanOrEqual(9);
 
       if (kind === 1) {
         oceanBodies += 1;
+        expect(group === 1 || group === 2 || group === 3).toBe(true);
+      } else {
+        expect(group).toBeGreaterThanOrEqual(4);
       }
 
       accountedWaterCells += size;
@@ -656,6 +671,7 @@ describe("world generation integration", () => {
     let accountedFeatureCells = 0;
     for (let featureId = 1; featureId <= world.featureCount; featureId += 1) {
       const type = world.featureType[featureId] ?? 0;
+      const group = world.featureGroup[featureId] ?? 0;
       const land = world.featureLand[featureId] ?? 0;
       const border = world.featureBorder[featureId] ?? 0;
       const size = world.featureSize[featureId] ?? 0;
@@ -671,8 +687,12 @@ describe("world generation integration", () => {
 
       if (land === 1) {
         expect(type).toBe(3);
+        expect(group).toBeGreaterThanOrEqual(10);
+        expect(group).toBeLessThanOrEqual(13);
       } else {
         expect(type === 1 || type === 2).toBe(true);
+        expect(group).toBeGreaterThanOrEqual(1);
+        expect(group).toBeLessThanOrEqual(9);
       }
 
       accountedFeatureCells += size;
@@ -716,6 +736,9 @@ describe("world generation integration", () => {
       expect(gridCellId).toBeLessThan(world.cellCount);
       expect(packFeatureId).toBeGreaterThan(0);
       expect(packFeatureId).toBeLessThanOrEqual(world.packFeatureCount);
+      expect(world.packFeatureFeatureId[packFeatureId]).toBe(
+        world.cellsFeatureId[gridCellId],
+      );
       expect(packCoast).toBeGreaterThanOrEqual(-10);
       expect(packCoast).toBeLessThanOrEqual(127);
 
@@ -798,11 +821,14 @@ describe("world generation integration", () => {
       packFeatureId += 1
     ) {
       const type = world.packFeatureType[packFeatureId] ?? 0;
+      const featureId = world.packFeatureFeatureId[packFeatureId] ?? 0;
       const border = world.packFeatureBorder[packFeatureId] ?? 0;
       const size = world.packFeatureSize[packFeatureId] ?? 0;
       const firstPackCell = world.packFeatureFirstCell[packFeatureId] ?? 0;
 
       expect(type === 1 || type === 2 || type === 3).toBe(true);
+      expect(featureId).toBeGreaterThan(0);
+      expect(featureId).toBeLessThanOrEqual(world.featureCount);
       expect(border === 0 || border === 1).toBe(true);
       expect(size).toBeGreaterThan(0);
       expect(firstPackCell).toBeGreaterThanOrEqual(0);
@@ -810,6 +836,7 @@ describe("world generation integration", () => {
       expect(world.packCellsFeatureId[firstPackCell]).toBe(packFeatureId);
 
       const firstGridCell = world.packToGrid[firstPackCell] ?? 0;
+      expect(world.cellsFeatureId[firstGridCell]).toBe(featureId);
       if (type === 3) {
         expect(world.cellsFeature[firstGridCell]).toBe(1);
         packLandFeatures += 1;
@@ -965,6 +992,9 @@ describe("world generation integration", () => {
     expect(Array.from(worldA.featureType)).toEqual(
       Array.from(worldB.featureType),
     );
+    expect(Array.from(worldA.featureGroup)).toEqual(
+      Array.from(worldB.featureGroup),
+    );
     expect(Array.from(worldA.featureLand)).toEqual(
       Array.from(worldB.featureLand),
     );
@@ -1009,6 +1039,9 @@ describe("world generation integration", () => {
     expect(Array.from(worldA.waterbodyType)).toEqual(
       Array.from(worldB.waterbodyType),
     );
+    expect(Array.from(worldA.waterbodyGroup)).toEqual(
+      Array.from(worldB.waterbodyGroup),
+    );
     expect(Array.from(worldA.waterbodySize)).toEqual(
       Array.from(worldB.waterbodySize),
     );
@@ -1035,6 +1068,9 @@ describe("world generation integration", () => {
     expect(worldA.packFeatureCount).toBe(worldB.packFeatureCount);
     expect(Array.from(worldA.packFeatureType)).toEqual(
       Array.from(worldB.packFeatureType),
+    );
+    expect(Array.from(worldA.packFeatureFeatureId)).toEqual(
+      Array.from(worldB.packFeatureFeatureId),
     );
     expect(Array.from(worldA.packFeatureBorder)).toEqual(
       Array.from(worldB.packFeatureBorder),
@@ -2436,6 +2472,9 @@ describe("world generation integration", () => {
     expect(Array.from(withoutCultures.featureType)).toEqual(
       Array.from(withCultures.featureType),
     );
+    expect(Array.from(withoutCultures.featureGroup)).toEqual(
+      Array.from(withCultures.featureGroup),
+    );
     expect(Array.from(withoutCultures.featureLand)).toEqual(
       Array.from(withCultures.featureLand),
     );
@@ -2456,6 +2495,9 @@ describe("world generation integration", () => {
     );
     expect(Array.from(withoutCultures.cellsWaterbody)).toEqual(
       Array.from(withCultures.cellsWaterbody),
+    );
+    expect(Array.from(withoutCultures.waterbodyGroup)).toEqual(
+      Array.from(withCultures.waterbodyGroup),
     );
     expect(Array.from(withoutCultures.cellsTemp)).toEqual(
       Array.from(withCultures.cellsTemp),
@@ -2492,6 +2534,9 @@ describe("world generation integration", () => {
     );
     expect(Array.from(withoutCultures.packFeatureType)).toEqual(
       Array.from(withCultures.packFeatureType),
+    );
+    expect(Array.from(withoutCultures.packFeatureFeatureId)).toEqual(
+      Array.from(withCultures.packFeatureFeatureId),
     );
     expect(Array.from(withoutCultures.packFeatureBorder)).toEqual(
       Array.from(withCultures.packFeatureBorder),
@@ -2808,6 +2853,9 @@ describe("world generation integration", () => {
     expect(Array.from(decoded.featureType)).toEqual(
       Array.from(original.featureType),
     );
+    expect(Array.from(decoded.featureGroup)).toEqual(
+      Array.from(original.featureGroup),
+    );
     expect(Array.from(decoded.featureLand)).toEqual(
       Array.from(original.featureLand),
     );
@@ -2858,6 +2906,9 @@ describe("world generation integration", () => {
     expect(Array.from(decoded.waterbodyType)).toEqual(
       Array.from(original.waterbodyType),
     );
+    expect(Array.from(decoded.waterbodyGroup)).toEqual(
+      Array.from(original.waterbodyGroup),
+    );
     expect(Array.from(decoded.waterbodySize)).toEqual(
       Array.from(original.waterbodySize),
     );
@@ -2884,6 +2935,9 @@ describe("world generation integration", () => {
     expect(decoded.packFeatureCount).toBe(original.packFeatureCount);
     expect(Array.from(decoded.packFeatureType)).toEqual(
       Array.from(original.packFeatureType),
+    );
+    expect(Array.from(decoded.packFeatureFeatureId)).toEqual(
+      Array.from(original.packFeatureFeatureId),
     );
     expect(Array.from(decoded.packFeatureBorder)).toEqual(
       Array.from(original.packFeatureBorder),
