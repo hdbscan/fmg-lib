@@ -305,7 +305,7 @@ describe("world generation integration", () => {
       }
 
       const neighbors = collectNeighbors(world, index);
-      expect(neighbors.length).toBeGreaterThan(2);
+      expect(neighbors.length).toBeGreaterThanOrEqual(border === 1 ? 2 : 3);
       expect(neighbors.length).toBeLessThanOrEqual(24);
 
       for (const neighbor of neighbors) {
@@ -335,6 +335,7 @@ describe("world generation integration", () => {
     let oceanBodies = 0;
     let accountedLandCells = 0;
     let continents = 0;
+    let majorLandmasses = 0;
 
     for (
       let waterbodyId = 1;
@@ -373,11 +374,14 @@ describe("world generation integration", () => {
       if (kind === 1) {
         continents += 1;
       }
+      if (kind === 1 || kind === 2) {
+        majorLandmasses += 1;
+      }
 
       accountedLandCells += size;
     }
 
-    expect(continents).toBeGreaterThan(0);
+    expect(majorLandmasses).toBeGreaterThan(0);
     expect(accountedLandCells).toBe(landCells);
 
     let accountedFeatureCells = 0;

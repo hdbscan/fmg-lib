@@ -780,6 +780,8 @@ const buildVoronoiAdjacency = (
   const vertexMap = new Map<string, number>();
   const cellVertexOffsets = new Uint32Array(cellCount + 1);
   const cellVertices: number[] = [];
+  const touchesExtent = (x: number, y: number): boolean =>
+    x <= 0 || y <= 0 || x >= width || y >= height;
 
   const getVertexId = (x: number, y: number): number => {
     const key = `${x.toFixed(4)},${y.toFixed(4)}`;
@@ -797,11 +799,21 @@ const buildVoronoiAdjacency = (
 
   for (let cellId = 0; cellId < cellCount; cellId += 1) {
     offsets[cellId] = neighbors.length;
-    neighbors.push(...delaunay.neighbors(cellId));
+    let touchesBoundaryNeighbor = false;
+
+    for (const neighborId of delaunay.neighbors(cellId)) {
+      if (neighborId < cellCount) {
+        neighbors.push(neighborId);
+        continue;
+      }
+
+      touchesBoundaryNeighbor = true;
+    }
+
     cellVertexOffsets[cellId] = cellVertices.length;
 
     const polygon = voronoi.cellPolygon(cellId);
-    let touchesBorder = false;
+    let touchesBorder = touchesBoundaryNeighbor;
 
     if (!polygon) {
       touchesBorder = true;
@@ -820,7 +832,7 @@ const buildVoronoiAdjacency = (
 
       for (let vertexIndex = 0; vertexIndex < pointsCount; vertexIndex += 1) {
         const [x, y] = polygon[vertexIndex] ?? [0, 0];
-        if (x <= 0 || y <= 0 || x >= width || y >= height) {
+        if (touchesExtent(x, y)) {
           touchesBorder = true;
         }
 
