@@ -435,6 +435,25 @@ const LINE_POWER_BY_CELLS: Readonly<Record<number, number>> = {
   100000: 0.93,
 };
 
+const WATERBODY_TYPE_OCEAN = 1;
+const WATERBODY_TYPE_LAKE = 2;
+
+const WATERBODY_GROUP_NONE = 0;
+const WATERBODY_GROUP_OCEAN = 1;
+const WATERBODY_GROUP_SEA = 2;
+const WATERBODY_GROUP_GULF = 3;
+const WATERBODY_GROUP_FRESHWATER = 4;
+const WATERBODY_GROUP_SALT = 5;
+const WATERBODY_GROUP_FROZEN = 6;
+const WATERBODY_GROUP_DRY = 7;
+const WATERBODY_GROUP_SINKHOLE = 8;
+const WATERBODY_GROUP_LAVA = 9;
+
+const FEATURE_GROUP_CONTINENT = 10;
+const FEATURE_GROUP_ISLAND = 11;
+const FEATURE_GROUP_ISLE = 12;
+const FEATURE_GROUP_LAKE_ISLAND = 13;
+
 type HeightmapTool =
   | "Hill"
   | "Pit"
@@ -1292,6 +1311,7 @@ export const runGridStage = (context: GenerationContext): void => {
   context.world.cellsFeatureId = new Uint32Array(cellCount);
   context.world.featureCount = 0;
   context.world.featureType = new Uint8Array(1);
+  context.world.featureGroup = new Uint8Array(1);
   context.world.featureLand = new Uint8Array(1);
   context.world.featureBorder = new Uint8Array(1);
   context.world.featureSize = new Uint32Array(1);
@@ -1310,6 +1330,7 @@ export const runGridStage = (context: GenerationContext): void => {
   context.world.cellsWaterbody = new Uint32Array(cellCount);
   context.world.waterbodyCount = 0;
   context.world.waterbodyType = new Uint8Array(1);
+  context.world.waterbodyGroup = new Uint8Array(1);
   context.world.waterbodySize = new Uint32Array(1);
   context.world.packCellCount = 0;
   context.world.gridToPack = new Int32Array(cellCount);
@@ -1323,6 +1344,7 @@ export const runGridStage = (context: GenerationContext): void => {
   context.world.packCellsFeatureId = new Uint32Array(0);
   context.world.packFeatureCount = 0;
   context.world.packFeatureType = new Uint8Array(1);
+  context.world.packFeatureFeatureId = new Uint32Array(1);
   context.world.packFeatureBorder = new Uint8Array(1);
   context.world.packFeatureSize = new Uint32Array(1);
   context.world.packFeatureFirstCell = new Uint32Array(1);
@@ -2240,6 +2262,8 @@ export const runPackStage = (context: GenerationContext): void => {
 
 export const runPackFeatureStage = (context: GenerationContext): void => {
   const {
+    cellsLandmass,
+    cellsWaterbody,
     packH,
     packCellCount,
     packToGrid,
@@ -2249,6 +2273,7 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
     packNeighbors,
     packCellVertexOffsets,
     packCellsFeatureId,
+    waterbodyCount,
   } = context.world;
   const { seaLevel } = context.config;
 
@@ -2257,6 +2282,7 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
   if (packCellCount <= 0) {
     context.world.packFeatureCount = 0;
     context.world.packFeatureType = new Uint8Array(1);
+    context.world.packFeatureFeatureId = new Uint32Array(1);
     context.world.packFeatureBorder = new Uint8Array(1);
     context.world.packFeatureSize = new Uint32Array(1);
     context.world.packFeatureFirstCell = new Uint32Array(1);
@@ -2268,6 +2294,7 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
   const packHaven = new Int32Array(packCellCount);
   const packHarbor = new Uint8Array(packCellCount);
   const packFeatureType: number[] = [0];
+  const packFeatureFeatureId: number[] = [0];
   const packFeatureBorder: number[] = [0];
   const packFeatureSize: number[] = [0];
   const packFeatureFirstCell: number[] = [0];
@@ -2351,6 +2378,7 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
     let border = false;
     const land = isLandPackCell(startPackCell);
     let firstBoundaryPackCell = Number.POSITIVE_INFINITY;
+    let sourceFeatureId = 0;
 
     while (queue.length > 0) {
       const packCellId = queue.pop();
@@ -2359,6 +2387,12 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
       }
 
       size += 1;
+      if (sourceFeatureId === 0) {
+        const gridCellId = packToGrid[packCellId] ?? 0;
+        sourceFeatureId = land
+          ? waterbodyCount + (cellsLandmass[gridCellId] ?? 0)
+          : (cellsWaterbody[gridCellId] ?? 0);
+      }
       if (
         isTopologyBorderCell(
           packCellId,
@@ -2413,6 +2447,7 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
     }
 
     packFeatureType[packFeatureId] = land ? 3 : border ? 1 : 2;
+    packFeatureFeatureId[packFeatureId] = sourceFeatureId;
     packFeatureBorder[packFeatureId] = border ? 1 : 0;
     packFeatureSize[packFeatureId] = size;
     packFeatureFirstCell[packFeatureId] =
@@ -2446,6 +2481,7 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
   context.world.packHaven = packHaven;
   context.world.packHarbor = packHarbor;
   context.world.packFeatureType = Uint8Array.from(packFeatureType);
+  context.world.packFeatureFeatureId = Uint32Array.from(packFeatureFeatureId);
   context.world.packFeatureBorder = Uint8Array.from(packFeatureBorder);
   context.world.packFeatureSize = Uint32Array.from(packFeatureSize);
   context.world.packFeatureFirstCell = Uint32Array.from(packFeatureFirstCell);
@@ -2457,13 +2493,17 @@ export const runGridFeatureMarkupStage = (context: GenerationContext): void => {
     cellsFeature,
     cellsLandmass,
     landmassCount,
+    landmassKind,
     landmassBorder,
     landmassSize,
     cellsWaterbody,
     waterbodyCount,
     waterbodyType,
+    waterbodyGroup,
     waterbodySize,
     cellsFeatureId,
+    cellNeighborOffsets,
+    cellNeighbors,
   } = context.world;
 
   cellsFeatureId.fill(0);
@@ -2472,6 +2512,7 @@ export const runGridFeatureMarkupStage = (context: GenerationContext): void => {
   if (featureCount <= 0) {
     context.world.featureCount = 0;
     context.world.featureType = new Uint8Array(1);
+    context.world.featureGroup = new Uint8Array(1);
     context.world.featureLand = new Uint8Array(1);
     context.world.featureBorder = new Uint8Array(1);
     context.world.featureSize = new Uint32Array(1);
@@ -2480,22 +2521,66 @@ export const runGridFeatureMarkupStage = (context: GenerationContext): void => {
   }
 
   const featureType = new Uint8Array(featureCount + 1);
+  const featureGroup = new Uint8Array(featureCount + 1);
   const featureLand = new Uint8Array(featureCount + 1);
   const featureBorder = new Uint8Array(featureCount + 1);
   const featureSize = new Uint32Array(featureCount + 1);
   const featureFirstCell = new Uint32Array(featureCount + 1);
 
   for (let waterbodyId = 1; waterbodyId <= waterbodyCount; waterbodyId += 1) {
-    featureType[waterbodyId] = (waterbodyType[waterbodyId] ?? 0) === 1 ? 1 : 2;
+    featureType[waterbodyId] =
+      (waterbodyType[waterbodyId] ?? 0) === WATERBODY_TYPE_OCEAN ? 1 : 2;
+    featureGroup[waterbodyId] = waterbodyGroup[waterbodyId] ?? 0;
     featureLand[waterbodyId] = 0;
     featureBorder[waterbodyId] =
-      (waterbodyType[waterbodyId] ?? 0) === 1 ? 1 : 0;
+      (waterbodyType[waterbodyId] ?? 0) === WATERBODY_TYPE_OCEAN ? 1 : 0;
     featureSize[waterbodyId] = waterbodySize[waterbodyId] ?? 0;
+  }
+
+  const landmassTouchesOcean = new Uint8Array(landmassCount + 1);
+  const landmassTouchesLake = new Uint8Array(landmassCount + 1);
+
+  for (let cellId = 0; cellId < cellCount; cellId += 1) {
+    const landmassId = cellsLandmass[cellId] ?? 0;
+    if (landmassId <= 0) {
+      continue;
+    }
+
+    forEachNeighbor(
+      cellId,
+      cellNeighborOffsets,
+      cellNeighbors,
+      (neighborId) => {
+        if ((cellsFeature[neighborId] ?? 0) !== 0) {
+          return;
+        }
+
+        const waterbodyId = cellsWaterbody[neighborId] ?? 0;
+        if (waterbodyId <= 0) {
+          return;
+        }
+
+        if ((waterbodyType[waterbodyId] ?? 0) === WATERBODY_TYPE_OCEAN) {
+          landmassTouchesOcean[landmassId] = 1;
+        } else {
+          landmassTouchesLake[landmassId] = 1;
+        }
+      },
+    );
   }
 
   for (let landmassId = 1; landmassId <= landmassCount; landmassId += 1) {
     const featureId = waterbodyCount + landmassId;
     featureType[featureId] = 3;
+    featureGroup[featureId] =
+      (landmassTouchesOcean[landmassId] ?? 0) === 0 &&
+      (landmassTouchesLake[landmassId] ?? 0) === 1
+        ? FEATURE_GROUP_LAKE_ISLAND
+        : (landmassKind[landmassId] ?? 0) === 1
+          ? FEATURE_GROUP_CONTINENT
+          : (landmassKind[landmassId] ?? 0) === 2
+            ? FEATURE_GROUP_ISLAND
+            : FEATURE_GROUP_ISLE;
     featureLand[featureId] = 1;
     featureBorder[featureId] = landmassBorder[landmassId] ?? 0;
     featureSize[featureId] = landmassSize[landmassId] ?? 0;
@@ -2522,6 +2607,7 @@ export const runGridFeatureMarkupStage = (context: GenerationContext): void => {
 
   context.world.featureCount = featureCount;
   context.world.featureType = featureType;
+  context.world.featureGroup = featureGroup;
   context.world.featureLand = featureLand;
   context.world.featureBorder = featureBorder;
   context.world.featureSize = featureSize;
@@ -2623,7 +2709,10 @@ export const runWaterbodyStage = (context: GenerationContext): void => {
 
   let waterbodyCount = 0;
   const waterbodyType: number[] = [0];
+  const waterbodyGroup: number[] = [WATERBODY_GROUP_NONE];
   const waterbodySize: number[] = [0];
+  const oceanMinSize = cellCount / 25;
+  const seaMinSize = cellCount / 1000;
 
   for (let startCell = 0; startCell < cellCount; startCell += 1) {
     const isWater = (cellsFeature[startCell] ?? 0) === 0;
@@ -2668,12 +2757,22 @@ export const runWaterbodyStage = (context: GenerationContext): void => {
       );
     }
 
-    waterbodyType[waterbodyId] = border ? 1 : 2;
+    waterbodyType[waterbodyId] = border
+      ? WATERBODY_TYPE_OCEAN
+      : WATERBODY_TYPE_LAKE;
+    waterbodyGroup[waterbodyId] = border
+      ? size > oceanMinSize
+        ? WATERBODY_GROUP_OCEAN
+        : size > seaMinSize
+          ? WATERBODY_GROUP_SEA
+          : WATERBODY_GROUP_GULF
+      : WATERBODY_GROUP_FRESHWATER;
     waterbodySize[waterbodyId] = size;
   }
 
   context.world.waterbodyCount = waterbodyCount;
   context.world.waterbodyType = Uint8Array.from(waterbodyType);
+  context.world.waterbodyGroup = Uint8Array.from(waterbodyGroup);
   context.world.waterbodySize = Uint32Array.from(waterbodySize);
 };
 
@@ -3049,7 +3148,10 @@ export const runHydrologyStage = (context: GenerationContext): void => {
     cellsWaterbody,
     waterbodyCount,
     waterbodyType,
+    waterbodyGroup,
     waterbodySize,
+    featureCount,
+    featureGroup,
     featureFirstCell,
     cellNeighborOffsets,
     cellNeighbors,
@@ -3073,6 +3175,7 @@ export const runHydrologyStage = (context: GenerationContext): void => {
   const lakeClosed = new Uint8Array(waterbodyCount + 1);
   const lakeInflow = new Uint32Array(waterbodyCount + 1);
   const lakeEvaporation = new Uint32Array(waterbodyCount + 1);
+  const lakeHasOutletRiver = new Uint8Array(waterbodyCount + 1);
   const lakeDominantRiver = new Uint32Array(waterbodyCount + 1);
   const lakeDominantFlux = new Uint32Array(waterbodyCount + 1);
   const riverAtCell = new Uint32Array(cellCount);
@@ -3454,6 +3557,7 @@ export const runHydrologyStage = (context: GenerationContext): void => {
         nextRiverId += 1;
       }
 
+      lakeHasOutletRiver[lakeId] = 1;
       receiveRiverFlux(cellId, remainingFlux, outletRiverId);
     }
 
@@ -3515,6 +3619,40 @@ export const runHydrologyStage = (context: GenerationContext): void => {
     const riverId = riverAtCell[cellId] ?? 0;
     cellsRiver[cellId] =
       riverId > 0 && (riverCellCounts[riverId] ?? 0) >= 3 ? riverId : 0;
+  }
+
+  for (let lakeId = 1; lakeId <= waterbodyCount; lakeId += 1) {
+    if ((waterbodyType[lakeId] ?? 0) !== WATERBODY_TYPE_LAKE) {
+      continue;
+    }
+
+    const lakeCellCount = waterbodySize[lakeId] ?? 0;
+    const firstCell = featureFirstCell[lakeId] ?? 0;
+    const lakeTemp = cellsTemp[firstCell] ?? 0;
+    const lakeFlux = lakeInflow[lakeId] ?? 0;
+    const evaporation = lakeEvaporation[lakeId] ?? 0;
+    const hasOutletRiver = (lakeHasOutletRiver[lakeId] ?? 0) === 1;
+    const lakeHeight = lakeSurfaceHeight[lakeId] ?? 19;
+
+    waterbodyGroup[lakeId] =
+      lakeTemp < -3
+        ? WATERBODY_GROUP_FROZEN
+        : lakeHeight > 60 && lakeCellCount < 10 && firstCell % 10 === 0
+          ? WATERBODY_GROUP_LAVA
+          : !hasOutletRiver && lakeFlux === 0 && evaporation > lakeFlux * 4
+            ? WATERBODY_GROUP_DRY
+            : !hasOutletRiver &&
+                lakeFlux === 0 &&
+                lakeCellCount < 3 &&
+                firstCell % 10 === 0
+              ? WATERBODY_GROUP_SINKHOLE
+              : !hasOutletRiver && evaporation > lakeFlux
+                ? WATERBODY_GROUP_SALT
+                : WATERBODY_GROUP_FRESHWATER;
+
+    if (lakeId <= featureCount) {
+      featureGroup[lakeId] = waterbodyGroup[lakeId] ?? WATERBODY_GROUP_NONE;
+    }
   }
 };
 

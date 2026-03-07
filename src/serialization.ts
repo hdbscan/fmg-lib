@@ -146,6 +146,7 @@ export const serializeWorld = (world: WorldGraphV1): string => {
       cellsFeature: encodeTypedArray(world.cellsFeature, "u8"),
       cellsFeatureId: encodeTypedArray(world.cellsFeatureId, "u32"),
       featureType: encodeTypedArray(world.featureType, "u8"),
+      featureGroup: encodeTypedArray(world.featureGroup, "u8"),
       featureLand: encodeTypedArray(world.featureLand, "u8"),
       featureBorder: encodeTypedArray(world.featureBorder, "u8"),
       featureSize: encodeTypedArray(world.featureSize, "u32"),
@@ -162,6 +163,7 @@ export const serializeWorld = (world: WorldGraphV1): string => {
       cellsBiome: encodeTypedArray(world.cellsBiome, "u8"),
       cellsWaterbody: encodeTypedArray(world.cellsWaterbody, "u32"),
       waterbodyType: encodeTypedArray(world.waterbodyType, "u8"),
+      waterbodyGroup: encodeTypedArray(world.waterbodyGroup, "u8"),
       waterbodySize: encodeTypedArray(world.waterbodySize, "u32"),
       gridToPack: encodeTypedArray(world.gridToPack, "i32"),
       packToGrid: encodeTypedArray(world.packToGrid, "u32"),
@@ -173,6 +175,7 @@ export const serializeWorld = (world: WorldGraphV1): string => {
       packNeighbors: encodeTypedArray(world.packNeighbors, "u32"),
       packCellsFeatureId: encodeTypedArray(world.packCellsFeatureId, "u32"),
       packFeatureType: encodeTypedArray(world.packFeatureType, "u8"),
+      packFeatureFeatureId: encodeTypedArray(world.packFeatureFeatureId, "u32"),
       packFeatureBorder: encodeTypedArray(world.packFeatureBorder, "u8"),
       packFeatureSize: encodeTypedArray(world.packFeatureSize, "u32"),
       packFeatureFirstCell: encodeTypedArray(world.packFeatureFirstCell, "u32"),
@@ -325,6 +328,9 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
   const cellsFeature = decodeTypedArray(world.arrays.cellsFeature);
   const cellsFeatureId = decodeTypedArray(world.arrays.cellsFeatureId);
   const featureType = decodeTypedArray(world.arrays.featureType);
+  const featureGroup = world.arrays.featureGroup
+    ? decodeTypedArray(world.arrays.featureGroup)
+    : new Uint8Array(world.featureCount + 1);
   const featureLand = decodeTypedArray(world.arrays.featureLand);
   const featureBorder = decodeTypedArray(world.arrays.featureBorder);
   const featureSize = decodeTypedArray(world.arrays.featureSize);
@@ -341,6 +347,9 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
   const cellsBiome = decodeTypedArray(world.arrays.cellsBiome);
   const cellsWaterbody = decodeTypedArray(world.arrays.cellsWaterbody);
   const waterbodyType = decodeTypedArray(world.arrays.waterbodyType);
+  const waterbodyGroup = world.arrays.waterbodyGroup
+    ? decodeTypedArray(world.arrays.waterbodyGroup)
+    : new Uint8Array(world.waterbodyCount + 1);
   const waterbodySize = decodeTypedArray(world.arrays.waterbodySize);
   const gridToPack = decodeTypedArray(world.arrays.gridToPack);
   const packToGrid = decodeTypedArray(world.arrays.packToGrid);
@@ -354,6 +363,9 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
   const packNeighbors = decodeTypedArray(world.arrays.packNeighbors);
   const packCellsFeatureId = decodeTypedArray(world.arrays.packCellsFeatureId);
   const packFeatureType = decodeTypedArray(world.arrays.packFeatureType);
+  const packFeatureFeatureId = world.arrays.packFeatureFeatureId
+    ? decodeTypedArray(world.arrays.packFeatureFeatureId)
+    : new Uint32Array(world.packFeatureCount + 1);
   const packFeatureBorder = decodeTypedArray(world.arrays.packFeatureBorder);
   const packFeatureSize = decodeTypedArray(world.arrays.packFeatureSize);
   const packFeatureFirstCell = decodeTypedArray(
@@ -429,6 +441,7 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     !(cellsFeature instanceof Uint8Array) ||
     !(cellsFeatureId instanceof Uint32Array) ||
     !(featureType instanceof Uint8Array) ||
+    !(featureGroup instanceof Uint8Array) ||
     !(featureLand instanceof Uint8Array) ||
     !(featureBorder instanceof Uint8Array) ||
     !(featureSize instanceof Uint32Array) ||
@@ -445,6 +458,7 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     !(cellsBiome instanceof Uint8Array) ||
     !(cellsWaterbody instanceof Uint32Array) ||
     !(waterbodyType instanceof Uint8Array) ||
+    !(waterbodyGroup instanceof Uint8Array) ||
     !(waterbodySize instanceof Uint32Array) ||
     !(gridToPack instanceof Int32Array) ||
     !(packToGrid instanceof Uint32Array) ||
@@ -456,6 +470,7 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     !(packNeighbors instanceof Uint32Array) ||
     !(packCellsFeatureId instanceof Uint32Array) ||
     !(packFeatureType instanceof Uint8Array) ||
+    !(packFeatureFeatureId instanceof Uint32Array) ||
     !(packFeatureBorder instanceof Uint8Array) ||
     !(packFeatureSize instanceof Uint32Array) ||
     !(packFeatureFirstCell instanceof Uint32Array) ||
@@ -547,6 +562,7 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     cellsFeatureId,
     featureCount: world.featureCount,
     featureType,
+    featureGroup,
     featureLand,
     featureBorder,
     featureSize,
@@ -565,6 +581,7 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     cellsWaterbody,
     waterbodyCount: world.waterbodyCount,
     waterbodyType,
+    waterbodyGroup,
     waterbodySize,
     packCellCount: world.packCellCount,
     gridToPack,
@@ -578,6 +595,7 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     packCellsFeatureId,
     packFeatureCount: world.packFeatureCount,
     packFeatureType,
+    packFeatureFeatureId,
     packFeatureBorder,
     packFeatureSize,
     packFeatureFirstCell,

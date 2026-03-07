@@ -133,6 +133,7 @@ const createContext = (): GenerationContext => {
       cellsFeatureId: new Uint32Array([3, 1, 4, 2]),
       featureCount: 4,
       featureType: new Uint8Array([0, 2, 2, 3, 3]),
+      featureGroup: new Uint8Array([0, 4, 5, 12, 12]),
       featureLand: new Uint8Array([0, 0, 0, 1, 1]),
       featureBorder: new Uint8Array(5),
       featureSize: new Uint32Array([0, 1, 200, 1, 1]),
@@ -151,6 +152,7 @@ const createContext = (): GenerationContext => {
       cellsWaterbody: new Uint32Array([0, 1, 0, 2]),
       waterbodyCount: 2,
       waterbodyType: new Uint8Array([0, 2, 2]),
+      waterbodyGroup: new Uint8Array([0, 4, 5]),
       waterbodySize: new Uint32Array([0, 1, 200]),
       packCellCount: 4,
       gridToPack: new Int32Array([0, 1, 2, 3]),
@@ -164,6 +166,7 @@ const createContext = (): GenerationContext => {
       packCellsFeatureId: new Uint32Array([3, 1, 4, 2]),
       packFeatureCount: 4,
       packFeatureType: new Uint8Array([0, 3, 2, 3, 2]),
+      packFeatureFeatureId: new Uint32Array([0, 3, 1, 4, 2]),
       packFeatureBorder: new Uint8Array(5),
       packFeatureSize: new Uint32Array([0, 1, 1, 1, 1]),
       packFeatureFirstCell: new Uint32Array([0, 0, 1, 2, 3]),
@@ -246,6 +249,7 @@ describe("lake suitability metadata", () => {
     context.world.cellsBiome = new Uint8Array([5, 0, 5, 0]);
     context.world.cellsWaterbody = new Uint32Array([0, 1, 0, 1]);
     context.world.waterbodyType = new Uint8Array([0, 1]);
+    context.world.waterbodyGroup = new Uint8Array([0, 1]);
     context.world.waterbodySize = new Uint32Array([0, 2]);
     context.world.waterbodyCount = 1;
     context.world.packCoast = new Int8Array([1, -1, 1, -1]);
@@ -254,11 +258,13 @@ describe("lake suitability metadata", () => {
     context.world.packHarbor = new Uint8Array([1, 0, 1, 0]);
     context.world.featureCount = 2;
     context.world.featureType = new Uint8Array([0, 1, 3]);
+    context.world.featureGroup = new Uint8Array([0, 1, 12]);
     context.world.featureLand = new Uint8Array([0, 0, 1]);
     context.world.featureSize = new Uint32Array([0, 2, 2]);
     context.world.featureFirstCell = new Uint32Array([0, 1, 0]);
     context.world.cellsFeatureId = new Uint32Array([2, 1, 2, 1]);
     context.world.packCellsFeatureId = new Uint32Array([2, 1, 2, 1]);
+    context.world.packFeatureFeatureId = new Uint32Array([0, 2, 1, 2, 1]);
 
     runBurgGenerationStage(context);
 
@@ -294,6 +300,7 @@ describe("lake suitability metadata", () => {
     context.world.packHaven = new Int32Array([3, -1, 3, -1]);
     context.world.cellsWaterbody = new Uint32Array([0, 0, 0, 2]);
     context.world.waterbodyType = new Uint8Array([0, 1, 2]);
+    context.world.waterbodyGroup = new Uint8Array([0, 1, 5]);
     context.world.waterbodySize = new Uint32Array([0, 1, 200]);
     context.world.cellsTemp = new Int8Array([20, 10, 20, 25]);
 
@@ -343,14 +350,17 @@ describe("lake suitability metadata", () => {
     context.world.packHarbor = new Uint8Array([0, 1, 0]);
     context.world.waterbodyCount = 1;
     context.world.waterbodyType = new Uint8Array([0, 1]);
+    context.world.waterbodyGroup = new Uint8Array([0, 1]);
     context.world.waterbodySize = new Uint32Array([0, 2]);
     context.world.featureCount = 2;
     context.world.featureType = new Uint8Array([0, 1, 3]);
+    context.world.featureGroup = new Uint8Array([0, 1, 12]);
     context.world.featureLand = new Uint8Array([0, 0, 1]);
     context.world.featureSize = new Uint32Array([0, 1, 1]);
     context.world.featureFirstCell = new Uint32Array([0, 1, 0]);
     context.world.cellsFeatureId = new Uint32Array([2, 1]);
     context.world.packCellsFeatureId = new Uint32Array([2, 2, 1]);
+    context.world.packFeatureFeatureId = new Uint32Array([0, 2, 2, 1]);
     context.world.cellNeighborOffsets = new Uint32Array([0, 1, 2]);
     context.world.cellNeighbors = new Uint32Array([1, 0]);
     context.internal.burgPackIds = new Uint32Array(1);

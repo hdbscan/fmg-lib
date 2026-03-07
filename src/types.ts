@@ -168,6 +168,7 @@ export type WorldGraphV1 = Readonly<{
   cellsFeatureId: Uint32Array;
   featureCount: number;
   featureType: Uint8Array;
+  featureGroup: Uint8Array;
   featureLand: Uint8Array;
   featureBorder: Uint8Array;
   featureSize: Uint32Array;
@@ -186,6 +187,7 @@ export type WorldGraphV1 = Readonly<{
   cellsWaterbody: Uint32Array;
   waterbodyCount: number;
   waterbodyType: Uint8Array;
+  waterbodyGroup: Uint8Array;
   waterbodySize: Uint32Array;
   packCellCount: number;
   gridToPack: Int32Array;
@@ -199,6 +201,7 @@ export type WorldGraphV1 = Readonly<{
   packCellsFeatureId: Uint32Array;
   packFeatureCount: number;
   packFeatureType: Uint8Array;
+  packFeatureFeatureId: Uint32Array;
   packFeatureBorder: Uint8Array;
   packFeatureSize: Uint32Array;
   packFeatureFirstCell: Uint32Array;
@@ -284,6 +287,7 @@ export type SerializedWorldV1 = Readonly<{
     cellsFeature: SerializedTypedArray;
     cellsFeatureId: SerializedTypedArray;
     featureType: SerializedTypedArray;
+    featureGroup: SerializedTypedArray;
     featureLand: SerializedTypedArray;
     featureBorder: SerializedTypedArray;
     featureSize: SerializedTypedArray;
@@ -300,6 +304,7 @@ export type SerializedWorldV1 = Readonly<{
     cellsBiome: SerializedTypedArray;
     cellsWaterbody: SerializedTypedArray;
     waterbodyType: SerializedTypedArray;
+    waterbodyGroup: SerializedTypedArray;
     waterbodySize: SerializedTypedArray;
     gridToPack: SerializedTypedArray;
     packToGrid: SerializedTypedArray;
@@ -311,6 +316,7 @@ export type SerializedWorldV1 = Readonly<{
     packNeighbors: SerializedTypedArray;
     packCellsFeatureId: SerializedTypedArray;
     packFeatureType: SerializedTypedArray;
+    packFeatureFeatureId: SerializedTypedArray;
     packFeatureBorder: SerializedTypedArray;
     packFeatureSize: SerializedTypedArray;
     packFeatureFirstCell: SerializedTypedArray;
@@ -429,6 +435,7 @@ export type GenerationContext = {
     cellsFeatureId: Uint32Array;
     featureCount: number;
     featureType: Uint8Array;
+    featureGroup: Uint8Array;
     featureLand: Uint8Array;
     featureBorder: Uint8Array;
     featureSize: Uint32Array;
@@ -447,6 +454,7 @@ export type GenerationContext = {
     cellsWaterbody: Uint32Array;
     waterbodyCount: number;
     waterbodyType: Uint8Array;
+    waterbodyGroup: Uint8Array;
     waterbodySize: Uint32Array;
     packCellCount: number;
     gridToPack: Int32Array;
@@ -460,6 +468,7 @@ export type GenerationContext = {
     packCellsFeatureId: Uint32Array;
     packFeatureCount: number;
     packFeatureType: Uint8Array;
+    packFeatureFeatureId: Uint32Array;
     packFeatureBorder: Uint8Array;
     packFeatureSize: Uint32Array;
     packFeatureFirstCell: Uint32Array;
