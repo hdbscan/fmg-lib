@@ -2,6 +2,8 @@ import { normalizeConfig } from "./internal/config";
 import { createAlea } from "./internal/random";
 import {
   runBiomeStage,
+  runBurgGenerationStage,
+  runBurgSpecificationStage,
   runClimateStage,
   runCulturesStage,
   runDeepDepressionLakeStage,
@@ -19,7 +21,6 @@ import {
   runProvincesStage,
   runReligionsStage,
   runRoutesStage,
-  runSettlementsStage,
   runStateFormsStage,
   runStatesStage,
   runWaterbodyStage,
@@ -325,7 +326,7 @@ export const generateWorld = (options: GenerateOptions): WorldGraphV1 => {
     context.config.layers.politics ||
     context.config.layers.military
   ) {
-    runSettlementsStage(context);
+    runBurgGenerationStage(context);
   }
 
   if (context.config.layers.politics) {
@@ -335,6 +336,14 @@ export const generateWorld = (options: GenerateOptions): WorldGraphV1 => {
 
   if (context.config.layers.religions) {
     runReligionsStage(context);
+  }
+
+  if (
+    context.config.layers.settlements ||
+    context.config.layers.politics ||
+    context.config.layers.military
+  ) {
+    runBurgSpecificationStage(context);
   }
 
   if (context.config.layers.politics) {

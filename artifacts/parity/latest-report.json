@@ -51,9 +51,9 @@
     "oracleRegionCount": 23,
     "localRegionCount": 23,
     "matchedRegionPairs": 13,
-    "pixelIntersection": 5074,
-    "pixelUnion": 26720,
-    "iou": 0.18989520958083833
+    "pixelIntersection": 5529,
+    "pixelUnion": 26262,
+    "iou": 0.21053232807859265
   },
   "religions": {
     "oracleRegionCount": 14,

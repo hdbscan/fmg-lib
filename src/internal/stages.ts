@@ -1,9 +1,10 @@
 import { Delaunay } from "d3-delaunay";
 import type { GenerationContext } from "../types";
 import {
+  runBurgGenerationStage as runPoliticalBurgGenerationStage,
+  runBurgSpecificationStage as runPoliticalBurgSpecificationStage,
   runProvincesStage as runPoliticalProvincesStage,
   runReligionsStage as runPoliticalReligionsStage,
-  runSettlementsStage as runPoliticalSettlementsStage,
   runStateFormsStage as runPoliticalStateFormsStage,
   runStatesStage as runPoliticalStatesStage,
 } from "./political";
@@ -2970,8 +2971,11 @@ export const runCulturesStage = (context: GenerationContext): void => {
   context.world.cultureSize = cultureSize;
 };
 
-export const runSettlementsStage = (context: GenerationContext): void =>
-  runPoliticalSettlementsStage(context);
+export const runBurgGenerationStage = (context: GenerationContext): void =>
+  runPoliticalBurgGenerationStage(context);
+
+export const runBurgSpecificationStage = (context: GenerationContext): void =>
+  runPoliticalBurgSpecificationStage(context);
 
 export const runStatesStage = (context: GenerationContext): void =>
   runPoliticalStatesStage(context);
