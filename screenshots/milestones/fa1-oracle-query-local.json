@@ -1,0 +1,15 @@
+{
+  "slug": "fa1-oracle-query-local",
+  "capturedAt": "2026-03-07T15:40:43.448Z",
+  "url": "http://127.0.0.1:37963/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "900x600",
+  "fullPage": false,
+  "delayMs": 1000,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "fa1-oracle-query-local.png",
+  "sha256": "99f30e379644655d1e6ef8ba916abd69a7128ee055d7360fe44f8dfb2e65e38e"
+}
