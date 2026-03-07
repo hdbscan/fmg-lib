@@ -1096,8 +1096,12 @@ describe("world generation integration", () => {
 
     let landCells = 0;
     let assignedLand = 0;
+    let assignedProvinceLand = 0;
     let assignedWater = 0;
     let stateCellSum = 0;
+    const stateAssignedLand = new Uint32Array(withPoliticsA.stateCount + 1);
+    const stateProvincialLand = new Uint32Array(withPoliticsA.stateCount + 1);
+    const stateProvinceCount = new Uint16Array(withPoliticsA.stateCount + 1);
 
     for (let cellId = 0; cellId < withPoliticsA.cellCount; cellId += 1) {
       const isLand = (withPoliticsA.cellsFeature[cellId] ?? 0) === 1;
@@ -1107,12 +1111,23 @@ describe("world generation integration", () => {
         landCells += 1;
         if (stateId > 0) {
           assignedLand += 1;
+          stateAssignedLand[stateId] = (stateAssignedLand[stateId] ?? 0) + 1;
           expect(stateId).toBeLessThanOrEqual(withPoliticsA.stateCount);
         }
       } else {
         if (stateId > 0) {
           assignedWater += 1;
         }
+      }
+
+      const provinceId = withPoliticsA.cellsProvince[cellId] ?? 0;
+      if (provinceId > 0) {
+        expect(isLand).toBe(true);
+        expect(stateId).toBeGreaterThan(0);
+        expect(provinceId).toBeLessThanOrEqual(withPoliticsA.provinceCount);
+        expect(withPoliticsA.provinceState[provinceId]).toBe(stateId);
+        assignedProvinceLand += 1;
+        stateProvincialLand[stateId] = (stateProvincialLand[stateId] ?? 0) + 1;
       }
     }
 
@@ -1174,10 +1189,19 @@ describe("world generation integration", () => {
       expect(size).toBeGreaterThan(0);
       expect(withPoliticsA.cellsState[centerCell]).toBe(stateId);
 
+      stateProvinceCount[stateId] = (stateProvinceCount[stateId] ?? 0) + 1;
       provinceCellSum += size;
     }
 
-    expect(provinceCellSum).toBe(assignedLand);
+    expect(provinceCellSum).toBe(assignedProvinceLand);
+
+    for (let stateId = 1; stateId <= withPoliticsA.stateCount; stateId += 1) {
+      if ((stateProvinceCount[stateId] ?? 0) > 0) {
+        expect(stateProvincialLand[stateId]).toBe(stateAssignedLand[stateId]);
+      } else {
+        expect(stateProvincialLand[stateId]).toBe(0);
+      }
+    }
 
     expect(Array.from(withPoliticsA.cellsState)).toEqual(
       Array.from(withPoliticsB.cellsState),
