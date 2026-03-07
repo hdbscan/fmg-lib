@@ -3921,13 +3921,19 @@ const computePackHydrology = (
     };
   }
 
-  const getPackNeighbors = (packId: number): number[] =>
-    Array.from(
-      packNeighbors.slice(
-        packNeighborOffsets[packId] ?? 0,
-        packNeighborOffsets[packId + 1] ?? packNeighborOffsets[packId] ?? 0,
+  const mutableNeighborsByPack = Array.from(
+    { length: packCellCount },
+    (_, packId) =>
+      Array.from(
+        packNeighbors.slice(
+          packNeighborOffsets[packId] ?? 0,
+          packNeighborOffsets[packId + 1] ?? packNeighborOffsets[packId] ?? 0,
+        ),
       ),
-    );
+  );
+
+  const getPackNeighbors = (packId: number): number[] =>
+    mutableNeighborsByPack[packId] ?? [];
 
   const alteredHeights = Array.from(packH, (height, packId) => {
     if (height < 20 || (packCoast[packId] ?? 0) < 1) {
@@ -3955,9 +3961,10 @@ const computePackHydrology = (
       continue;
     }
 
-    const lowestShorelineCell = feature.shoreline
-      .slice()
-      .sort((left, right) => alteredHeights[left]! - alteredHeights[right]!)[0];
+    const lowestShorelineCell = feature.shoreline.sort(
+      (left, right) =>
+        (alteredHeights[left] ?? 0) - (alteredHeights[right] ?? 0),
+    )[0];
     if (lowestShorelineCell === undefined) {
       feature.closed = false;
       continue;
@@ -4289,21 +4296,17 @@ const computePackHydrology = (
         (neighborPackId) =>
           !blocked.has(packCellsFeatureId[neighborPackId] ?? 0),
       );
-      minPackId = filtered
-        .slice()
-        .sort(
-          (left, right) =>
-            (alteredHeights[left] ?? 0) - (alteredHeights[right] ?? 0),
-        )[0];
-    } else if ((packHavenPack?.[packId] ?? -1) >= 0) {
-      minPackId = packHavenPack?.[packId] ?? undefined;
+      minPackId = filtered.sort(
+        (left, right) =>
+          (alteredHeights[left] ?? 0) - (alteredHeights[right] ?? 0),
+      )[0];
+    } else if (packHavenPack && (packHavenPack[packId] ?? 0) > 0) {
+      minPackId = packHavenPack[packId] ?? undefined;
     } else {
-      minPackId = getPackNeighbors(packId)
-        .slice()
-        .sort(
-          (left, right) =>
-            (alteredHeights[left] ?? 0) - (alteredHeights[right] ?? 0),
-        )[0];
+      minPackId = getPackNeighbors(packId).sort(
+        (left, right) =>
+          (alteredHeights[left] ?? 0) - (alteredHeights[right] ?? 0),
+      )[0];
     }
 
     if (
@@ -4331,25 +4334,32 @@ const computePackHydrology = (
   }
 
   const survivingRiver = new Uint8Array(riverNext + 1);
+  const finalRiver = new Uint16Array(packCellCount);
+  const finalConfluence = new Uint16Array(packCellCount);
   for (const key of Object.keys(riversData)) {
-    if ((riversData[Number(key)]?.length ?? 0) >= 3) {
-      survivingRiver[Number(key)] = 1;
-    }
-  }
-
-  for (let packId = 0; packId < packCellCount; packId += 1) {
-    if ((alteredHeights[packId] ?? 0) < 20) {
-      packRiver[packId] = 0;
+    const riverId = Number(key);
+    const riverCells = riversData[riverId] ?? [];
+    if (riverCells.length < 3) {
       continue;
     }
-    const riverId = packRiver[packId] ?? 0;
-    packRiver[packId] =
-      riverId > 0 && (survivingRiver[riverId] ?? 0) === 1 ? riverId : 0;
+
+    survivingRiver[riverId] = 1;
+    for (const packId of riverCells) {
+      if (packId < 0 || (alteredHeights[packId] ?? 0) < 20) {
+        continue;
+      }
+
+      if ((finalRiver[packId] ?? 0) > 0) {
+        finalConfluence[packId] = 1;
+      } else {
+        finalRiver[packId] = riverId;
+      }
+    }
   }
 
   return {
     flow: Uint32Array.from(packFlow),
-    river: Uint32Array.from(packRiver),
+    river: Uint32Array.from(finalRiver),
   };
 };
 
