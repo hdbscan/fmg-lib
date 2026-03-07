@@ -751,6 +751,51 @@ const getBoundaryPoints = (
   return points;
 };
 
+const nextHalfedge = (edge: number): number =>
+  edge % 3 === 2 ? edge - 2 : edge + 1;
+
+const triangleOfEdge = (edge: number): number => Math.floor(edge / 3);
+
+const edgesAroundPoint = (halfedges: Int32Array, start: number): number[] => {
+  const result: number[] = [];
+  let incoming = start;
+
+  do {
+    result.push(incoming);
+    const outgoing = nextHalfedge(incoming);
+    incoming = halfedges[outgoing] ?? -1;
+  } while (incoming !== -1 && incoming !== start && result.length < 20);
+
+  return result;
+};
+
+const circumcenter = (
+  a: readonly [number, number],
+  b: readonly [number, number],
+  c: readonly [number, number],
+): readonly [number, number] => {
+  const [ax, ay] = a;
+  const [bx, by] = b;
+  const [cx, cy] = c;
+  const ad = ax * ax + ay * ay;
+  const bd = bx * bx + by * by;
+  const cd = cx * cx + cy * cy;
+  const determinant = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+
+  if (!Number.isFinite(determinant) || Math.abs(determinant) < 1e-12) {
+    return [Math.floor((ax + bx + cx) / 3), Math.floor((ay + by + cy) / 3)];
+  }
+
+  return [
+    Math.floor(
+      (ad * (by - cy) + bd * (cy - ay) + cd * (ay - by)) / determinant,
+    ),
+    Math.floor(
+      (ad * (cx - bx) + bd * (ax - cx) + cd * (bx - ax)) / determinant,
+    ),
+  ];
+};
+
 const buildVoronoiAdjacency = (
   xs: Float32Array,
   ys: Float32Array,
@@ -767,85 +812,70 @@ const buildVoronoiAdjacency = (
   cellVertices: Uint32Array;
 } => {
   const cellCount = xs.length;
-  const offsets = new Uint32Array(cellCount + 1);
-  const neighbors: number[] = [];
-
   const corePoints: [number, number][] = Array.from(
     { length: cellCount },
     (_, index) => [xs[index] ?? 0, ys[index] ?? 0],
   );
   const allPoints = corePoints.concat(boundaryPoints);
-
   const delaunay = Delaunay.from(allPoints);
-  const voronoi = delaunay.voronoi([0, 0, width, height]);
+  const triangles = delaunay.triangles;
+  const halfedges = delaunay.halfedges;
+  const triangleCount = Math.floor(triangles.length / 3);
+  const vertexX = new Float32Array(triangleCount);
+  const vertexY = new Float32Array(triangleCount);
+  const cellNeighborsById: number[][] = Array.from(
+    { length: cellCount },
+    () => [],
+  );
+  const cellVerticesById: number[][] = Array.from(
+    { length: cellCount },
+    () => [],
+  );
   const border = new Uint8Array(cellCount);
-  const vertexX: number[] = [];
-  const vertexY: number[] = [];
-  const vertexMap = new Map<string, number>();
-  const cellVertexOffsets = new Uint32Array(cellCount + 1);
-  const cellVertices: number[] = [];
-  const touchesExtent = (x: number, y: number): boolean =>
-    x <= 0 || y <= 0 || x >= width || y >= height;
 
-  const getVertexId = (x: number, y: number): number => {
-    const key = `${x.toFixed(4)},${y.toFixed(4)}`;
-    const existing = vertexMap.get(key);
-    if (existing !== undefined) {
-      return existing;
+  for (let triangleId = 0; triangleId < triangleCount; triangleId += 1) {
+    const edge = triangleId * 3;
+    const a = allPoints[triangles[edge] ?? 0] ?? [0, 0];
+    const b = allPoints[triangles[edge + 1] ?? 0] ?? [0, 0];
+    const c = allPoints[triangles[edge + 2] ?? 0] ?? [0, 0];
+    const [x, y] = circumcenter(a, b, c);
+    vertexX[triangleId] = x;
+    vertexY[triangleId] = y;
+  }
+
+  for (let edge = 0; edge < triangles.length; edge += 1) {
+    const cellId = triangles[nextHalfedge(edge)] ?? -1;
+    if (
+      cellId < 0 ||
+      cellId >= cellCount ||
+      cellNeighborsById[cellId]!.length > 0
+    ) {
+      continue;
     }
 
-    const vertexId = vertexX.length;
-    vertexMap.set(key, vertexId);
-    vertexX.push(x);
-    vertexY.push(y);
-    return vertexId;
-  };
+    const edges = edgesAroundPoint(halfedges, edge);
+    const cellVertices = edges.map((currentEdge) =>
+      triangleOfEdge(currentEdge),
+    );
+    const cellNeighbors = edges
+      .map((currentEdge) => triangles[currentEdge] ?? -1)
+      .filter((neighborId) => neighborId >= 0 && neighborId < cellCount);
+
+    cellVerticesById[cellId] = cellVertices;
+    cellNeighborsById[cellId] = cellNeighbors;
+    border[cellId] = edges.length > cellNeighbors.length ? 1 : 0;
+  }
+
+  const offsets = new Uint32Array(cellCount + 1);
+  const neighbors: number[] = [];
+  const cellVertexOffsets = new Uint32Array(cellCount + 1);
+  const cellVertices: number[] = [];
 
   for (let cellId = 0; cellId < cellCount; cellId += 1) {
     offsets[cellId] = neighbors.length;
-    let touchesBoundaryNeighbor = false;
-
-    for (const neighborId of delaunay.neighbors(cellId)) {
-      if (neighborId < cellCount) {
-        neighbors.push(neighborId);
-        continue;
-      }
-
-      touchesBoundaryNeighbor = true;
-    }
-
     cellVertexOffsets[cellId] = cellVertices.length;
-
-    const polygon = voronoi.cellPolygon(cellId);
-    let touchesBorder = touchesBoundaryNeighbor;
-
-    if (!polygon) {
-      touchesBorder = true;
-    } else {
-      let pointsCount = polygon.length;
-      if (pointsCount > 1) {
-        const [firstX, firstY] = polygon[0] ?? [0, 0];
-        const [lastX, lastY] = polygon[pointsCount - 1] ?? [0, 0];
-        if (
-          Math.abs(firstX - lastX) < 1e-9 &&
-          Math.abs(firstY - lastY) < 1e-9
-        ) {
-          pointsCount -= 1;
-        }
-      }
-
-      for (let vertexIndex = 0; vertexIndex < pointsCount; vertexIndex += 1) {
-        const [x, y] = polygon[vertexIndex] ?? [0, 0];
-        if (touchesExtent(x, y)) {
-          touchesBorder = true;
-        }
-
-        const vertexId = getVertexId(x, y);
-        cellVertices.push(vertexId);
-      }
-    }
-
-    border[cellId] = touchesBorder ? 1 : 0;
+    neighbors.push(...(cellNeighborsById[cellId] ?? []));
+    cellVertices.push(...(cellVerticesById[cellId] ?? []));
   }
 
   offsets[cellCount] = neighbors.length;
@@ -855,8 +885,8 @@ const buildVoronoiAdjacency = (
     offsets,
     neighbors: Uint32Array.from(neighbors),
     border,
-    vertexX: Float32Array.from(vertexX),
-    vertexY: Float32Array.from(vertexY),
+    vertexX,
+    vertexY,
     cellVertexOffsets,
     cellVertices: Uint32Array.from(cellVertices),
   };

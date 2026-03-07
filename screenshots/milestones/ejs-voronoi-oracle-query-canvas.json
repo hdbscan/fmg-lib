@@ -1,0 +1,15 @@
+{
+  "slug": "ejs-voronoi-oracle-query-canvas",
+  "capturedAt": "2026-03-07T15:32:53.763Z",
+  "url": "http://127.0.0.1:46125/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "1440x960",
+  "fullPage": false,
+  "delayMs": 1000,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "ejs-voronoi-oracle-query-canvas.png",
+  "sha256": "40f3b80f970ed103a502d27a2a728ce1b356966911203be8fdeb86ad65fe1ad4"
+}
