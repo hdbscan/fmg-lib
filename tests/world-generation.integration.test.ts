@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createHash } from "node:crypto";
 import {
   type GenerationConfig,
   deserializeWorld,
@@ -779,6 +780,40 @@ describe("world generation integration", () => {
     expect(Array.from(archipelago.cellsH)).not.toEqual(
       Array.from(inlandSea.cellsH),
     );
+  });
+
+  test("keeps oracle-query terrain placement stable", () => {
+    const world = generateWorld({
+      seed: "42424242",
+      width: 1280,
+      height: 900,
+      cells: 9996,
+      culturesCount: 9,
+      statesCount: 23,
+      townsCount: 1000,
+      climate: {
+        lakeElevationLimit: 20,
+        precipitation: 94,
+        mapSize: 100,
+        latitude: 50,
+        longitude: 50,
+      },
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+        politics: true,
+        religions: true,
+      },
+    });
+
+    const terrainHash = createHash("sha256").update(world.cellsH).digest("hex");
+
+    expect(terrainHash).toBe(
+      "3748d749be0d6c1ac1bc8e23cb4656ca330e25707d16fb5e13313fcdf3373a17",
+    );
+    expect(world.landmassCount).toBe(8);
+    expect(world.waterbodyCount).toBe(2);
   });
 
   test("generates deterministic cultures when culture layer is enabled", () => {

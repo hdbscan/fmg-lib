@@ -1231,6 +1231,38 @@ export const runHeightmapStage = (context: GenerationContext): void => {
     );
   };
 
+  const samplePointInRange = (
+    rangeX: string,
+    rangeY: string,
+  ): Readonly<{ x: number; y: number; cellId: number }> => {
+    const x = getPointInRange(rangeX, width);
+    const y = getPointInRange(rangeY, height);
+    return { x, y, cellId: findGridCell(x, y) };
+  };
+
+  const sampleEndPoint = (
+    startX: number,
+    startY: number,
+    isTrough: boolean,
+  ): Readonly<{ cellId: number; x: number; y: number }> => {
+    let dist = 0;
+    let limit = 0;
+    let endX = 0;
+    let endY = 0;
+
+    do {
+      endX = heightmapRandom() * width * 0.8 + width * 0.1;
+      endY = heightmapRandom() * height * 0.7 + height * 0.15;
+      dist = Math.abs(endY - startY) + Math.abs(endX - startX);
+      limit += 1;
+    } while (
+      (dist < width / 8 || dist > width / (isTrough ? 2 : 3)) &&
+      limit < 50
+    );
+
+    return { x: endX, y: endY, cellId: findGridCell(endX, endY) };
+  };
+
   const neighborsOf = (cellId: number): number[] => {
     const neighbors: number[] = [];
     forEachNeighbor(
@@ -1257,9 +1289,7 @@ export const runHeightmapStage = (context: GenerationContext): void => {
       const h = clamp(getNumberInRange(heightSpec), 0, 100);
 
       do {
-        const x = getPointInRange(rangeX, width);
-        const y = getPointInRange(rangeY, height);
-        start = findGridCell(x, y);
+        start = samplePointInRange(rangeX, rangeY).cellId;
         limit += 1;
       } while ((heights[start] ?? 0) + h > 90 && limit < 50);
 
@@ -1309,9 +1339,7 @@ export const runHeightmapStage = (context: GenerationContext): void => {
       let h = clamp(getNumberInRange(heightSpec), 0, 100);
 
       do {
-        const x = getPointInRange(rangeX, width);
-        const y = getPointInRange(rangeY, height);
-        start = findGridCell(x, y);
+        start = samplePointInRange(rangeX, rangeY).cellId;
         limit += 1;
       } while ((heights[start] ?? 0) < 20 && limit < 50);
 
@@ -1406,36 +1434,26 @@ export const runHeightmapStage = (context: GenerationContext): void => {
       let endCellId = 0;
 
       if (rangeX && rangeY) {
-        let startX = getPointInRange(rangeX, width);
-        let startY = getPointInRange(rangeY, height);
+        let startX = 0;
+        let startY = 0;
         let limit = 0;
 
         if (isTrough) {
           do {
-            startX = getPointInRange(rangeX, width);
-            startY = getPointInRange(rangeY, height);
-            startCellId = findGridCell(startX, startY);
+            const start = samplePointInRange(rangeX, rangeY);
+            startX = start.x;
+            startY = start.y;
+            startCellId = start.cellId;
             limit += 1;
           } while ((heights[startCellId] ?? 0) < 20 && limit < 50);
         } else {
-          startCellId = findGridCell(startX, startY);
+          const start = samplePointInRange(rangeX, rangeY);
+          startX = start.x;
+          startY = start.y;
+          startCellId = start.cellId;
         }
 
-        let dist = 0;
-        limit = 0;
-        let endX = 0;
-        let endY = 0;
-        do {
-          endX = heightmapRandom() * width * 0.8 + width * 0.1;
-          endY = heightmapRandom() * height * 0.7 + height * 0.15;
-          dist = Math.abs(endY - startY) + Math.abs(endX - startX);
-          limit += 1;
-        } while (
-          (dist < width / 8 || dist > width / (isTrough ? 2 : 3)) &&
-          limit < 50
-        );
-
-        endCellId = findGridCell(endX, endY);
+        endCellId = sampleEndPoint(startX, startY, isTrough).cellId;
       }
 
       const ridge = tracePath(
