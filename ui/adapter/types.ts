@@ -96,6 +96,14 @@ export type RenderBurg = Readonly<{
   port: number;
 }>;
 
+export type RenderTerrainFeature = Readonly<{
+  id: number;
+  type: 2 | 3;
+  rings: ReadonlyArray<Float32Array>;
+  area: number;
+  height: number;
+}>;
+
 export type RenderableWorld = Readonly<{
   source: WorldGraphV1;
   width: number;
@@ -117,6 +125,7 @@ export type RenderableWorld = Readonly<{
   markers: ReadonlyArray<RenderMarker>;
   zones: ReadonlyArray<RenderZone>;
   burgs: ReadonlyArray<RenderBurg>;
+  terrainFeatures: ReadonlyArray<RenderTerrainFeature>;
 }>;
 
 export type LayerVisibilityState = Readonly<{

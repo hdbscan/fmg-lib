@@ -8,6 +8,7 @@ import type {
   RenderReligion,
   RenderRoute,
   RenderState,
+  RenderTerrainFeature,
   RenderZone,
   RenderableWorld,
 } from "./types";
@@ -64,6 +65,185 @@ const calcBounds = (
   }
 
   return [minX, minY, maxX, maxY];
+};
+
+const calcPolygonArea = (polygon: Float32Array): number => {
+  if (polygon.length < 6) {
+    return 0;
+  }
+
+  let total = 0;
+  for (let index = 0; index < polygon.length; index += 2) {
+    const nextIndex = (index + 2) % polygon.length;
+    const x0 = polygon[index] ?? 0;
+    const y0 = polygon[index + 1] ?? 0;
+    const x1 = polygon[nextIndex] ?? 0;
+    const y1 = polygon[nextIndex + 1] ?? 0;
+    total += x0 * y1 - x1 * y0;
+  }
+
+  return Math.abs(total) * 0.5;
+};
+
+type TerrainEdgeUse = Readonly<{
+  featureId: number;
+  fromVertexId: number;
+  toVertexId: number;
+}>;
+
+const collectTerrainFeatures = (
+  world: WorldGraphV1,
+): readonly RenderTerrainFeature[] => {
+  const edgeUses = new Map<string, TerrainEdgeUse[]>();
+  const featureEdges = new Map<number, TerrainEdgeUse[]>();
+
+  const addFeatureEdge = (use: TerrainEdgeUse): void => {
+    const edges = featureEdges.get(use.featureId);
+    if (edges) {
+      edges.push(use);
+      return;
+    }
+    featureEdges.set(use.featureId, [use]);
+  };
+
+  for (let packId = 0; packId < world.packCellCount; packId += 1) {
+    const featureId = world.packCellsFeatureId[packId] ?? 0;
+    const featureType = world.packFeatureType[featureId] ?? 0;
+    if (featureId <= 0 || (featureType !== 2 && featureType !== 3)) {
+      continue;
+    }
+
+    const [start, end] = readRange(
+      world.packCellVertexOffsets,
+      world.packCellVertices.length,
+      packId,
+    );
+
+    if (end - start < 3) {
+      continue;
+    }
+
+    for (let cursor = start; cursor < end; cursor += 1) {
+      const fromVertexId = world.packCellVertices[cursor] ?? 0;
+      const nextCursor = cursor + 1 < end ? cursor + 1 : start;
+      const toVertexId = world.packCellVertices[nextCursor] ?? 0;
+      if (fromVertexId === toVertexId) {
+        continue;
+      }
+
+      const key =
+        fromVertexId < toVertexId
+          ? `${fromVertexId}:${toVertexId}`
+          : `${toVertexId}:${fromVertexId}`;
+      const uses = edgeUses.get(key);
+      const use: TerrainEdgeUse = { featureId, fromVertexId, toVertexId };
+      if (uses) {
+        uses.push(use);
+      } else {
+        edgeUses.set(key, [use]);
+      }
+    }
+  }
+
+  for (const uses of edgeUses.values()) {
+    if (uses.length === 1) {
+      const [use] = uses;
+      if (use) {
+        addFeatureEdge(use);
+      }
+      continue;
+    }
+
+    for (const use of uses) {
+      if (uses.every((other) => other.featureId === use.featureId)) {
+        continue;
+      }
+      addFeatureEdge(use);
+    }
+  }
+
+  const terrainFeatures: RenderTerrainFeature[] = [];
+
+  for (const [featureId, edges] of featureEdges) {
+    const featureType = world.packFeatureType[featureId] ?? 0;
+    if (featureType !== 2 && featureType !== 3) {
+      continue;
+    }
+
+    const outgoing = new Map<number, number[]>();
+    for (let edgeIndex = 0; edgeIndex < edges.length; edgeIndex += 1) {
+      const edge = edges[edgeIndex];
+      if (!edge) {
+        continue;
+      }
+      const group = outgoing.get(edge.fromVertexId);
+      if (group) {
+        group.push(edgeIndex);
+      } else {
+        outgoing.set(edge.fromVertexId, [edgeIndex]);
+      }
+    }
+
+    const unused = new Set<number>(edges.map((_, index) => index));
+    const rings: Float32Array[] = [];
+    let area = 0;
+
+    while (unused.size > 0) {
+      const startEdgeIndex = unused.values().next().value;
+      if (typeof startEdgeIndex !== "number") {
+        break;
+      }
+      const startEdge = edges[startEdgeIndex];
+      if (!startEdge) {
+        unused.delete(startEdgeIndex);
+        continue;
+      }
+
+      const vertexIds = [startEdge.fromVertexId];
+      let currentVertexId = startEdge.toVertexId;
+      const startVertexId = startEdge.fromVertexId;
+      unused.delete(startEdgeIndex);
+
+      while (currentVertexId !== startVertexId) {
+        vertexIds.push(currentVertexId);
+        const nextEdgeIndex = (outgoing.get(currentVertexId) ?? []).find(
+          (candidate) => unused.has(candidate),
+        );
+        if (nextEdgeIndex == null) {
+          vertexIds.length = 0;
+          break;
+        }
+
+        const nextEdge = edges[nextEdgeIndex];
+        unused.delete(nextEdgeIndex);
+        currentVertexId = nextEdge?.toVertexId ?? startVertexId;
+      }
+
+      if (vertexIds.length < 3) {
+        continue;
+      }
+
+      const polygon = new Float32Array(vertexIds.length * 2);
+      for (let index = 0; index < vertexIds.length; index += 1) {
+        const vertexId = vertexIds[index] ?? 0;
+        polygon[index * 2] = world.packVertexX[vertexId] ?? 0;
+        polygon[index * 2 + 1] = world.packVertexY[vertexId] ?? 0;
+      }
+      rings.push(polygon);
+      area += calcPolygonArea(polygon);
+    }
+
+    terrainFeatures.push({
+      id: featureId,
+      type: featureType,
+      rings,
+      area,
+      height: world.packH[world.packFeatureFirstCell[featureId] ?? 0] ?? 0,
+    });
+  }
+
+  terrainFeatures.sort((left, right) => right.area - left.area);
+  return terrainFeatures;
 };
 
 const collectStates = (world: WorldGraphV1): readonly RenderState[] => {
@@ -345,5 +525,6 @@ export const buildRenderableWorld = (world: WorldGraphV1): RenderableWorld => {
     markers: collectMarkers(world),
     zones: collectZones(world),
     burgs: collectBurgs(world),
+    terrainFeatures: collectTerrainFeatures(world),
   };
 };
