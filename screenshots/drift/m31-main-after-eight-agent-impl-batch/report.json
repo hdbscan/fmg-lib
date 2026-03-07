@@ -1,0 +1,33 @@
+{
+  "slug": "m31-main-after-eight-agent-impl-batch",
+  "capturedAt": "2026-03-07T19:49:04.213Z",
+  "viewport": "1280x900",
+  "fullPage": false,
+  "status": "different",
+  "note": "Comparing main after merged point-retention, hydrology, exact rankCells, routes, oracle controls, and packed harbor semantics against upstream FMG fixed seed 42424242.",
+  "local": {
+    "label": "local-main-after-eight-agent-impl-batch",
+    "url": "http://127.0.0.1:36783/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&heightTemplate=continents&precipitation=94&mapSize=100&latitude=50&longitude=50&terrainGeometry=packed",
+    "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+    "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+    "browser": "firefox",
+    "delayMs": 1500,
+    "staticRoot": "ui/dist",
+    "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&heightTemplate=continents&precipitation=94&mapSize=100&latitude=50&longitude=50&terrainGeometry=packed",
+    "artifact": "local.png",
+    "sha256": "5150c49ae9c275fd263556053d95aa4e6f2550ddf17286ec5f6356f8a99b95ad"
+  },
+  "reference": {
+    "type": "upstream",
+    "label": "upstream-fmg-seed-42424242-default",
+    "url": "https://azgaar.github.io/Fantasy-Map-Generator/?seed=42424242&options=default",
+    "browser": "firefox",
+    "selector": "#map",
+    "readySelector": "#map",
+    "delayMs": 12000,
+    "staticRoot": null,
+    "staticPath": null,
+    "artifact": "upstream.png",
+    "sha256": "855809c24d33f7995e9a4a4e08a8d251919a8d1d5ef54d5e66324655fccb4efb"
+  }
+}

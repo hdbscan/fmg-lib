@@ -21,6 +21,7 @@
       "hiddenControls": {
         "sizeVariety": 7.5,
         "growthRate": 1.6,
+        "provincesRatio": 28,
         "religionsNumber": 7
       },
       "climate": {
@@ -63,27 +64,27 @@
   "politics": {
     "oracleRegionCount": 23,
     "localRegionCount": 23,
-    "matchedRegionPairs": 14,
-    "pixelIntersection": 5192,
-    "pixelUnion": 27343,
-    "iou": 0.18988406539150787
+    "matchedRegionPairs": 16,
+    "pixelIntersection": 5319,
+    "pixelUnion": 27229,
+    "iou": 0.19534320026442395
   },
   "religions": {
     "oracleRegionCount": 14,
-    "localRegionCount": 14,
-    "matchedRegionPairs": 9,
-    "pixelIntersection": 5188,
-    "pixelUnion": 25729,
-    "iou": 0.20164017256791947
+    "localRegionCount": 10,
+    "matchedRegionPairs": 7,
+    "pixelIntersection": 6516,
+    "pixelUnion": 24401,
+    "iou": 0.2670382361378632
   },
   "burgs": {
     "oracleCount": 796,
     "localCount": 750,
     "threshold": 10.74,
-    "oracleRecallWithinThreshold": 0.39824120603015073,
-    "localPrecisionWithinThreshold": 0.3333333333333333,
-    "meanNearestDistance": 18.78410294420801,
-    "medianNearestDistance": 13.533832973548993
+    "oracleRecallWithinThreshold": 0.3944723618090452,
+    "localPrecisionWithinThreshold": 0.344,
+    "meanNearestDistance": 18.855322770583804,
+    "medianNearestDistance": 13.932167211713093
   },
   "counts": {
     "landmasses": {

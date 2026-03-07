@@ -282445,6 +282445,7 @@
   "townsNumber": 1000,
   "sizeVariety": 7.5,
   "growthRate": 1.6,
+  "provincesRatio": 28,
   "religionsNumber": 7,
   "temperatureEquator": 27,
   "temperatureNorthPole": -31,
