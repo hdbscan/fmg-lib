@@ -1296,6 +1296,28 @@ export const runReligionsStage = (context: GenerationContext): void => {
     }
   }
 
+  for (let religionId = 1; religionId <= religionCount; religionId += 1) {
+    const currentSeed = religionSeedCell[religionId] ?? 0;
+    if ((cellsReligion[currentSeed] ?? 0) === religionId) continue;
+
+    let firstOwnedCell = -1;
+    for (let cellId = 0; cellId < cellsReligion.length; cellId += 1) {
+      if ((cellsReligion[cellId] ?? 0) !== religionId) continue;
+      firstOwnedCell = cellId;
+      break;
+    }
+
+    if (firstOwnedCell >= 0) {
+      religionSeedCell[religionId] = firstOwnedCell;
+      continue;
+    }
+
+    if ((religionType[religionId] ?? 0) === 1) {
+      const cultureId = religionCultureList[religionId] ?? 0;
+      religionSeedCell[religionId] = cultureSeedCell[cultureId] ?? currentSeed;
+    }
+  }
+
   context.world.religionCount = religionCount;
   context.world.religionSeedCell = religionSeedCell;
   context.world.religionType = religionType;

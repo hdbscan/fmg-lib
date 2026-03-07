@@ -1362,6 +1362,9 @@ describe("world generation integration", () => {
       expect(withReligionsA.cellsFeature[seedCell]).toBe(1);
       expect(type === 1 || type === 2 || type === 3 || type === 4).toBe(true);
       expect(size).toBeGreaterThanOrEqual(0);
+      if (size > 0) {
+        expect(withReligionsA.cellsReligion[seedCell]).toBe(religionId);
+      }
 
       sizeSum += size;
     }
@@ -1419,7 +1422,7 @@ describe("world generation integration", () => {
     );
     expect(
       createHash("sha256").update(world.religionSeedCell).digest("hex"),
-    ).toBe("2c7b42299b0721344754aa9763cb856a7bb360de0c16c55ffff93055fbdd1826");
+    ).toBe("3092e4de4c9c9ed5aca94ca42ee21cc85a2893348269b10ff499d5a499237345");
     expect(createHash("sha256").update(world.religionType).digest("hex")).toBe(
       "321918b12ad8caa005eefc87c5566ca7885bcce909cb33ac59ce35c26b70e9fd",
     );
