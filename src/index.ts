@@ -27,6 +27,10 @@ import {
   runWaterbodyStage,
 } from "./internal/stages";
 import {
+  buildPhysicalDiagnosticsFromWorld,
+  capturePhysicalDiagnosticStep,
+} from "./physical-harness";
+import {
   buildTerrainDiagnosticsFromWorld,
   captureTerrainDiagnosticStep,
 } from "./terrain-harness";
@@ -42,6 +46,15 @@ export {
   type RegionParityMetric,
 } from "./parity";
 export {
+  buildPhysicalDiagnosticsFromWorld,
+  capturePhysicalDiagnosticStep,
+  comparePhysicalDiagnostics,
+  type PhysicalDiagnosticStep,
+  type PhysicalDiagnostics,
+  type PhysicalDiagnosticsComparison,
+  type PhysicalStepComparison,
+} from "./physical-harness";
+export {
   buildTerrainDiagnosticsFromWorld,
   captureTerrainDiagnosticStep,
   compareTerrainDiagnostics,
@@ -50,6 +63,7 @@ export {
   type TerrainDiagnosticsComparison,
   type TerrainStepComparison,
 } from "./terrain-harness";
+import type { PhysicalDiagnostics } from "./physical-harness";
 import type { TerrainDiagnostics } from "./terrain-harness";
 import type {
   GenerationConfig,
@@ -469,6 +483,64 @@ export const generateTerrainDiagnostics = (
   );
 
   return buildTerrainDiagnosticsFromWorld(
+    toWorldGraph(context),
+    config.heightTemplate,
+    config.seaLevel,
+    steps,
+  );
+};
+
+export const generatePhysicalDiagnostics = (
+  options: GenerateOptions,
+): PhysicalDiagnostics => {
+  const config = normalizeConfig(options);
+  const context = createContext(config);
+
+  runGridStage(context);
+  runHeightmapStage(context);
+  runDeepDepressionLakeStage(context);
+  runFeatureStage(context);
+  runLandmassStage(context);
+  runWaterbodyStage(context);
+  if (runOpenNearSeaLakesStage(context)) {
+    runFeatureStage(context);
+    runLandmassStage(context);
+    runWaterbodyStage(context);
+  }
+  runPackStage(context);
+  runPackFeatureStage(context);
+  runGridFeatureMarkupStage(context);
+
+  const steps = [];
+
+  steps.push(
+    capturePhysicalDiagnosticStep(
+      context.world,
+      "physical:pack-ready",
+      "Pack ready",
+    ),
+  );
+
+  runClimateStage(context, (key, label) => {
+    steps.push(capturePhysicalDiagnosticStep(context.world, key, label));
+  });
+
+  runHydrologyStage(context);
+  steps.push(
+    capturePhysicalDiagnosticStep(
+      context.world,
+      "physical:hydrology",
+      "Hydrology",
+    ),
+  );
+
+  runPackFeatureMetadataStage(context);
+  runBiomeStage(context);
+  steps.push(
+    capturePhysicalDiagnosticStep(context.world, "physical:biome", "Biome"),
+  );
+
+  return buildPhysicalDiagnosticsFromWorld(
     toWorldGraph(context),
     config.heightTemplate,
     config.seaLevel,
