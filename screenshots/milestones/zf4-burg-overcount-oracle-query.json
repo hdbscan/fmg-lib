@@ -1,0 +1,15 @@
+{
+  "slug": "zf4-burg-overcount-oracle-query",
+  "capturedAt": "2026-03-07T17:47:17.527Z",
+  "url": "http://127.0.0.1:35749/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "1440x960",
+  "fullPage": false,
+  "delayMs": 2000,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "zf4-burg-overcount-oracle-query.png",
+  "sha256": "02004e7b13d76e55ce10854f59fd279d5d997c570dd818b060535a2c95e9e81a"
+}

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   computeLakeFeatureMetadata,
   computePoliticalSuitability,
+  runBurgGenerationStage,
 } from "../src/internal/political";
 import type {
   GenerationContext,
@@ -188,5 +189,50 @@ describe("lake suitability metadata", () => {
     const suitability = computePoliticalSuitability(context);
 
     expect(suitability[0] ?? 0).toBeGreaterThan(suitability[2] ?? 0);
+  });
+
+  test("keeps warm coastal burgs as ports over cold water", () => {
+    const context = createContext();
+
+    context.config = {
+      ...context.config,
+      width: 600,
+      height: 200,
+      statesCount: 1,
+      townsCount: 1,
+    };
+    context.world.cellsX = new Float32Array([100, 140, 500, 540]);
+    context.world.cellsY = new Float32Array([100, 100, 100, 100]);
+    context.world.packX = context.world.cellsX;
+    context.world.packY = context.world.cellsY;
+    context.world.cellsFeature = new Uint8Array([1, 0, 1, 0]);
+    context.world.cellsCulture = new Uint16Array([1, 0, 1, 0]);
+    context.world.cellsH = new Uint8Array([30, 19, 30, 19]);
+    context.world.cellsTemp = new Int8Array([5, -5, 5, -5]);
+    context.world.cellsPrec = new Uint8Array([100, 0, 100, 0]);
+    context.world.cellsFlow = new Uint32Array([400, 0, 300, 0]);
+    context.world.cellsRiver = new Uint8Array([1, 0, 1, 0]);
+    context.world.cellsBiome = new Uint8Array([5, 0, 5, 0]);
+    context.world.cellsWaterbody = new Uint32Array([0, 1, 0, 1]);
+    context.world.waterbodyType = new Uint8Array([0, 1]);
+    context.world.waterbodySize = new Uint32Array([0, 2]);
+    context.world.waterbodyCount = 1;
+    context.world.packCoast = new Int8Array([1, -1, 1, -1]);
+    context.world.cellsCoast = new Int8Array([1, -1, 1, -1]);
+    context.world.packHaven = new Int32Array([1, -1, 3, -1]);
+    context.world.packHarbor = new Uint8Array([1, 0, 1, 0]);
+    context.world.featureCount = 2;
+    context.world.featureType = new Uint8Array([0, 1, 3]);
+    context.world.featureLand = new Uint8Array([0, 0, 1]);
+    context.world.featureSize = new Uint32Array([0, 2, 2]);
+    context.world.featureFirstCell = new Uint32Array([0, 1, 0]);
+    context.world.cellsFeatureId = new Uint32Array([2, 1, 2, 1]);
+    context.world.packCellsFeatureId = new Uint32Array([2, 1, 2, 1]);
+
+    runBurgGenerationStage(context);
+
+    expect(context.world.burgCount).toBe(2);
+    expect(context.world.burgPort[1]).toBe(1);
+    expect(context.world.burgPort[2]).toBe(1);
   });
 });
