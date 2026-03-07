@@ -1,0 +1,15 @@
+{
+  "slug": "9id-packed-topology-oracle-query-canvas",
+  "capturedAt": "2026-03-07T18:34:18.157Z",
+  "url": "http://127.0.0.1:33139/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "900x600",
+  "fullPage": false,
+  "delayMs": 2000,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "9id-packed-topology-oracle-query-canvas.png",
+  "sha256": "927059a26e19cdf166d840beaa4e06a48ba33b1766a62aeefe7cc009ab03d21f"
+}
