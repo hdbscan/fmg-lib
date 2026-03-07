@@ -1,0 +1,15 @@
+{
+  "slug": "s78-land-shortfall-oracle-query",
+  "capturedAt": "2026-03-07T18:35:21.430Z",
+  "url": "http://127.0.0.1:36107/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "1440x960",
+  "fullPage": false,
+  "delayMs": 1000,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "s78-land-shortfall-oracle-query.png",
+  "sha256": "3fd74add46ffa7f71f4569b0f891075e321b7cef05bb22eeae3c42f38e1c01b1"
+}
