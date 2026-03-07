@@ -26,6 +26,15 @@ export const mapUpstreamTemplateToHeightTemplate = (
     : undefined;
 };
 
+const deriveRequestedCellsFromOracle = (oracle: ParitySnapshot): number => {
+  const { width, height, gridSpacing } = oracle;
+  if (gridSpacing > 0) {
+    return Math.max(1, Math.round((width * height) / gridSpacing ** 2));
+  }
+
+  return Math.max(1, oracle.terrain.mesh.polygons.length);
+};
+
 export const buildGenerationConfigFromOracle = (
   oracle: ParitySnapshot,
 ): GenerationConfig => {
@@ -79,7 +88,7 @@ export const buildGenerationConfigFromOracle = (
     seed: oracle.seed,
     width: oracle.width,
     height: oracle.height,
-    cells: oracle.terrain.mesh.polygons.length,
+    cells: deriveRequestedCellsFromOracle(oracle),
     culturesCount: Math.max(1, oracle.cultureCount ?? 12),
     ...(heightTemplate ? { heightTemplate } : {}),
     ...(oracle.statesNumber !== undefined
