@@ -1,0 +1,15 @@
+{
+  "slug": "m18-jittered-grid-rounding-local",
+  "capturedAt": "2026-03-07T10:09:04.513Z",
+  "url": "http://127.0.0.1:45473/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&heightTemplate=continents&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "1280x900",
+  "fullPage": false,
+  "delayMs": 1500,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&heightTemplate=continents&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "m18-jittered-grid-rounding-local.png",
+  "sha256": "0411ac64ac4bb85819001e06edf4c7d08b5c63513bc88be372e7932be168c1ea"
+}

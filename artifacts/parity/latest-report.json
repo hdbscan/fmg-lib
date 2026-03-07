@@ -38,40 +38,40 @@
     "height": 180
   },
   "terrain": {
-    "pixelIntersection": 13051,
-    "pixelUnion": 22750,
-    "iou": 0.5736703296703297
+    "pixelIntersection": 11980,
+    "pixelUnion": 20899,
+    "iou": 0.5732331690511507
   },
   "politics": {
     "oracleRegionCount": 23,
     "localRegionCount": 23,
-    "matchedRegionPairs": 14,
-    "pixelIntersection": 6727,
-    "pixelUnion": 25916,
-    "iou": 0.2595693779904306
+    "matchedRegionPairs": 15,
+    "pixelIntersection": 5185,
+    "pixelUnion": 24050,
+    "iou": 0.2155925155925156
   },
   "religions": {
     "oracleRegionCount": 14,
-    "localRegionCount": 31,
-    "matchedRegionPairs": 11,
-    "pixelIntersection": 5775,
-    "pixelUnion": 27721,
-    "iou": 0.20832581797193464
+    "localRegionCount": 28,
+    "matchedRegionPairs": 12,
+    "pixelIntersection": 4727,
+    "pixelUnion": 25847,
+    "iou": 0.18288389368205207
   },
   "burgs": {
     "oracleCount": 796,
     "localCount": 1023,
     "threshold": 10.74,
-    "oracleRecallWithinThreshold": 0.4108040201005025,
-    "localPrecisionWithinThreshold": 0.2805474095796676,
-    "meanNearestDistance": 22.151502737111674,
-    "medianNearestDistance": 15.14583162540463
+    "oracleRecallWithinThreshold": 0.5288944723618091,
+    "localPrecisionWithinThreshold": 0.39589442815249265,
+    "meanNearestDistance": 16.4726521806309,
+    "medianNearestDistance": 12.071281316368388
   },
   "counts": {
     "landmasses": {
       "oracle": 10,
-      "local": 17,
-      "delta": 7
+      "local": 7,
+      "delta": -3
     },
     "states": {
       "oracle": 23,
@@ -80,8 +80,8 @@
     },
     "religions": {
       "oracle": 16,
-      "local": 31,
-      "delta": 15
+      "local": 28,
+      "delta": 12
     },
     "burgs": {
       "oracle": 796,

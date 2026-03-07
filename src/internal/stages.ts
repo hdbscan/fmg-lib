@@ -1130,8 +1130,8 @@ export const runGridStage = (context: GenerationContext): void => {
       const xJitter = (gridRandom() * 2 - 1) * jittering;
       const yJitter = (gridRandom() * 2 - 1) * jittering;
 
-      context.world.cellsX[index] = clamp(x + xJitter, 0, width);
-      context.world.cellsY[index] = clamp(y + yJitter, 0, height);
+      context.world.cellsX[index] = clamp(rn(x + xJitter, 2), 0, width);
+      context.world.cellsY[index] = clamp(rn(y + yJitter, 2), 0, height);
       index += 1;
     }
   }
