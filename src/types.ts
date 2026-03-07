@@ -340,6 +340,7 @@ export type GenerationContext = {
   internal: {
     cultureTypes: PoliticalType[];
     burgPackIds: Uint32Array;
+    packRetentionCoast: Int8Array | null;
   };
   world: {
     cellCount: number;
