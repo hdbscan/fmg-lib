@@ -102,6 +102,8 @@ export type RenderTerrainFeature = Readonly<{
   rings: ReadonlyArray<Float32Array>;
   area: number;
   height: number;
+  group: number;
+  shorelinePackIds: Uint32Array;
 }>;
 
 export type RenderableWorld = Readonly<{

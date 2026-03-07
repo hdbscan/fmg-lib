@@ -421,6 +421,13 @@ describe("world generation integration", () => {
     expect(world.packFeatureBorder.length).toBe(world.packFeatureCount + 1);
     expect(world.packFeatureSize.length).toBe(world.packFeatureCount + 1);
     expect(world.packFeatureFirstCell.length).toBe(world.packFeatureCount + 1);
+    expect(world.packFeatureGroup.length).toBe(world.packFeatureCount + 1);
+    expect(world.packFeatureChainOffsets.length).toBe(
+      world.packFeatureCount + 1,
+    );
+    expect(world.packFeatureShorelineOffsets.length).toBe(
+      world.packFeatureCount + 1,
+    );
     expect(world.packCoast.length).toBe(world.packCellCount);
     expect(world.packHaven.length).toBe(world.packCellCount);
     expect(world.packHarbor.length).toBe(world.packCellCount);
@@ -815,6 +822,8 @@ describe("world generation integration", () => {
     let accountedPackFeatureCells = 0;
     let packLandFeatures = 0;
     let packWaterFeatures = 0;
+    let retainedFeatureChains = 0;
+    let shorelineEntries = 0;
     for (
       let packFeatureId = 1;
       packFeatureId <= world.packFeatureCount;
@@ -834,6 +843,15 @@ describe("world generation integration", () => {
       expect(firstPackCell).toBeGreaterThanOrEqual(0);
       expect(firstPackCell).toBeLessThan(world.packCellCount);
       expect(world.packCellsFeatureId[firstPackCell]).toBe(packFeatureId);
+      expect(world.packFeatureGroup[packFeatureId]).toBeGreaterThanOrEqual(0);
+
+      const chainStart = world.packFeatureChainOffsets[packFeatureId] ?? 0;
+      const chainEnd =
+        world.packFeatureChainOffsets[packFeatureId + 1] ?? chainStart;
+      const shorelineStart =
+        world.packFeatureShorelineOffsets[packFeatureId] ?? 0;
+      const shorelineEnd =
+        world.packFeatureShorelineOffsets[packFeatureId + 1] ?? shorelineStart;
 
       const firstGridCell = world.packToGrid[firstPackCell] ?? 0;
       expect(world.cellsFeatureId[firstGridCell]).toBe(featureId);
@@ -843,7 +861,23 @@ describe("world generation integration", () => {
       } else {
         expect(world.cellsFeature[firstGridCell]).toBe(0);
         packWaterFeatures += 1;
+        if (type === 2) {
+          expect(chainEnd).toBeGreaterThan(chainStart);
+          for (let index = shorelineStart; index < shorelineEnd; index += 1) {
+            const shorelinePackId = world.packFeatureShoreline[index] ?? -1;
+            expect(shorelinePackId).toBeGreaterThanOrEqual(0);
+            expect(shorelinePackId).toBeLessThan(world.packCellCount);
+            const shorelineFeatureId =
+              world.packCellsFeatureId[shorelinePackId] ?? 0;
+            expect(world.packFeatureType[shorelineFeatureId]).toBe(3);
+          }
+        } else {
+          expect(shorelineEnd).toBe(shorelineStart);
+        }
       }
+
+      retainedFeatureChains += chainEnd - chainStart;
+      shorelineEntries += shorelineEnd - shorelineStart;
 
       accountedPackFeatureCells += size;
     }
@@ -851,6 +885,8 @@ describe("world generation integration", () => {
     expect(accountedPackFeatureCells).toBe(world.packCellCount);
     expect(packLandFeatures).toBeGreaterThan(0);
     expect(packWaterFeatures).toBeGreaterThan(0);
+    expect(retainedFeatureChains).toBeGreaterThan(0);
+    expect(shorelineEntries).toBeGreaterThan(0);
   });
 
   test("is deterministic for same seed and config", () => {
@@ -1080,6 +1116,24 @@ describe("world generation integration", () => {
     );
     expect(Array.from(worldA.packFeatureFirstCell)).toEqual(
       Array.from(worldB.packFeatureFirstCell),
+    );
+    expect(Array.from(worldA.packFeatureGroup)).toEqual(
+      Array.from(worldB.packFeatureGroup),
+    );
+    expect(Array.from(worldA.packFeatureChainOffsets)).toEqual(
+      Array.from(worldB.packFeatureChainOffsets),
+    );
+    expect(Array.from(worldA.packFeatureVertexOffsets)).toEqual(
+      Array.from(worldB.packFeatureVertexOffsets),
+    );
+    expect(Array.from(worldA.packFeatureVertices)).toEqual(
+      Array.from(worldB.packFeatureVertices),
+    );
+    expect(Array.from(worldA.packFeatureShorelineOffsets)).toEqual(
+      Array.from(worldB.packFeatureShorelineOffsets),
+    );
+    expect(Array.from(worldA.packFeatureShoreline)).toEqual(
+      Array.from(worldB.packFeatureShoreline),
     );
     expect(Array.from(worldA.packCoast)).toEqual(Array.from(worldB.packCoast));
     expect(Array.from(worldA.packHaven)).toEqual(Array.from(worldB.packHaven));
@@ -2547,6 +2601,24 @@ describe("world generation integration", () => {
     expect(Array.from(withoutCultures.packFeatureFirstCell)).toEqual(
       Array.from(withCultures.packFeatureFirstCell),
     );
+    expect(Array.from(withoutCultures.packFeatureGroup)).toEqual(
+      Array.from(withCultures.packFeatureGroup),
+    );
+    expect(Array.from(withoutCultures.packFeatureChainOffsets)).toEqual(
+      Array.from(withCultures.packFeatureChainOffsets),
+    );
+    expect(Array.from(withoutCultures.packFeatureVertexOffsets)).toEqual(
+      Array.from(withCultures.packFeatureVertexOffsets),
+    );
+    expect(Array.from(withoutCultures.packFeatureVertices)).toEqual(
+      Array.from(withCultures.packFeatureVertices),
+    );
+    expect(Array.from(withoutCultures.packFeatureShorelineOffsets)).toEqual(
+      Array.from(withCultures.packFeatureShorelineOffsets),
+    );
+    expect(Array.from(withoutCultures.packFeatureShoreline)).toEqual(
+      Array.from(withCultures.packFeatureShoreline),
+    );
     expect(Array.from(withoutCultures.packCoast)).toEqual(
       Array.from(withCultures.packCoast),
     );
@@ -2947,6 +3019,24 @@ describe("world generation integration", () => {
     );
     expect(Array.from(decoded.packFeatureFirstCell)).toEqual(
       Array.from(original.packFeatureFirstCell),
+    );
+    expect(Array.from(decoded.packFeatureGroup)).toEqual(
+      Array.from(original.packFeatureGroup),
+    );
+    expect(Array.from(decoded.packFeatureChainOffsets)).toEqual(
+      Array.from(original.packFeatureChainOffsets),
+    );
+    expect(Array.from(decoded.packFeatureVertexOffsets)).toEqual(
+      Array.from(original.packFeatureVertexOffsets),
+    );
+    expect(Array.from(decoded.packFeatureVertices)).toEqual(
+      Array.from(original.packFeatureVertices),
+    );
+    expect(Array.from(decoded.packFeatureShorelineOffsets)).toEqual(
+      Array.from(original.packFeatureShorelineOffsets),
+    );
+    expect(Array.from(decoded.packFeatureShoreline)).toEqual(
+      Array.from(original.packFeatureShoreline),
     );
     expect(Array.from(decoded.packCoast)).toEqual(
       Array.from(original.packCoast),

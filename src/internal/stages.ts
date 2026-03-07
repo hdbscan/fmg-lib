@@ -1,6 +1,7 @@
 import { Delaunay } from "d3-delaunay";
 import type { GenerationContext, PoliticalType } from "../types";
 import {
+  computeLakeFeatureMetadata,
   computeSuitability,
   isPoliticalPackCell,
   runBurgGenerationStage as runPoliticalBurgGenerationStage,
@@ -1116,6 +1117,27 @@ type FrontierEntry = {
   packId: number;
 };
 
+type TerrainEdgeUse = Readonly<{
+  featureId: number;
+  fromVertexId: number;
+  toVertexId: number;
+}>;
+
+const packFeatureGroupCode = {
+  none: 0,
+  ocean: 1,
+  sea: 2,
+  gulf: 3,
+  continent: 4,
+  island: 5,
+  isle: 6,
+  lakeIsland: 7,
+  freshwater: 8,
+  salt: 9,
+  frozen: 10,
+  dry: 11,
+} as const;
+
 const compareFrontierEntries = (
   left: FrontierEntry,
   right: FrontierEntry,
@@ -1348,6 +1370,12 @@ export const runGridStage = (context: GenerationContext): void => {
   context.world.packFeatureBorder = new Uint8Array(1);
   context.world.packFeatureSize = new Uint32Array(1);
   context.world.packFeatureFirstCell = new Uint32Array(1);
+  context.world.packFeatureGroup = new Uint8Array(1);
+  context.world.packFeatureChainOffsets = new Uint32Array(1);
+  context.world.packFeatureVertexOffsets = new Uint32Array(1);
+  context.world.packFeatureVertices = new Uint32Array(0);
+  context.world.packFeatureShorelineOffsets = new Uint32Array(1);
+  context.world.packFeatureShoreline = new Uint32Array(0);
   context.world.packCoast = new Int8Array(0);
   context.world.packHaven = new Int32Array(0);
   context.world.packHarbor = new Uint8Array(0);
@@ -2260,6 +2288,347 @@ export const runPackStage = (context: GenerationContext): void => {
   context.world.packCellVertices = packAdjacency.cellVertices;
 };
 
+const buildPackFeatureBoundaryData = (
+  context: GenerationContext,
+): Readonly<{
+  chainOffsets: Uint32Array;
+  vertexOffsets: Uint32Array;
+  vertices: Uint32Array;
+  shorelineOffsets: Uint32Array;
+  shoreline: Uint32Array;
+}> => {
+  const {
+    packCellCount,
+    packCellsFeatureId,
+    packFeatureCount,
+    packFeatureType,
+    packCellVertexOffsets,
+    packCellVertices,
+    packNeighborOffsets,
+    packNeighbors,
+    packVertexX,
+  } = context.world;
+
+  if (packFeatureCount <= 0) {
+    return {
+      chainOffsets: new Uint32Array(1),
+      vertexOffsets: new Uint32Array(1),
+      vertices: new Uint32Array(0),
+      shorelineOffsets: new Uint32Array(1),
+      shoreline: new Uint32Array(0),
+    };
+  }
+
+  const edgeUses = new Map<string, TerrainEdgeUse[]>();
+  const featureEdges = new Map<number, TerrainEdgeUse[]>();
+  const vertexCells: number[][] = Array.from(
+    { length: packVertexX.length },
+    () => [],
+  );
+
+  for (let packId = 0; packId < packCellCount; packId += 1) {
+    const [start, end] = [
+      packCellVertexOffsets[packId] ?? 0,
+      packCellVertexOffsets[packId + 1] ?? 0,
+    ];
+    for (let cursor = start; cursor < end; cursor += 1) {
+      const vertexId = packCellVertices[cursor] ?? 0;
+      const touchedCells = vertexCells[vertexId];
+      if (touchedCells && touchedCells[touchedCells.length - 1] !== packId) {
+        touchedCells.push(packId);
+      }
+    }
+  }
+
+  for (let packId = 0; packId < packCellCount; packId += 1) {
+    const featureId = packCellsFeatureId[packId] ?? 0;
+    const featureType = packFeatureType[featureId] ?? 0;
+    if (featureId <= 0 || featureType === 1) {
+      continue;
+    }
+
+    const start = packCellVertexOffsets[packId] ?? 0;
+    const end = packCellVertexOffsets[packId + 1] ?? start;
+    if (end - start < 2) {
+      continue;
+    }
+
+    for (let cursor = start; cursor < end; cursor += 1) {
+      const fromVertexId = packCellVertices[cursor] ?? 0;
+      const nextCursor = cursor + 1 < end ? cursor + 1 : start;
+      const toVertexId = packCellVertices[nextCursor] ?? 0;
+      if (fromVertexId === toVertexId) {
+        continue;
+      }
+
+      const key =
+        fromVertexId < toVertexId
+          ? `${fromVertexId}:${toVertexId}`
+          : `${toVertexId}:${fromVertexId}`;
+      const use: TerrainEdgeUse = { featureId, fromVertexId, toVertexId };
+      const uses = edgeUses.get(key);
+      if (uses) {
+        uses.push(use);
+      } else {
+        edgeUses.set(key, [use]);
+      }
+    }
+  }
+
+  const addFeatureEdge = (use: TerrainEdgeUse): void => {
+    const edges = featureEdges.get(use.featureId);
+    if (edges) {
+      edges.push(use);
+      return;
+    }
+    featureEdges.set(use.featureId, [use]);
+  };
+
+  for (const uses of edgeUses.values()) {
+    if (uses.length === 1) {
+      const [use] = uses;
+      if (use) {
+        addFeatureEdge(use);
+      }
+      continue;
+    }
+
+    for (const use of uses) {
+      if (uses.every((other) => other.featureId === use.featureId)) {
+        continue;
+      }
+      addFeatureEdge(use);
+    }
+  }
+
+  const chainOffsets = [0];
+  const vertexOffsets = [0];
+  const vertices: number[] = [];
+  const shorelineOffsets = [0];
+  const shoreline: number[] = [];
+
+  const takeNextEdge = (
+    outgoing: ReadonlyMap<number, number[]>,
+    vertexId: number,
+    unused: Set<number>,
+  ): number | undefined => {
+    const candidates = outgoing.get(vertexId) ?? [];
+    return candidates.find((edgeIndex) => unused.has(edgeIndex));
+  };
+
+  const buildChains = (edges: readonly TerrainEdgeUse[]): number[][] => {
+    const outgoing = new Map<number, number[]>();
+    const incoming = new Map<number, number>();
+    for (let edgeIndex = 0; edgeIndex < edges.length; edgeIndex += 1) {
+      const edge = edges[edgeIndex];
+      if (!edge) {
+        continue;
+      }
+      const group = outgoing.get(edge.fromVertexId);
+      if (group) {
+        group.push(edgeIndex);
+      } else {
+        outgoing.set(edge.fromVertexId, [edgeIndex]);
+      }
+      incoming.set(edge.toVertexId, (incoming.get(edge.toVertexId) ?? 0) + 1);
+    }
+
+    const unused = new Set<number>(edges.map((_, index) => index));
+    const chains: number[][] = [];
+
+    const walkChain = (startEdgeIndex: number): void => {
+      const startEdge = edges[startEdgeIndex];
+      if (!startEdge || !unused.has(startEdgeIndex)) {
+        return;
+      }
+
+      const chain = [startEdge.fromVertexId, startEdge.toVertexId];
+      const startVertexId = startEdge.fromVertexId;
+      let currentVertexId = startEdge.toVertexId;
+      unused.delete(startEdgeIndex);
+
+      while (true) {
+        const nextEdgeIndex = takeNextEdge(outgoing, currentVertexId, unused);
+        if (nextEdgeIndex === undefined) {
+          break;
+        }
+
+        const nextEdge = edges[nextEdgeIndex];
+        unused.delete(nextEdgeIndex);
+        currentVertexId = nextEdge?.toVertexId ?? currentVertexId;
+        if (currentVertexId === startVertexId) {
+          break;
+        }
+        chain.push(currentVertexId);
+      }
+
+      if (chain.length >= 3) {
+        chains.push(chain);
+      }
+    };
+
+    for (const [vertexId, edgeIndexes] of outgoing) {
+      const outgoingCount = edgeIndexes.length;
+      const incomingCount = incoming.get(vertexId) ?? 0;
+      if (outgoingCount <= incomingCount) {
+        continue;
+      }
+      for (const edgeIndex of edgeIndexes) {
+        walkChain(edgeIndex);
+      }
+    }
+
+    while (unused.size > 0) {
+      const next = unused.values().next().value;
+      if (typeof next !== "number") {
+        break;
+      }
+      walkChain(next);
+    }
+
+    return chains;
+  };
+
+  for (let featureId = 1; featureId <= packFeatureCount; featureId += 1) {
+    const featureType = packFeatureType[featureId] ?? 0;
+    const featureChainList =
+      featureType === 1 ? [] : buildChains(featureEdges.get(featureId) ?? []);
+
+    for (const chain of featureChainList) {
+      vertices.push(...chain);
+      vertexOffsets.push(vertices.length);
+    }
+    chainOffsets.push(vertexOffsets.length - 1);
+
+    const shorelineSet = new Set<number>();
+    if (featureType === 2) {
+      const chainStart = chainOffsets[featureId - 1] ?? 0;
+      const chainEnd = chainOffsets[featureId] ?? chainStart;
+      for (
+        let chainIndex = chainStart;
+        chainIndex < chainEnd;
+        chainIndex += 1
+      ) {
+        const vertexStart = vertexOffsets[chainIndex] ?? 0;
+        const vertexEnd = vertexOffsets[chainIndex + 1] ?? vertexStart;
+        for (let cursor = vertexStart; cursor < vertexEnd; cursor += 1) {
+          const vertexId = vertices[cursor] ?? 0;
+          for (const packId of vertexCells[vertexId] ?? []) {
+            if ((packCellsFeatureId[packId] ?? 0) === featureId) {
+              continue;
+            }
+            const shorelineFeatureType =
+              packFeatureType[packCellsFeatureId[packId] ?? 0] ?? 0;
+            if (shorelineFeatureType === 3) {
+              shorelineSet.add(packId);
+            }
+          }
+        }
+      }
+    }
+
+    shoreline.push(...shorelineSet);
+    shorelineOffsets.push(shoreline.length);
+  }
+
+  return {
+    chainOffsets: Uint32Array.from(chainOffsets),
+    vertexOffsets: Uint32Array.from(vertexOffsets),
+    vertices: Uint32Array.from(vertices),
+    shorelineOffsets: Uint32Array.from(shorelineOffsets),
+    shoreline: Uint32Array.from(shoreline),
+  };
+};
+
+const computePackFeatureGroups = (context: GenerationContext): Uint8Array => {
+  const {
+    cellCount,
+    cellsWaterbody,
+    packCellCount,
+    packToGrid,
+    packCellsFeatureId,
+    packFeatureCount,
+    packFeatureType,
+    packFeatureSize,
+    packFeatureFirstCell,
+    packNeighborOffsets,
+    packNeighbors,
+  } = context.world;
+
+  const groups = new Uint8Array(packFeatureCount + 1);
+  if (packFeatureCount <= 0) {
+    return groups;
+  }
+
+  const lakeMetadata = computeLakeFeatureMetadata(context);
+  const touchesLake = new Uint8Array(packFeatureCount + 1);
+  const oceanMinSize = cellCount / 25;
+  const seaMinSize = cellCount / 1000;
+  const continentMinSize = cellCount / 10;
+  const islandMinSize = cellCount / 1000;
+
+  for (let packId = 0; packId < packCellCount; packId += 1) {
+    const featureId = packCellsFeatureId[packId] ?? 0;
+    if ((packFeatureType[featureId] ?? 0) !== 3) {
+      continue;
+    }
+
+    forEachNeighbor(
+      packId,
+      packNeighborOffsets,
+      packNeighbors,
+      (neighborId) => {
+        const neighborFeatureId = packCellsFeatureId[neighborId] ?? 0;
+        if ((packFeatureType[neighborFeatureId] ?? 0) === 2) {
+          touchesLake[featureId] = 1;
+        }
+      },
+    );
+  }
+
+  for (let featureId = 1; featureId <= packFeatureCount; featureId += 1) {
+    const featureType = packFeatureType[featureId] ?? 0;
+    const size = packFeatureSize[featureId] ?? 0;
+    const firstPackCell = packFeatureFirstCell[featureId] ?? 0;
+    const firstGridCell = packToGrid[firstPackCell] ?? 0;
+
+    if (featureType === 1) {
+      groups[featureId] =
+        size > oceanMinSize
+          ? packFeatureGroupCode.ocean
+          : size > seaMinSize
+            ? packFeatureGroupCode.sea
+            : packFeatureGroupCode.gulf;
+      continue;
+    }
+
+    if (featureType === 2) {
+      const waterbodyId = cellsWaterbody[firstGridCell] ?? 0;
+      const lakeGroup = lakeMetadata.group[waterbodyId] ?? 0;
+      groups[featureId] =
+        lakeGroup === 3
+          ? packFeatureGroupCode.frozen
+          : lakeGroup === 2
+            ? packFeatureGroupCode.salt
+            : lakeGroup === 4
+              ? packFeatureGroupCode.dry
+              : packFeatureGroupCode.freshwater;
+      continue;
+    }
+
+    groups[featureId] =
+      (touchesLake[featureId] ?? 0) === 1
+        ? packFeatureGroupCode.lakeIsland
+        : size > continentMinSize
+          ? packFeatureGroupCode.continent
+          : size > islandMinSize
+            ? packFeatureGroupCode.island
+            : packFeatureGroupCode.isle;
+  }
+
+  return groups;
+};
+
 export const runPackFeatureStage = (context: GenerationContext): void => {
   const {
     cellsLandmass,
@@ -2286,6 +2655,12 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
     context.world.packFeatureBorder = new Uint8Array(1);
     context.world.packFeatureSize = new Uint32Array(1);
     context.world.packFeatureFirstCell = new Uint32Array(1);
+    context.world.packFeatureGroup = new Uint8Array(1);
+    context.world.packFeatureChainOffsets = new Uint32Array(1);
+    context.world.packFeatureVertexOffsets = new Uint32Array(1);
+    context.world.packFeatureVertices = new Uint32Array(0);
+    context.world.packFeatureShorelineOffsets = new Uint32Array(1);
+    context.world.packFeatureShoreline = new Uint32Array(0);
     return;
   }
 
@@ -2485,6 +2860,38 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
   context.world.packFeatureBorder = Uint8Array.from(packFeatureBorder);
   context.world.packFeatureSize = Uint32Array.from(packFeatureSize);
   context.world.packFeatureFirstCell = Uint32Array.from(packFeatureFirstCell);
+  context.world.packFeatureGroup = new Uint8Array(packFeatureCount + 1);
+  context.world.packFeatureChainOffsets = new Uint32Array(packFeatureCount + 1);
+  context.world.packFeatureVertexOffsets = new Uint32Array(1);
+  context.world.packFeatureVertices = new Uint32Array(0);
+  context.world.packFeatureShorelineOffsets = new Uint32Array(
+    packFeatureCount + 1,
+  );
+  context.world.packFeatureShoreline = new Uint32Array(0);
+};
+
+export const runPackFeatureMetadataStage = (
+  context: GenerationContext,
+): void => {
+  const { packFeatureCount } = context.world;
+
+  if (packFeatureCount <= 0) {
+    context.world.packFeatureGroup = new Uint8Array(1);
+    context.world.packFeatureChainOffsets = new Uint32Array(1);
+    context.world.packFeatureVertexOffsets = new Uint32Array(1);
+    context.world.packFeatureVertices = new Uint32Array(0);
+    context.world.packFeatureShorelineOffsets = new Uint32Array(1);
+    context.world.packFeatureShoreline = new Uint32Array(0);
+    return;
+  }
+
+  const boundaryData = buildPackFeatureBoundaryData(context);
+  context.world.packFeatureGroup = computePackFeatureGroups(context);
+  context.world.packFeatureChainOffsets = boundaryData.chainOffsets;
+  context.world.packFeatureVertexOffsets = boundaryData.vertexOffsets;
+  context.world.packFeatureVertices = boundaryData.vertices;
+  context.world.packFeatureShorelineOffsets = boundaryData.shorelineOffsets;
+  context.world.packFeatureShoreline = boundaryData.shoreline;
 };
 
 export const runGridFeatureMarkupStage = (context: GenerationContext): void => {

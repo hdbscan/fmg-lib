@@ -40,6 +40,8 @@ describe("buildRenderableWorld", () => {
     const firstTerrainFeature = renderable.terrainFeatures[0];
     expect(firstTerrainFeature).toBeDefined();
     expect(firstTerrainFeature?.rings.length).toBeGreaterThan(0);
+    expect(firstTerrainFeature?.group).toBeGreaterThan(0);
+    expect(firstTerrainFeature?.shorelinePackIds).toBeInstanceOf(Uint32Array);
     for (const ring of firstTerrainFeature?.rings ?? []) {
       expect(ring.length).toBeGreaterThanOrEqual(6);
     }

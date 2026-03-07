@@ -205,6 +205,12 @@ export type WorldGraphV1 = Readonly<{
   packFeatureBorder: Uint8Array;
   packFeatureSize: Uint32Array;
   packFeatureFirstCell: Uint32Array;
+  packFeatureGroup: Uint8Array;
+  packFeatureChainOffsets: Uint32Array;
+  packFeatureVertexOffsets: Uint32Array;
+  packFeatureVertices: Uint32Array;
+  packFeatureShorelineOffsets: Uint32Array;
+  packFeatureShoreline: Uint32Array;
   packCoast: Int8Array;
   packHaven: Int32Array;
   packHarbor: Uint8Array;
@@ -320,6 +326,12 @@ export type SerializedWorldV1 = Readonly<{
     packFeatureBorder: SerializedTypedArray;
     packFeatureSize: SerializedTypedArray;
     packFeatureFirstCell: SerializedTypedArray;
+    packFeatureGroup: SerializedTypedArray;
+    packFeatureChainOffsets: SerializedTypedArray;
+    packFeatureVertexOffsets: SerializedTypedArray;
+    packFeatureVertices: SerializedTypedArray;
+    packFeatureShorelineOffsets: SerializedTypedArray;
+    packFeatureShoreline: SerializedTypedArray;
     packCoast: SerializedTypedArray;
     packHaven: SerializedTypedArray;
     packHarbor: SerializedTypedArray;
@@ -472,6 +484,12 @@ export type GenerationContext = {
     packFeatureBorder: Uint8Array;
     packFeatureSize: Uint32Array;
     packFeatureFirstCell: Uint32Array;
+    packFeatureGroup: Uint8Array;
+    packFeatureChainOffsets: Uint32Array;
+    packFeatureVertexOffsets: Uint32Array;
+    packFeatureVertices: Uint32Array;
+    packFeatureShorelineOffsets: Uint32Array;
+    packFeatureShoreline: Uint32Array;
     packCoast: Int8Array;
     packHaven: Int32Array;
     packHarbor: Uint8Array;

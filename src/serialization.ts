@@ -179,6 +179,21 @@ export const serializeWorld = (world: WorldGraphV1): string => {
       packFeatureBorder: encodeTypedArray(world.packFeatureBorder, "u8"),
       packFeatureSize: encodeTypedArray(world.packFeatureSize, "u32"),
       packFeatureFirstCell: encodeTypedArray(world.packFeatureFirstCell, "u32"),
+      packFeatureGroup: encodeTypedArray(world.packFeatureGroup, "u8"),
+      packFeatureChainOffsets: encodeTypedArray(
+        world.packFeatureChainOffsets,
+        "u32",
+      ),
+      packFeatureVertexOffsets: encodeTypedArray(
+        world.packFeatureVertexOffsets,
+        "u32",
+      ),
+      packFeatureVertices: encodeTypedArray(world.packFeatureVertices, "u32"),
+      packFeatureShorelineOffsets: encodeTypedArray(
+        world.packFeatureShorelineOffsets,
+        "u32",
+      ),
+      packFeatureShoreline: encodeTypedArray(world.packFeatureShoreline, "u32"),
       packCoast: encodeTypedArray(world.packCoast, "i8"),
       packHaven: encodeTypedArray(world.packHaven, "i32"),
       packHarbor: encodeTypedArray(world.packHarbor, "u8"),
@@ -371,6 +386,22 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
   const packFeatureFirstCell = decodeTypedArray(
     world.arrays.packFeatureFirstCell,
   );
+  const packFeatureGroup = decodeTypedArray(world.arrays.packFeatureGroup);
+  const packFeatureChainOffsets = decodeTypedArray(
+    world.arrays.packFeatureChainOffsets,
+  );
+  const packFeatureVertexOffsets = decodeTypedArray(
+    world.arrays.packFeatureVertexOffsets,
+  );
+  const packFeatureVertices = decodeTypedArray(
+    world.arrays.packFeatureVertices,
+  );
+  const packFeatureShorelineOffsets = decodeTypedArray(
+    world.arrays.packFeatureShorelineOffsets,
+  );
+  const packFeatureShoreline = decodeTypedArray(
+    world.arrays.packFeatureShoreline,
+  );
   const packCoast = decodeTypedArray(world.arrays.packCoast);
   const packHaven = decodeTypedArray(world.arrays.packHaven);
   const packHarbor = decodeTypedArray(world.arrays.packHarbor);
@@ -474,6 +505,12 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     !(packFeatureBorder instanceof Uint8Array) ||
     !(packFeatureSize instanceof Uint32Array) ||
     !(packFeatureFirstCell instanceof Uint32Array) ||
+    !(packFeatureGroup instanceof Uint8Array) ||
+    !(packFeatureChainOffsets instanceof Uint32Array) ||
+    !(packFeatureVertexOffsets instanceof Uint32Array) ||
+    !(packFeatureVertices instanceof Uint32Array) ||
+    !(packFeatureShorelineOffsets instanceof Uint32Array) ||
+    !(packFeatureShoreline instanceof Uint32Array) ||
     !(packCoast instanceof Int8Array) ||
     !(packHaven instanceof Int32Array) ||
     !(packHarbor instanceof Uint8Array) ||
@@ -599,6 +636,12 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     packFeatureBorder,
     packFeatureSize,
     packFeatureFirstCell,
+    packFeatureGroup,
+    packFeatureChainOffsets,
+    packFeatureVertexOffsets,
+    packFeatureVertices,
+    packFeatureShorelineOffsets,
+    packFeatureShoreline,
     packCoast,
     packHaven,
     packHarbor,
