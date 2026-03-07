@@ -915,6 +915,28 @@ const forEachNeighbor = (
   }
 };
 
+const isTopologyBorderCell = (
+  cellId: number,
+  vertexOffsets: Uint32Array,
+  neighborOffsets: Uint32Array,
+): boolean => {
+  const vertexFrom = vertexOffsets[cellId];
+  const vertexTo = vertexOffsets[cellId + 1];
+  const neighborFrom = neighborOffsets[cellId];
+  const neighborTo = neighborOffsets[cellId + 1];
+
+  if (
+    vertexFrom === undefined ||
+    vertexTo === undefined ||
+    neighborFrom === undefined ||
+    neighborTo === undefined
+  ) {
+    return false;
+  }
+
+  return vertexTo - vertexFrom > neighborTo - neighborFrom;
+};
+
 type FrontierEntry = {
   cost: number;
   stateId: number;
@@ -2093,8 +2115,7 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
     packCellCount,
     packNeighborOffsets,
     packNeighbors,
-    packToGrid,
-    cellsBorder,
+    packCellVertexOffsets,
     packCellsFeatureId,
   } = context.world;
   const { seaLevel } = context.config;
@@ -2143,8 +2164,13 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
       }
 
       size += 1;
-      const gridCellId = packToGrid[packCellId] ?? 0;
-      if ((cellsBorder[gridCellId] ?? 0) === 1) {
+      if (
+        isTopologyBorderCell(
+          packCellId,
+          packCellVertexOffsets,
+          packNeighborOffsets,
+        )
+      ) {
         border = true;
       }
 

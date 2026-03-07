@@ -57,6 +57,18 @@ const collectPackNeighbors = (
   return Array.from(world.packNeighbors.slice(from, to));
 };
 
+const isPackedTopologyBorderCell = (
+  world: ReturnType<typeof generateWorld>,
+  packId: number,
+): boolean => {
+  const vertexFrom = world.packCellVertexOffsets[packId] ?? 0;
+  const vertexTo = world.packCellVertexOffsets[packId + 1] ?? vertexFrom;
+  const neighborFrom = world.packNeighborOffsets[packId] ?? 0;
+  const neighborTo = world.packNeighborOffsets[packId + 1] ?? neighborFrom;
+
+  return vertexTo - vertexFrom > neighborTo - neighborFrom;
+};
+
 const collectHydrologyStats = (
   world: ReturnType<typeof generateWorld>,
 ): Readonly<{
@@ -939,6 +951,62 @@ describe("world generation integration", () => {
     );
     expect(world.landmassCount).toBe(8);
     expect(world.waterbodyCount).toBe(2);
+  });
+
+  test("classifies oracle-query packed border features from packed topology", () => {
+    const world = generateWorld({
+      seed: "42424242",
+      width: 1280,
+      height: 900,
+      cells: 9996,
+      culturesCount: 9,
+      statesCount: 23,
+      townsCount: 1000,
+      climate: {
+        lakeElevationLimit: 20,
+        precipitation: 94,
+        mapSize: 100,
+        latitude: 50,
+        longitude: 50,
+      },
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+        politics: true,
+        religions: true,
+      },
+    });
+
+    const topologyBorderByFeature = new Uint8Array(world.packFeatureCount + 1);
+    let topologyOnlyBorderCells = 0;
+
+    for (let packId = 0; packId < world.packCellCount; packId += 1) {
+      const featureId = world.packCellsFeatureId[packId] ?? 0;
+      const topologyBorder = Number(isPackedTopologyBorderCell(world, packId));
+      const gridProxyBorder =
+        world.cellsBorder[world.packToGrid[packId] ?? 0] ?? 0;
+
+      if (topologyBorder === 1) {
+        topologyBorderByFeature[featureId] = 1;
+      }
+
+      if (topologyBorder === 1 && gridProxyBorder === 0) {
+        topologyOnlyBorderCells += 1;
+      }
+    }
+
+    expect(topologyOnlyBorderCells).toBeGreaterThan(0);
+
+    for (
+      let featureId = 1;
+      featureId <= world.packFeatureCount;
+      featureId += 1
+    ) {
+      expect(world.packFeatureBorder[featureId]).toBe(
+        topologyBorderByFeature[featureId],
+      );
+    }
   });
 
   test("generates deterministic cultures when culture layer is enabled", () => {

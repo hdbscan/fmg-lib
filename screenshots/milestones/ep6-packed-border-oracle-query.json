@@ -1,0 +1,15 @@
+{
+  "slug": "ep6-packed-border-oracle-query",
+  "capturedAt": "2026-03-07T16:56:33.728Z",
+  "url": "http://127.0.0.1:33493/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "900x600",
+  "fullPage": false,
+  "delayMs": 2000,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "ep6-packed-border-oracle-query.png",
+  "sha256": "e8872fd15f5e2bc66e7b0b3b4ecf5480e27461da55cb0fbce84df2538a90e8bd"
+}
