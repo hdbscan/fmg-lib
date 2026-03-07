@@ -1299,10 +1299,10 @@ describe("world generation integration", () => {
     const terrainHash = createHash("sha256").update(world.cellsH).digest("hex");
 
     expect(terrainHash).toBe(
-      "952db8bff852d058d672d05e7a2a0113a45ae91c1984a91d696eb1c1342ea539",
+      "0e7b3d00d91b16efb1e86a9203841f5e2688470b465b877b5bb861425d18b4f6",
     );
-    expect(world.landmassCount).toBe(14);
-    expect(world.waterbodyCount).toBe(8);
+    expect(world.landmassCount).toBe(8);
+    expect(world.waterbodyCount).toBe(1);
   });
 
   test("classifies oracle-query packed border features from packed topology", () => {

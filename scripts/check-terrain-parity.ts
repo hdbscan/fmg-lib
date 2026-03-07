@@ -147,10 +147,12 @@ const fetchUpstreamTerrainDiagnostics = async (
         }
       ).document?.getElementById("templateInput");
       const templateId = templateInput?.value ?? "continents";
-      const heightTemplate: "continents" | "archipelago" | "inland-sea" =
-        templateId === "archipelago" || templateId === "inland-sea"
-          ? templateId
-          : "continents";
+      const heightTemplate: "continents" | "archipelago" | "mediterranean" =
+        templateId === "archipelago"
+          ? "archipelago"
+          : templateId === "inland-sea"
+            ? "mediterranean"
+            : "continents";
       const steps: BrowserTerrainStep[] = [];
       const seaLevel = 20;
       const neighbors = grid.cells.c.map((entry) => entry.slice());

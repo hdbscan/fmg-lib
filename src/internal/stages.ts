@@ -1440,10 +1440,15 @@ export const runHeightmapStage = (
     context.config;
   const { cellCount, cellsH } = context.world;
   const heights = new Uint8Array(cellCount);
-  const heightmapRandom = context.random;
+  const heightmapRandom = createAlea(context.config.seed);
   const blobPower = getBlobPower(requestedCells);
   const linePower = getLinePower(requestedCells);
   const steps = HEIGHTMAP_STEPS[heightTemplate] ?? [];
+
+  const emitHeightmapStep = (key: string, label: string): void => {
+    cellsH.set(heights);
+    onStep?.(key, label);
+  };
 
   const rand = (min?: number, max?: number): number => {
     if (min === undefined && max === undefined) {
@@ -1910,7 +1915,7 @@ export const runHeightmapStage = (
   for (const [stepIndex, [tool, a2, a3, a4, a5]] of steps.entries()) {
     if (tool === "Hill") {
       addHill(a2, a3, a4, a5);
-      onStep?.(
+      emitHeightmapStep(
         `heightmap:${stepIndex + 1}:${tool}`,
         `Heightmap ${stepIndex + 1} ${tool}`,
       );
@@ -1918,7 +1923,7 @@ export const runHeightmapStage = (
     }
     if (tool === "Pit") {
       addPit(a2, a3, a4, a5);
-      onStep?.(
+      emitHeightmapStep(
         `heightmap:${stepIndex + 1}:${tool}`,
         `Heightmap ${stepIndex + 1} ${tool}`,
       );
@@ -1926,7 +1931,7 @@ export const runHeightmapStage = (
     }
     if (tool === "Range") {
       shapeRange(a2, a3, a4, a5, false);
-      onStep?.(
+      emitHeightmapStep(
         `heightmap:${stepIndex + 1}:${tool}`,
         `Heightmap ${stepIndex + 1} ${tool}`,
       );
@@ -1934,7 +1939,7 @@ export const runHeightmapStage = (
     }
     if (tool === "Trough") {
       shapeRange(a2, a3, a4, a5, true);
-      onStep?.(
+      emitHeightmapStep(
         `heightmap:${stepIndex + 1}:${tool}`,
         `Heightmap ${stepIndex + 1} ${tool}`,
       );
@@ -1942,7 +1947,7 @@ export const runHeightmapStage = (
     }
     if (tool === "Strait") {
       addStrait(a2, a3);
-      onStep?.(
+      emitHeightmapStep(
         `heightmap:${stepIndex + 1}:${tool}`,
         `Heightmap ${stepIndex + 1} ${tool}`,
       );
@@ -1950,7 +1955,7 @@ export const runHeightmapStage = (
     }
     if (tool === "Mask") {
       maskHeightField(context, heights, Number(a2));
-      onStep?.(
+      emitHeightmapStep(
         `heightmap:${stepIndex + 1}:${tool}`,
         `Heightmap ${stepIndex + 1} ${tool}`,
       );
@@ -1958,7 +1963,7 @@ export const runHeightmapStage = (
     }
     if (tool === "Invert") {
       invertHeightField(Number(a2), a3);
-      onStep?.(
+      emitHeightmapStep(
         `heightmap:${stepIndex + 1}:${tool}`,
         `Heightmap ${stepIndex + 1} ${tool}`,
       );
@@ -1966,7 +1971,7 @@ export const runHeightmapStage = (
     }
     if (tool === "Add") {
       modifyHeightField(heights, a3, Number(a2), 1);
-      onStep?.(
+      emitHeightmapStep(
         `heightmap:${stepIndex + 1}:${tool}`,
         `Heightmap ${stepIndex + 1} ${tool}`,
       );
@@ -1974,15 +1979,7 @@ export const runHeightmapStage = (
     }
     if (tool === "Multiply") {
       modifyHeightField(heights, a3, 0, Number(a2));
-      onStep?.(
-        `heightmap:${stepIndex + 1}:${tool}`,
-        `Heightmap ${stepIndex + 1} ${tool}`,
-      );
-      continue;
-    }
-    if (tool === "Multiply") {
-      modifyHeightField(heights as unknown as Float32Array, a3, 0, Number(a2));
-      onStep?.(
+      emitHeightmapStep(
         `heightmap:${stepIndex + 1}:${tool}`,
         `Heightmap ${stepIndex + 1} ${tool}`,
       );
@@ -1990,7 +1987,7 @@ export const runHeightmapStage = (
     }
     if (tool === "Smooth") {
       smoothHeightField(context, heights, Number(a2));
-      onStep?.(
+      emitHeightmapStep(
         `heightmap:${stepIndex + 1}:${tool}`,
         `Heightmap ${stepIndex + 1} ${tool}`,
       );
@@ -2009,7 +2006,7 @@ export const runHeightmapStage = (
       heights[index] = clamp((heights[index] ?? 0) + detail, 0, 100);
     }
 
-    onStep?.("heightmap:noise", "Heightmap noise");
+    emitHeightmapStep("heightmap:noise", "Heightmap noise");
   }
 
   cellsH.set(heights);

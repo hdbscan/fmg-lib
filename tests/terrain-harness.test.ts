@@ -94,4 +94,44 @@ describe("terrain diagnostics", () => {
       diagnostics.steps.some((step) => step.key === "terrain:feature-coast"),
     ).toBe(true);
   });
+
+  test("captures heightmap step snapshots from current heights", () => {
+    const diagnostics = generateTerrainDiagnostics({
+      seed: "42424242",
+      width: 1280,
+      height: 900,
+      cells: 9996,
+      culturesCount: 9,
+      statesCount: 23,
+      townsCount: 1000,
+      climate: {
+        lakeElevationLimit: 20,
+        precipitation: 94,
+        mapSize: 100,
+        latitude: 50,
+        longitude: 50,
+      },
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+        politics: true,
+        religions: true,
+      },
+    });
+
+    const firstHillStep = diagnostics.steps.find(
+      (step) => step.key === "heightmap:1:Hill",
+    );
+    const completeStep = diagnostics.steps.find(
+      (step) => step.key === "heightmap:complete",
+    );
+
+    expect(firstHillStep).toBeDefined();
+    expect(completeStep).toBeDefined();
+    expect(firstHillStep?.landCellCount).toBeGreaterThan(0);
+    expect(firstHillStep?.landCellCount).toBeLessThanOrEqual(
+      completeStep?.landCellCount ?? 0,
+    );
+  });
 });
