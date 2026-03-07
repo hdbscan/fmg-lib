@@ -5,3 +5,7 @@ artifacts/
 ui/node_modules/
 ui/dist/
 .worktrees/
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db

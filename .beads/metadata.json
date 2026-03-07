@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "server",
+  "dolt_database": "fmg_lib",
+  "project_id": "ebc378cb-c855-4fc9-addb-3ea27fa2a85b"
+}
