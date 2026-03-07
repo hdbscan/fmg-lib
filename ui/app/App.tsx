@@ -14,6 +14,7 @@ import {
   type LayerVisibilityState,
   type PRESET_VISIBILITY,
   type RenderCell,
+  type RenderableWorld,
   type StylePreset,
   clampZoom,
 } from "../adapter";
@@ -290,22 +291,35 @@ const invertCameraPoint = (
 const fitCameraToWorld = (
   width: number,
   height: number,
-  worldWidth: number,
-  worldHeight: number,
+  renderable: RenderableWorld,
 ): CameraState => {
   const safeWidth = Math.max(1, width);
   const safeHeight = Math.max(1, height);
-  const horizontalPadding = Math.max(72, Math.round(safeWidth * 0.09));
-  const verticalPadding = Math.max(72, Math.round(safeHeight * 0.1));
+  const horizontalPadding = Math.max(24, Math.round(safeWidth * 0.035));
+  const verticalPadding = Math.max(24, Math.round(safeHeight * 0.04));
   const availableWidth = Math.max(160, safeWidth - horizontalPadding * 2);
   const availableHeight = Math.max(160, safeHeight - verticalPadding * 2);
-  const zoom = clampZoom(
-    Math.min(availableWidth / worldWidth, availableHeight / worldHeight),
+  const focusWidth = Math.max(
+    1,
+    renderable.focusBounds.maxX - renderable.focusBounds.minX,
   );
+  const focusHeight = Math.max(
+    1,
+    renderable.focusBounds.maxY - renderable.focusBounds.minY,
+  );
+  const zoom = clampZoom(
+    Math.min(availableWidth / focusWidth, availableHeight / focusHeight),
+  );
+
+  const focusCenterX =
+    (renderable.focusBounds.minX + renderable.focusBounds.maxX) / 2;
+  const focusCenterY =
+    (renderable.focusBounds.minY + renderable.focusBounds.maxY) / 2;
+
   return {
     zoom,
-    x: (safeWidth - worldWidth * zoom) / 2,
-    y: (safeHeight - worldHeight * zoom) / 2,
+    x: safeWidth / 2 - focusCenterX * zoom,
+    y: safeHeight / 2 - focusCenterY * zoom,
   };
 };
 
@@ -422,14 +436,7 @@ export const App = () => {
     }
 
     const size = canvasSize();
-    controller.setCamera(
-      fitCameraToWorld(
-        size.width,
-        size.height,
-        renderable.width,
-        renderable.height,
-      ),
-    );
+    controller.setCamera(fitCameraToWorld(size.width, size.height, renderable));
     syncRendererState(refreshState());
   };
 
@@ -448,10 +455,13 @@ export const App = () => {
       nextState = refreshState();
     } else if (fitView) {
       const size = canvasSize();
-      controller.setCamera(
-        fitCameraToWorld(size.width, size.height, world.width, world.height),
-      );
-      nextState = refreshState();
+      const renderable = nextState.renderable;
+      if (renderable) {
+        controller.setCamera(
+          fitCameraToWorld(size.width, size.height, renderable),
+        );
+        nextState = refreshState();
+      }
     }
 
     setLastGenerateMs(elapsedMs);

@@ -232,6 +232,53 @@ const collectZones = (world: WorldGraphV1): readonly RenderZone[] => {
   return zones;
 };
 
+const calcFocusBounds = (
+  cells: readonly RenderCell[],
+  landCellIds: readonly number[],
+  worldWidth: number,
+  worldHeight: number,
+): RenderableWorld["focusBounds"] => {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  const focusCellIds =
+    landCellIds.length > 0 ? landCellIds : cells.map((cell) => cell.id);
+
+  for (const cellId of focusCellIds) {
+    const cell = cells[cellId];
+    if (!cell) {
+      continue;
+    }
+
+    minX = Math.min(minX, cell.bboxMinX);
+    minY = Math.min(minY, cell.bboxMinY);
+    maxX = Math.max(maxX, cell.bboxMaxX);
+    maxY = Math.max(maxY, cell.bboxMaxY);
+  }
+
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+    return {
+      minX: 0,
+      minY: 0,
+      maxX: worldWidth,
+      maxY: worldHeight,
+    };
+  }
+
+  const spanX = Math.max(1, maxX - minX);
+  const spanY = Math.max(1, maxY - minY);
+  const padX = Math.max(20, spanX * 0.05);
+  const padY = Math.max(20, spanY * 0.05);
+
+  return {
+    minX: Math.max(0, minX - padX),
+    minY: Math.max(0, minY - padY),
+    maxX: Math.min(worldWidth, maxX + padX),
+    maxY: Math.min(worldHeight, maxY + padY),
+  };
+};
+
 export const buildRenderableWorld = (world: WorldGraphV1): RenderableWorld => {
   const cells: RenderCell[] = [];
   const landCellIds: number[] = [];
@@ -286,6 +333,7 @@ export const buildRenderableWorld = (world: WorldGraphV1): RenderableWorld => {
     source: world,
     width: world.width,
     height: world.height,
+    focusBounds: calcFocusBounds(cells, landCellIds, world.width, world.height),
     cells,
     landCellIds: Uint32Array.from(landCellIds),
     waterCellIds: Uint32Array.from(waterCellIds),
