@@ -1,4 +1,5 @@
 import type { GenerationContext } from "../types";
+import { createAlea } from "./random";
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
@@ -27,6 +28,9 @@ const gauss = (
   return clamp(mean + (total / rounds) * deviation, min, max);
 };
 
+const randInt = (random: () => number, min: number, max: number): number =>
+  Math.floor(random() * (max - min + 1)) + min;
+
 const forEachNeighbor = (
   cellId: number,
   offsets: Uint32Array,
@@ -49,6 +53,8 @@ type StateType =
   | "River"
   | "Nomadic"
   | "Hunting";
+
+type ReligionExpansionMode = "culture" | "state" | "global";
 
 type QueueEntry = {
   cost: number;
@@ -1078,7 +1084,8 @@ export const runReligionsStage = (context: GenerationContext): void => {
   const religionTypeList: number[] = [0];
   const religionCultureList: number[] = [0];
   const religionExpansionism: number[] = [0];
-  const religionMode: ("culture" | "state" | "global")[] = ["global"];
+  const religionMode: ReligionExpansionMode[] = ["global"];
+  const religionRandom = createAlea(`${context.config.seed}:religions`);
 
   for (let cultureId = 1; cultureId <= cultureCount; cultureId += 1) {
     const centerCell = cultureSeedCell[cultureId] ?? 0;
@@ -1100,31 +1107,43 @@ export const runReligionsStage = (context: GenerationContext): void => {
     0,
     50,
   );
+  const suitability = computeSuitability(context);
   const candidateBurgs = Array.from(
     { length: burgCount },
     (_, index) => index + 1,
   )
+    .filter((burgId) => (cellsFeature[burgCell[burgId] ?? 0] ?? 0) === 1)
     .sort(
       (left, right) =>
         (burgPopulation[right] ?? 0) - (burgPopulation[left] ?? 0) ||
         left - right,
     )
     .map((burgId) => burgCell[burgId] ?? 0)
-    .filter(
-      (cellId, index, list) =>
-        (cellsFeature[cellId] ?? 0) === 1 && list.indexOf(cellId) === index,
-    );
-  const desiredNew = Math.max(
-    desiredReligionNumber - (religionSeedCellList.length - 1),
-    0,
-  );
+    .filter((cellId, index, list) => list.indexOf(cellId) === index);
+  const candidateCells =
+    desiredReligionNumber <= 0
+      ? []
+      : candidateBurgs.length >= desiredReligionNumber
+        ? candidateBurgs
+        : Array.from({ length: packCellCount }, (_, packId) => packId)
+            .filter(
+              (packId) =>
+                isPoliticalPackCell(context, packId) &&
+                (suitability[packId] ?? 0) > 2,
+            )
+            .sort(
+              (left, right) =>
+                (suitability[right] ?? 0) - (suitability[left] ?? 0) ||
+                left - right,
+            )
+            .map((packId) => packToGrid[packId] ?? 0);
   const selectedSeeds: number[] = [];
   const spacing =
     (context.config.width + context.config.height) /
     2 /
     Math.max(desiredReligionNumber, 1);
 
-  for (const cellId of candidateBurgs) {
+  for (const cellId of candidateCells) {
     const x = context.world.cellsX[cellId] ?? 0;
     const y = context.world.cellsY[cellId] ?? 0;
     let tooClose = false;
@@ -1138,34 +1157,50 @@ export const runReligionsStage = (context: GenerationContext): void => {
     }
     if (tooClose) continue;
     selectedSeeds.push(cellId);
-    if (selectedSeeds.length >= desiredNew) break;
+    if (selectedSeeds.length >= desiredReligionNumber) break;
   }
 
+  const cultsCount =
+    selectedSeeds.length > 0
+      ? Math.floor((randInt(religionRandom, 1, 4) / 10) * selectedSeeds.length)
+      : 0;
+  const heresiesCount =
+    selectedSeeds.length > 0
+      ? Math.floor((randInt(religionRandom, 0, 3) / 10) * selectedSeeds.length)
+      : 0;
   const organizedCount = Math.max(
+    selectedSeeds.length - cultsCount - heresiesCount,
     0,
-    selectedSeeds.length - Math.floor(selectedSeeds.length * 0.2),
   );
+
+  const getReligionMode = (
+    type: number,
+    stateId: number,
+  ): ReligionExpansionMode => {
+    if (type !== 2) return "global";
+    const roll = randInt(religionRandom, 1, 27);
+    if (roll <= 14) return "global";
+    if (roll <= 20) return "culture";
+    if (stateId > 0) return "state";
+    return "global";
+  };
+
   for (let index = 0; index < selectedSeeds.length; index += 1) {
     const cellId = selectedSeeds[index] ?? 0;
+    const type =
+      index < organizedCount ? 2 : index < organizedCount + cultsCount ? 3 : 4;
+    const stateId = cellsState[cellId] ?? 0;
     religionSeedCellList.push(cellId);
     religionCultureList.push(cellsCulture[cellId] ?? 0);
-    if (index < organizedCount) {
-      religionTypeList.push(2);
-      religionExpansionism.push(rn(gauss(context.random, 5, 3, 0.5, 10, 1), 2));
-      religionMode.push(
-        (cellsState[cellId] ?? 0) > 0 && context.random() < 0.45
-          ? "state"
-          : context.random() < 0.35
-            ? "culture"
-            : "global",
-      );
-    } else {
-      religionTypeList.push(3);
-      religionExpansionism.push(
-        rn(gauss(context.random, 0.8, 0.6, 0.1, 5, 1), 2),
-      );
-      religionMode.push(context.random() < 0.5 ? "culture" : "global");
-    }
+    religionTypeList.push(type);
+    religionExpansionism.push(
+      type === 2
+        ? rn(gauss(religionRandom, 5, 3, 0, 10, 1), 2)
+        : type === 3
+          ? rn(gauss(religionRandom, 0.5, 0.5, 0, 5, 1), 2)
+          : rn(gauss(religionRandom, 1, 0.5, 0, 5, 1), 2),
+    );
+    religionMode.push(getReligionMode(type, stateId));
   }
 
   const religionCount = religionSeedCellList.length - 1;
@@ -1174,8 +1209,8 @@ export const runReligionsStage = (context: GenerationContext): void => {
   const religionSize = new Uint32Array(religionCount + 1);
 
   for (let cellId = 0; cellId < cellsReligion.length; cellId += 1) {
-    if ((cellsFeature[cellId] ?? 0) !== 1) continue;
     const cultureId = cellsCulture[cellId] ?? 0;
+    if (cultureId <= 0) continue;
     let assigned = 0;
     for (let religionId = 1; religionId <= religionCount; religionId += 1) {
       if ((religionType[religionId] ?? 0) !== 1) continue;
@@ -1193,6 +1228,7 @@ export const runReligionsStage = (context: GenerationContext): void => {
   const queue: QueueEntry[] = [];
   const cost = new Float64Array(packCellCount);
   cost.fill(Number.POSITIVE_INFINITY);
+  const biomePassageCost = [0, 20, 80, 70, 60, 40, 30, 20, 30];
 
   for (let religionId = 1; religionId <= religionCount; religionId += 1) {
     if ((religionType[religionId] ?? 0) === 1) continue;
@@ -1232,10 +1268,7 @@ export const runReligionsStage = (context: GenerationContext): void => {
         const cultureCost =
           (cellsCulture[nextCell] ?? 0) !== cultureId ? 10 : 0;
         const stateCost = stateId !== (cellsState[nextCell] ?? 0) ? 10 : 0;
-        const routeCost =
-          (context.world.cellsRiver[nextCell] ?? 0) > 0
-            ? 1
-            : (cellsBiome[nextCell] ?? 0) + 5;
+        const routeCost = biomePassageCost[cellsBiome[nextCell] ?? 0] ?? 30;
         const totalCost =
           next.cost +
           10 +
