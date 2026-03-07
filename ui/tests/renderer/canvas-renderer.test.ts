@@ -16,6 +16,8 @@ class FakeCanvasContext2D {
 
   public lineWidth = 1;
 
+  public lineJoin: CanvasLineJoin = "miter";
+
   public textAlign: CanvasTextAlign = "start";
 
   public textBaseline: CanvasTextBaseline = "alphabetic";
@@ -140,5 +142,26 @@ describe("CanvasMapRenderer", () => {
     renderer.render({ hoverCellId: null, selectedCellId: null });
 
     expect(rootCanvas.context.drawImageCalls).toBe(1);
+  });
+
+  it("renders packed terrain review mode without browser canvas APIs", () => {
+    globalThis.document = {
+      createElement: () => new FakeCanvas(1, 1),
+    } as unknown as Document;
+
+    const world = buildRenderableWorld(getFixtureWorld());
+    const rootCanvas = new FakeCanvas(world.width, world.height);
+    const renderer = new CanvasMapRenderer(
+      rootCanvas as unknown as HTMLCanvasElement,
+      DEFAULT_VISIBILITY,
+      DEFAULT_STYLE,
+      { x: 0, y: 0, zoom: 1 },
+      "packed",
+    );
+
+    renderer.setWorld(world);
+    renderer.render({ hoverCellId: null, selectedCellId: null });
+
+    expect(rootCanvas.context.drawImageCalls).toBe(4);
   });
 });

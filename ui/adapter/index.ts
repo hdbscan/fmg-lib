@@ -1,4 +1,9 @@
-export { DEFAULT_STYLE, DEFAULT_VISIBILITY, PRESET_VISIBILITY, clampZoom } from "./defaults";
+export {
+  DEFAULT_STYLE,
+  DEFAULT_VISIBILITY,
+  PRESET_VISIBILITY,
+  clampZoom,
+} from "./defaults";
 export { buildRenderableWorld } from "./create-renderable-world";
 export { createHitTestIndex, findCellAt } from "./hit-test";
 export type {
@@ -13,6 +18,7 @@ export type {
   RenderReligion,
   RenderRoute,
   RenderState,
+  RenderTerrainFeature,
   RenderZone,
   RenderableWorld,
   StylePreset,

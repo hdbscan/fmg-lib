@@ -8,7 +8,12 @@ import type {
   RenderableWorld,
   StylePreset,
 } from "../adapter";
-import type { MapRenderer, RenderLayer, RenderOverlayState } from "./types";
+import type {
+  MapRenderer,
+  RenderLayer,
+  RenderOverlayState,
+  TerrainGeometryMode,
+} from "./types";
 
 const createCanvasLike = (
   width: number,
@@ -178,6 +183,43 @@ const fillPolygon = (
   context.fill();
 };
 
+const tracePolygon = (
+  context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  polygon: Float32Array,
+): void => {
+  if (polygon.length < 6) {
+    return;
+  }
+
+  context.moveTo(polygon[0] ?? 0, polygon[1] ?? 0);
+  for (let index = 2; index < polygon.length; index += 2) {
+    context.lineTo(polygon[index] ?? 0, polygon[index + 1] ?? 0);
+  }
+  context.closePath();
+};
+
+const fillTerrainFeature = (
+  context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  rings: readonly Float32Array[],
+): void => {
+  context.beginPath();
+  for (const ring of rings) {
+    tracePolygon(context, ring);
+  }
+  context.fill("evenodd");
+};
+
+const strokeTerrainFeature = (
+  context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  rings: readonly Float32Array[],
+): void => {
+  context.beginPath();
+  for (const ring of rings) {
+    tracePolygon(context, ring);
+  }
+  context.stroke();
+};
+
 const isVisible = (
   visibility: LayerVisibilityState,
   layer: RenderLayer,
@@ -242,11 +284,14 @@ export class CanvasMapRenderer implements MapRenderer {
 
   private camera: CameraState;
 
+  private readonly terrainGeometryMode: TerrainGeometryMode;
+
   constructor(
     canvas: HTMLCanvasElement,
     visibility: LayerVisibilityState,
     style: StylePreset,
     camera: CameraState,
+    terrainGeometryMode: TerrainGeometryMode = "grid",
   ) {
     this.rootCanvas = canvas;
     const context = canvas.getContext("2d");
@@ -258,6 +303,7 @@ export class CanvasMapRenderer implements MapRenderer {
     this.visibility = visibility;
     this.style = style;
     this.camera = camera;
+    this.terrainGeometryMode = terrainGeometryMode;
 
     for (const layer of LAYERS) {
       const layerCanvas = createCanvasLike(canvas.width, canvas.height);
@@ -352,6 +398,69 @@ export class CanvasMapRenderer implements MapRenderer {
     }
 
     const landScale = buildLandScale(this.style);
+
+    if (
+      this.terrainGeometryMode === "packed" &&
+      this.world.terrainFeatures.length > 0
+    ) {
+      context.strokeStyle = "rgba(255, 255, 255, 0.16)";
+      context.lineWidth = 10;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      for (const feature of this.world.terrainFeatures) {
+        strokeTerrainFeature(context, feature.rings);
+      }
+
+      for (const feature of this.world.terrainFeatures) {
+        context.fillStyle =
+          feature.type === 3
+            ? landScale(Math.max(20, feature.height))
+            : this.style.oceanColor;
+        fillTerrainFeature(context, feature.rings);
+      }
+
+      if (this.visibility.biomes) {
+        for (const cell of this.world.cells) {
+          if (cell.feature !== 1 || cell.biome <= 0) {
+            continue;
+          }
+          context.fillStyle = pickPaletteColor(
+            CULTURE_FILL_PALETTE,
+            cell.biome,
+          );
+          fillPolygon(context, cell.polygon);
+        }
+      }
+
+      context.strokeStyle = "rgba(70, 96, 138, 0.55)";
+      context.lineWidth = 1.2;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      for (const feature of this.world.terrainFeatures) {
+        strokeTerrainFeature(context, feature.rings);
+      }
+
+      if (!this.visibility.rivers) {
+        return;
+      }
+
+      context.strokeStyle = this.style.riverColor;
+      context.lineWidth = 1.15;
+      context.lineCap = "round";
+      for (const edge of this.edges) {
+        const cellA = this.world.cells[edge.cellA];
+        const cellB = edge.cellB == null ? null : this.world.cells[edge.cellB];
+        if (!cellA || !cellB || cellA.river <= 0 || cellB.river <= 0) {
+          continue;
+        }
+
+        context.beginPath();
+        context.moveTo(edge.ax, edge.ay);
+        context.lineTo(edge.bx, edge.by);
+        context.stroke();
+      }
+      return;
+    }
 
     context.strokeStyle = "rgba(255, 255, 255, 0.16)";
     context.lineWidth = 10;

@@ -10,11 +10,9 @@ export type RenderOverlayState = Readonly<{
   selectedCellId: number | null;
 }>;
 
-export type RenderLayer =
-  | "physical"
-  | "political"
-  | "entities"
-  | "overlay";
+export type RenderLayer = "physical" | "political" | "entities" | "overlay";
+
+export type TerrainGeometryMode = "grid" | "packed";
 
 export type RendererState = Readonly<{
   world: RenderableWorld | null;

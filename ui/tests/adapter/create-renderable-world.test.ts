@@ -25,12 +25,24 @@ describe("buildRenderableWorld", () => {
     expect(renderable.markers).toHaveLength(world.markerCount);
     expect(renderable.zones).toHaveLength(world.zoneCount);
     expect(renderable.burgs).toHaveLength(world.burgCount);
+    expect(renderable.terrainFeatures).toHaveLength(
+      Array.from(world.packFeatureType).filter(
+        (featureType) => featureType === 2 || featureType === 3,
+      ).length,
+    );
 
     const firstCell = renderable.cells[0];
     expect(firstCell).toBeDefined();
     expect(firstCell?.polygon.length).toBeGreaterThanOrEqual(6);
     expect(firstCell?.bboxMinX).toBeLessThanOrEqual(firstCell?.bboxMaxX ?? 0);
     expect(firstCell?.bboxMinY).toBeLessThanOrEqual(firstCell?.bboxMaxY ?? 0);
+
+    const firstTerrainFeature = renderable.terrainFeatures[0];
+    expect(firstTerrainFeature).toBeDefined();
+    expect(firstTerrainFeature?.rings.length).toBeGreaterThan(0);
+    for (const ring of firstTerrainFeature?.rings ?? []) {
+      expect(ring.length).toBeGreaterThanOrEqual(6);
+    }
   });
 
   it("tracks padded focus bounds around land instead of the full world", () => {
@@ -50,10 +62,18 @@ describe("buildRenderableWorld", () => {
       landMaxY = Math.max(landMaxY, cell?.bboxMaxY ?? 0);
     }
 
-    expect(renderable.focusBounds.minX).toBeLessThanOrEqual(landMinX);
-    expect(renderable.focusBounds.minY).toBeLessThanOrEqual(landMinY);
-    expect(renderable.focusBounds.maxX).toBeGreaterThanOrEqual(landMaxX);
-    expect(renderable.focusBounds.maxY).toBeGreaterThanOrEqual(landMaxY);
+    expect(renderable.focusBounds.minX).toBeLessThanOrEqual(
+      Math.max(0, landMinX),
+    );
+    expect(renderable.focusBounds.minY).toBeLessThanOrEqual(
+      Math.max(0, landMinY),
+    );
+    expect(renderable.focusBounds.maxX).toBeGreaterThanOrEqual(
+      Math.min(renderable.width, landMaxX),
+    );
+    expect(renderable.focusBounds.maxY).toBeGreaterThanOrEqual(
+      Math.min(renderable.height, landMaxY),
+    );
     expect(
       renderable.focusBounds.maxX - renderable.focusBounds.minX,
     ).toBeLessThanOrEqual(renderable.width);

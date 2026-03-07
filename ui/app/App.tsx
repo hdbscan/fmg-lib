@@ -19,6 +19,7 @@ import {
   clampZoom,
 } from "../adapter";
 import { CanvasMapRenderer, estimateRenderWorkload } from "../renderer";
+import type { TerrainGeometryMode } from "../renderer";
 import type { WorkerRequest, WorkerResponse } from "../workers/protocol";
 import {
   type ControllerState,
@@ -243,6 +244,11 @@ const readConfigOverride = (): Partial<GenerationDraft> => {
   return next;
 };
 
+const readTerrainGeometryMode = (): TerrainGeometryMode => {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("terrainGeometry") === "packed" ? "packed" : "grid";
+};
+
 const createRequestId = (): string => {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 };
@@ -348,6 +354,7 @@ const summarizeCell = (world: WorldGraphV1, cell: RenderCell) => {
 };
 
 export const App = () => {
+  const terrainGeometryMode = readTerrainGeometryMode();
   const controller = createController();
   const [state, setState] = createSignal<ControllerState>(
     controller.getState(),
@@ -976,6 +983,7 @@ export const App = () => {
       nextState.visibility,
       nextState.style,
       nextState.camera,
+      terrainGeometryMode,
     );
     renderer.resize(size.width, size.height);
     syncRendererState(nextState);
