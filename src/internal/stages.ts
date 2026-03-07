@@ -1,5 +1,5 @@
 import { Delaunay } from "d3-delaunay";
-import type { GenerationContext } from "../types";
+import type { GenerationContext, PoliticalType } from "../types";
 import {
   computeSuitability,
   isPoliticalPackCell,
@@ -2955,15 +2955,6 @@ export const runCulturesStage = (context: GenerationContext): void => {
     return;
   }
 
-  type CultureType =
-    | "Generic"
-    | "Naval"
-    | "Lake"
-    | "Highland"
-    | "River"
-    | "Nomadic"
-    | "Hunting";
-
   type CultureTemplate = Readonly<{
     odd: number;
     sort: (packId: number) => number;
@@ -3312,7 +3303,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     return selectedPackId;
   };
 
-  const getCultureType = (packId: number): CultureType => {
+  const getCultureType = (packId: number): PoliticalType => {
     const cellId = packToGrid[packId] ?? 0;
     const biome = cellsBiome[cellId] ?? 0;
     const height = packH[packId] ?? 0;
@@ -3348,7 +3339,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     }
     return "Generic";
   };
-  const getExpansionism = (type: CultureType): number => {
+  const getExpansionism = (type: PoliticalType): number => {
     let base = 1;
     if (type === "Lake") base = 0.8;
     else if (type === "Naval") base = 1.5;
@@ -3374,7 +3365,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
   const cultureSize = new Uint32Array(cultureCount + 1);
   const packCulture = new Uint16Array(packCellCount);
   const cost = new Float64Array(packCellCount);
-  const cultureTypes: CultureType[] = ["Generic"];
+  const cultureTypes: PoliticalType[] = ["Generic"];
   const cultureNativeBiome = new Uint8Array(cultureCount + 1);
   const cultureExpansionism = new Float64Array(cultureCount + 1);
   const queue: CultureQueueEntry[] = [];
@@ -3448,7 +3439,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
   const getBiomeCost = (
     nativeBiome: number,
     biome: number,
-    type: CultureType,
+    type: PoliticalType,
   ): number => {
     if (nativeBiome === biome) {
       return 10;
@@ -3462,7 +3453,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     }
     return baseCost * 2;
   };
-  const getHeightCost = (packId: number, type: CultureType): number => {
+  const getHeightCost = (packId: number, type: PoliticalType): number => {
     const cellId = packToGrid[packId] ?? 0;
     const height = packH[packId] ?? 0;
     const waterbodyId = cellsWaterbody[cellId] ?? 0;
@@ -3480,7 +3471,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     if (height >= 44) return 30;
     return 0;
   };
-  const getRiverCost = (packId: number, type: CultureType): number => {
+  const getRiverCost = (packId: number, type: PoliticalType): number => {
     const cellId = packToGrid[packId] ?? 0;
     const flow = cellsFlow[cellId] ?? 0;
     if (type === "River") {
@@ -3491,7 +3482,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     }
     return clamp(flow / 10, 20, 100);
   };
-  const getTypeCost = (packId: number, type: CultureType): number => {
+  const getTypeCost = (packId: number, type: PoliticalType): number => {
     const coast = packCoast[packId] ?? 0;
     if (coast === 1) {
       return type === "Naval" || type === "Lake"
@@ -3524,6 +3515,8 @@ export const runCulturesStage = (context: GenerationContext): void => {
     cost[packId] = 0;
     pushQueue({ cost: 0, cultureId, packId });
   }
+
+  context.internal.cultureTypes = cultureTypes;
 
   const maxExpansionCost =
     Math.max(candidatePackIds.length, 1) *

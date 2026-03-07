@@ -67,6 +67,9 @@ const createContext = (
       cellsX: 0,
       cellsY: 0,
     },
+    internal: {
+      cultureTypes: ["Generic"],
+    },
     world: {
       cellCount: 0,
       cellsX: new Float32Array(0),

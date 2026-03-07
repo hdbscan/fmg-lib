@@ -3,6 +3,7 @@ import {
   computeLakeFeatureMetadata,
   computePoliticalSuitability,
   runBurgGenerationStage,
+  runStateFormsStage,
 } from "../src/internal/political";
 import type {
   GenerationContext,
@@ -61,6 +62,9 @@ const createContext = (): GenerationContext => {
       spacing: 10,
       cellsX: 4,
       cellsY: 1,
+    },
+    internal: {
+      cultureTypes: ["Generic"],
     },
     world: {
       cellCount: 4,
@@ -234,5 +238,22 @@ describe("lake suitability metadata", () => {
     expect(context.world.burgCount).toBe(2);
     expect(context.world.burgPort[1]).toBe(1);
     expect(context.world.burgPort[2]).toBe(1);
+  });
+
+  test("derives naval republic bias from culture type instead of capital port", () => {
+    const context = createContext();
+
+    context.world.stateCount = 1;
+    context.world.stateCenterBurg = new Uint16Array([0, 1]);
+    context.world.stateCulture = new Uint16Array([0, 1]);
+    context.world.stateCells = new Uint32Array([0, 1]);
+    context.world.burgCell = new Uint32Array([0, 0]);
+    context.world.burgPort = new Uint8Array([0, 1]);
+    context.world.cellsReligion = new Uint16Array(4);
+    context.internal.cultureTypes = ["Generic", "Generic"];
+
+    runStateFormsStage(context);
+
+    expect(context.world.stateForm[1]).toBe(1);
   });
 });
