@@ -35,6 +35,22 @@ const deriveRequestedCellsFromOracle = (oracle: ParitySnapshot): number => {
   return Math.max(1, oracle.terrain.mesh.polygons.length);
 };
 
+const deriveDesiredCellsFromOracle = (oracle: ParitySnapshot): number => {
+  if (oracle.cellsDesired && oracle.cellsDesired > 0) {
+    return oracle.cellsDesired;
+  }
+
+  const { width, height, gridSpacing } = oracle;
+  if (gridSpacing > 0) {
+    return Math.max(
+      1,
+      Math.round((width * height) / gridSpacing ** 2 / 100) * 100,
+    );
+  }
+
+  return Math.max(1, deriveRequestedCellsFromOracle(oracle));
+};
+
 export const buildGenerationConfigFromOracle = (
   oracle: ParitySnapshot,
 ): GenerationConfig => {
@@ -82,6 +98,7 @@ export const buildGenerationConfigFromOracle = (
     ...(oracle.religionsNumber !== undefined
       ? { religionsNumber: oracle.religionsNumber }
       : {}),
+    cellsDesired: deriveDesiredCellsFromOracle(oracle),
   };
 
   return {

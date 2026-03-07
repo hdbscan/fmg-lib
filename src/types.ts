@@ -44,6 +44,7 @@ export type HiddenGenerationControls = Readonly<{
   statesGrowthRate?: number;
   provincesRatio?: number;
   religionsNumber?: number;
+  cellsDesired?: number;
 }>;
 
 export type GenerationConfig = Readonly<{
@@ -81,6 +82,7 @@ export type NormalizedGenerationConfig = Readonly<{
     statesGrowthRate: number;
     provincesRatio: number;
     religionsNumber: number | null;
+    cellsDesired: number;
   }>;
   climate: Readonly<{
     temperatureEquator: number;

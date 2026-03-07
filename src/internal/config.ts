@@ -131,6 +131,11 @@ export const normalizeConfig = (
     );
   }
 
+  const cellsDesired = config.hiddenControls?.cellsDesired ?? config.cells;
+  if (!isPositiveInteger(cellsDesired)) {
+    throw new Error("hiddenControls.cellsDesired must be a positive integer");
+  }
+
   const temperatureEquator = config.climate?.temperatureEquator ?? 27;
   const temperatureNorthPole = config.climate?.temperatureNorthPole ?? -30;
   const temperatureSouthPole = config.climate?.temperatureSouthPole ?? -15;
@@ -200,6 +205,7 @@ export const normalizeConfig = (
       statesGrowthRate,
       provincesRatio,
       religionsNumber,
+      cellsDesired,
     },
     climate: {
       temperatureEquator,

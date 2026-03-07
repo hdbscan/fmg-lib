@@ -128,34 +128,22 @@ const fetchUpstreamPhysicalDiagnostics = async (
       const Features = globalData.Features as {
         markupPack: () => void;
       };
-      const Rivers = globalData.Rivers as {
-        generate: (allowErosion?: boolean) => void;
-      };
-      const Biomes = globalData.Biomes as {
-        define: () => void;
-      };
       const reGraph = globalData.reGraph as (() => void) | undefined;
-      const calculateTemperatures = globalData.calculateTemperatures as
-        | (() => void)
-        | undefined;
-      const generatePrecipitation = globalData.generatePrecipitation as
-        | (() => void)
-        | undefined;
 
-      if (
-        !Features ||
-        !Rivers ||
-        !Biomes ||
-        !reGraph ||
-        !calculateTemperatures ||
-        !generatePrecipitation
-      ) {
+      if (!Features || !reGraph) {
         throw new Error("Upstream physical pipeline globals are unavailable");
       }
 
       const capture = async (
         key: string,
         label: string,
+        visibility: Readonly<{
+          temp: boolean;
+          prec: boolean;
+          flow: boolean;
+          river: boolean;
+          biome: boolean;
+        }>,
       ): Promise<BrowserPhysicalStep> => {
         const pack = getPack();
         const packCellCount = pack.cells.i.length;
@@ -175,11 +163,21 @@ const fetchUpstreamPhysicalDiagnostics = async (
           const gridCellId = pack.cells.g[packId] ?? 0;
           const packHeight = pack.cells.h[packId] ?? 0;
           const point = pack.cells.p[packId] ?? [0, 0];
-          const tempValue = grid.cells.temp[gridCellId] ?? 0;
-          const precValue = grid.cells.prec[gridCellId] ?? 0;
-          const flowValue = pack.cells.fl?.[packId] ?? 0;
-          const riverValue = pack.cells.r?.[packId] ?? 0;
-          const biomeValue = pack.cells.biome?.[packId] ?? 0;
+          const tempValue = visibility.temp
+            ? (grid.cells.temp[gridCellId] ?? 0)
+            : 0;
+          const precValue = visibility.prec
+            ? (grid.cells.prec[gridCellId] ?? 0)
+            : 0;
+          const flowValue = visibility.flow
+            ? (pack.cells.fl?.[packId] ?? 0)
+            : 0;
+          const riverValue = visibility.river
+            ? (pack.cells.r?.[packId] ?? 0)
+            : 0;
+          const biomeValue = visibility.biome
+            ? (pack.cells.biome?.[packId] ?? 0)
+            : 0;
 
           packToGrid[packId] = gridCellId;
           packH[packId] = packHeight;
@@ -238,29 +236,64 @@ const fetchUpstreamPhysicalDiagnostics = async (
             : "continents";
       const steps: BrowserPhysicalStep[] = [];
       const seaLevel = 20;
+      const originalPack = getPack();
+      const originalTemp = Int8Array.from(grid.cells.temp);
+      const originalPrec = Uint8Array.from(grid.cells.prec);
 
       globalData.pack = {};
       reGraph();
       Features.markupPack();
       grid.cells.temp = new Int8Array(grid.cells.temp.length);
       grid.cells.prec = new Uint8Array(grid.cells.prec.length);
-      steps.push(await capture("physical:pack-ready", "Pack ready"));
-
-      calculateTemperatures();
-      steps.push(await capture("physical:climate-temp", "Climate temperature"));
-
-      generatePrecipitation();
       steps.push(
-        await capture("physical:climate-prec", "Climate precipitation"),
+        await capture("physical:pack-ready", "Pack ready", {
+          temp: false,
+          prec: false,
+          flow: false,
+          river: false,
+          biome: false,
+        }),
       );
 
-      reGraph();
-      Features.markupPack();
-      Rivers.generate();
-      steps.push(await capture("physical:hydrology", "Hydrology"));
-
-      Biomes.define();
-      steps.push(await capture("physical:biome", "Biome"));
+      globalData.pack = originalPack;
+      grid.cells.temp = originalTemp;
+      grid.cells.prec = originalPrec;
+      steps.push(
+        await capture("physical:climate-temp", "Climate temperature", {
+          temp: true,
+          prec: false,
+          flow: false,
+          river: false,
+          biome: false,
+        }),
+      );
+      steps.push(
+        await capture("physical:climate-prec", "Climate precipitation", {
+          temp: true,
+          prec: true,
+          flow: false,
+          river: false,
+          biome: false,
+        }),
+      );
+      steps.push(
+        await capture("physical:hydrology", "Hydrology", {
+          temp: true,
+          prec: true,
+          flow: true,
+          river: true,
+          biome: false,
+        }),
+      );
+      steps.push(
+        await capture("physical:biome", "Biome", {
+          temp: true,
+          prec: true,
+          flow: true,
+          river: true,
+          biome: true,
+        }),
+      );
 
       return {
         seed,

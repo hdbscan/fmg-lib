@@ -65,6 +65,7 @@ const normalizeOracle = (payload: {
   statesGrowthRate: number | null;
   provincesRatio: number | null;
   religionsNumber: number | null;
+  cellsDesired: number | null;
   temperatureEquator: number | null;
   temperatureNorthPole: number | null;
   temperatureSouthPole: number | null;
@@ -115,6 +116,9 @@ const normalizeOracle = (payload: {
     : {}),
   ...(payload.religionsNumber !== null
     ? { religionsNumber: payload.religionsNumber }
+    : {}),
+  ...(payload.cellsDesired !== null
+    ? { cellsDesired: payload.cellsDesired }
     : {}),
   ...(payload.temperatureEquator !== null
     ? { temperatureEquator: payload.temperatureEquator }
@@ -393,6 +397,7 @@ export const fetchUpstreamOracle = async (
               }
             ).document?.getElementById("religionsNumber")?.value ?? "0",
           ) || null,
+        cellsDesired: readEvaluatedNumber("+pointsInput.dataset.cells"),
         temperatureEquator: readEvaluatedNumber("options.temperatureEquator"),
         temperatureNorthPole: readEvaluatedNumber(
           "options.temperatureNorthPole",

@@ -93,6 +93,7 @@ describe("oracle config replay", () => {
       statesGrowthRate: 1.35,
       provincesRatio: 72,
       religionsNumber: 8,
+      cellsDesired: 100,
     });
     expect(config.climate).toEqual({
       temperatureEquator: 31,

@@ -25,6 +25,43 @@ const rn = (value: number, digits = 0): number => {
   return Math.round(value * factor) / factor;
 };
 
+const P = (random: () => number, probability: number): boolean => {
+  if (probability >= 1) {
+    return true;
+  }
+  if (probability <= 0) {
+    return false;
+  }
+  return random() < probability;
+};
+
+const gauss = (
+  random: () => number,
+  expected = 100,
+  deviation = 30,
+  min = 0,
+  max = 300,
+  round = 0,
+): number => {
+  let x = 0;
+  let y = 0;
+  let radius = 0;
+  do {
+    x = random() * 2 - 1;
+    y = random() * 2 - 1;
+    radius = x * x + y * y;
+  } while (radius === 0 || radius > 1);
+
+  return rn(
+    clamp(
+      expected + deviation * y * Math.sqrt((-2 * Math.log(radius)) / radius),
+      min,
+      max,
+    ),
+    round,
+  );
+};
+
 const lerp = (start: number, end: number, t: number): number =>
   start + (end - start) * t;
 
@@ -856,6 +893,72 @@ const calculateMapCoordinates = (
   const lonE = rn(180 - (360 - lonT) * lonShift, 1);
   const lonW = rn(lonE - lonT, 1);
   return { latT, latN, latS, lonT, lonW, lonE };
+};
+
+const advanceClimateRandomForMapSize = (
+  random: () => number,
+  template: string,
+  borderLand: boolean,
+): void => {
+  const max = borderLand ? 80 : 100;
+  const consumeLatitude = (): void => {
+    gauss(random, P(random, 0.5) ? 40 : 60, 20, 25, 75);
+  };
+
+  if (!borderLand) {
+    if (template === "pangea") {
+      return;
+    }
+    if (template === "shattered" && P(random, 0.7)) {
+      return;
+    }
+    if (template === "continents" && P(random, 0.5)) {
+      return;
+    }
+    if (template === "archipelago" && P(random, 0.35)) {
+      return;
+    }
+    if (template === "highIsland" && P(random, 0.25)) {
+      return;
+    }
+    if (template === "lowIsland" && P(random, 0.1)) {
+      return;
+    }
+  }
+
+  if (template === "pangea") {
+    gauss(random, 70, 20, 30, max);
+    consumeLatitude();
+    return;
+  }
+  if (template === "volcano") {
+    gauss(random, 20, 20, 10, max);
+    consumeLatitude();
+    return;
+  }
+  if (template === "mediterranean") {
+    gauss(random, 25, 30, 15, 80);
+    consumeLatitude();
+    return;
+  }
+  if (template === "peninsula") {
+    gauss(random, 15, 15, 5, 80);
+    consumeLatitude();
+    return;
+  }
+  if (template === "isthmus") {
+    gauss(random, 15, 20, 3, 80);
+    consumeLatitude();
+    return;
+  }
+  if (template === "atoll") {
+    gauss(random, 3, 2, 1, 5, 1);
+    consumeLatitude();
+    return;
+  }
+
+  gauss(random, 30, 20, 15, max);
+  consumeLatitude();
 };
 
 const mean = (values: readonly number[]): number => {
@@ -3517,8 +3620,22 @@ export const runClimateStage = (
     longitude,
   );
   const precipitationModifier = precipitation / 100;
+  const climateRandom = createAlea(context.config.seed);
+  const hasBorderLand = Array.from(
+    { length: cellCount },
+    (_, cellId) => cellId,
+  ).some(
+    (cellId) =>
+      (context.world.cellsFeature[cellId] ?? 0) === 1 &&
+      (context.world.cellsBorder[cellId] ?? 0) === 1,
+  );
+  advanceClimateRandomForMapSize(
+    climateRandom,
+    context.config.heightTemplate,
+    hasBorderLand,
+  );
   const randomInt = (min: number, max: number): number =>
-    Math.floor(context.random() * (max - min + 1)) + min;
+    Math.floor(climateRandom() * (max - min + 1)) + min;
   const latitudeModifier = [
     4, 2, 2, 2, 1, 1, 2, 2, 2, 2, 3, 3, 2, 2, 1, 1, 1, 0.5,
   ];
@@ -3555,7 +3672,8 @@ export const runClimateStage = (
 
   onStep?.("physical:climate-temp", "Climate temperature");
 
-  const cellsNumberModifier = (context.config.requestedCells / 10000) ** 0.25;
+  const cellsNumberModifier =
+    (context.config.hiddenControls.cellsDesired / 10000) ** 0.25;
   const modifier = cellsNumberModifier * precipitationModifier;
   const westerly: Array<[number, number, number]> = [];
   const easterly: Array<[number, number, number]> = [];
@@ -3604,9 +3722,10 @@ export const runClimateStage = (
     for (const firstValue of source) {
       let first = firstValue as number | readonly [number, number, number];
       let maxPrec = maxPrecInit;
-      if (Array.isArray(first)) {
-        maxPrec = Math.min(maxPrecInit * first[1], 255);
-        first = first[0];
+      const firstTuple = first as readonly [number, number, number];
+      if (firstTuple[0]) {
+        maxPrec = Math.min(maxPrecInit * firstTuple[1], 255);
+        first = firstTuple[0];
       }
 
       let humidity = maxPrec - (cellsH[first as number] ?? 0);
@@ -3619,56 +3738,35 @@ export const runClimateStage = (
         step < steps;
         step += 1, current += next
       ) {
-        if (current < 0 || current >= cellCount) {
-          break;
-        }
         if ((cellsTemp[current] ?? 0) < -5) {
           continue;
         }
 
-        const nextCell = current + next;
         if ((cellsH[current] ?? 0) < 20) {
-          if (
-            nextCell >= 0 &&
-            nextCell < cellCount &&
-            (cellsH[nextCell] ?? 0) >= 20
-          ) {
-            cellsPrec[nextCell] = clamp(
-              (cellsPrec[nextCell] ?? 0) +
-                Math.max(humidity / randomInt(10, 20), 1),
-              0,
-              255,
-            );
+          if ((cellsH[current + next] ?? 0) >= 20) {
+            const target = current + next;
+            cellsPrec[target] =
+              (cellsPrec[target] ?? 0) +
+              Math.max(humidity / randomInt(10, 20), 1);
           } else {
             humidity = Math.min(humidity + 5 * modifier, maxPrec);
-            cellsPrec[current] = clamp(
-              (cellsPrec[current] ?? 0) + 5 * modifier,
-              0,
-              255,
-            );
+            cellsPrec[current] = (cellsPrec[current] ?? 0) + 5 * modifier;
           }
           continue;
         }
 
-        if (nextCell < 0 || nextCell >= cellCount) {
-          break;
-        }
-
-        const isPassable = (cellsH[nextCell] ?? 0) <= maxPassableElevation;
+        const isPassable =
+          (cellsH[current + next] ?? 0) <= maxPassableElevation;
         const normalLoss = Math.max(humidity / (10 * modifier), 1);
         const diff = Math.max(
-          (cellsH[nextCell] ?? 0) - (cellsH[current] ?? 0),
+          (cellsH[current + next] ?? 0) - (cellsH[current] ?? 0),
           0,
         );
-        const mod = ((cellsH[nextCell] ?? 0) / 70) ** 2;
+        const mod = ((cellsH[current + next] ?? 0) / 70) ** 2;
         const cellPrecipitation = isPassable
-          ? clamp(normalLoss + diff * mod, 1, humidity)
+          ? Math.min(Math.max(normalLoss + diff * mod, 1), humidity)
           : humidity;
-        cellsPrec[current] = clamp(
-          (cellsPrec[current] ?? 0) + cellPrecipitation,
-          0,
-          255,
-        );
+        cellsPrec[current] = (cellsPrec[current] ?? 0) + cellPrecipitation;
         const evaporation = cellPrecipitation > 1.5 ? 1 : 0;
         humidity = isPassable
           ? clamp(humidity - cellPrecipitation + evaporation, 0, maxPrec)
