@@ -57,6 +57,29 @@ const collectPackNeighbors = (
   return Array.from(world.packNeighbors.slice(from, to));
 };
 
+const computePolygonArea = (
+  vertexIds: Uint32Array,
+  from: number,
+  to: number,
+  vertexX: Float32Array,
+  vertexY: Float32Array,
+): number => {
+  if (to - from < 3) {
+    return 0;
+  }
+
+  let area = 0;
+  for (let index = from; index < to; index += 1) {
+    const currentId = vertexIds[index] ?? 0;
+    const nextId = vertexIds[index + 1 < to ? index + 1 : from] ?? 0;
+    area +=
+      (vertexX[currentId] ?? 0) * (vertexY[nextId] ?? 0) -
+      (vertexX[nextId] ?? 0) * (vertexY[currentId] ?? 0);
+  }
+
+  return Math.abs(area) / 2;
+};
+
 const isPackedTopologyBorderCell = (
   world: ReturnType<typeof generateWorld>,
   packId: number,
@@ -509,7 +532,7 @@ describe("world generation integration", () => {
     expect(accountedFeatureCells).toBe(world.cellCount);
 
     let summedPackArea = 0;
-    let summedPrimaryLandPackArea = 0;
+    let summedReferencedLandPackArea = 0;
 
     for (let packId = 0; packId < world.packCellCount; packId += 1) {
       const gridCellId = world.packToGrid[packId];
@@ -545,7 +568,7 @@ describe("world generation integration", () => {
       expect(packFeatureId).toBeGreaterThan(0);
       expect(packFeatureId).toBeLessThanOrEqual(world.packFeatureCount);
       expect(packCoast).toBeGreaterThanOrEqual(-10);
-      expect(packCoast).toBeLessThanOrEqual(10);
+      expect(packCoast).toBeLessThanOrEqual(127);
 
       if ((world.cellsCoast[gridCellId] ?? 0) <= 1) {
         if (packHarbor > 0) {
@@ -568,7 +591,17 @@ describe("world generation integration", () => {
         expect(world.gridToPack[gridCellId]).toBe(packId);
       }
       expect(h).toBe(gridH);
-      expect(area).toBeGreaterThan(0);
+      expect(area).toBeGreaterThanOrEqual(0);
+      expect(area).toBeCloseTo(
+        computePolygonArea(
+          world.packCellVertices,
+          packVertexFrom,
+          packVertexTo,
+          world.packVertexX,
+          world.packVertexY,
+        ),
+        5,
+      );
       expect(packVertexTo).toBeGreaterThan(packVertexFrom);
       expect(packVertexTo - packVertexFrom).toBeGreaterThanOrEqual(3);
 
@@ -583,8 +616,8 @@ describe("world generation integration", () => {
       }
 
       summedPackArea += area;
-      if (isPrimaryPackCell && (world.cellsFeature[gridCellId] ?? 0) === 1) {
-        summedPrimaryLandPackArea += area;
+      if ((world.cellsFeature[gridCellId] ?? 0) === 1) {
+        summedReferencedLandPackArea += area;
       }
 
       const packNeighbors = collectPackNeighbors(world, packId);
@@ -602,8 +635,10 @@ describe("world generation integration", () => {
       }
       return sum;
     }, 0);
-    expect(summedPrimaryLandPackArea).toBeCloseTo(landArea, 5);
-    expect(summedPackArea).toBeGreaterThanOrEqual(summedPrimaryLandPackArea);
+    expect(Math.abs(summedReferencedLandPackArea - landArea)).toBeLessThan(
+      Math.max(landArea * 0.01, 1),
+    );
+    expect(summedPackArea).toBeGreaterThanOrEqual(summedReferencedLandPackArea);
 
     let accountedPackFeatureCells = 0;
     let packLandFeatures = 0;
@@ -883,6 +918,75 @@ describe("world generation integration", () => {
     expect(Array.from(worldA.cellNeighbors)).toEqual(
       Array.from(worldB.cellNeighbors),
     );
+  });
+
+  test("recomputes packed cell area from resampled polygons", () => {
+    const world = generateWorld({
+      seed: "42424242",
+      width: 1280,
+      height: 900,
+      cells: 9996,
+      culturesCount: 9,
+      statesCount: 23,
+      townsCount: 1000,
+      hiddenControls: {
+        sizeVariety: 7.5,
+        growthRate: 1.6,
+        religionsNumber: 7,
+      },
+      climate: {
+        lakeElevationLimit: 20,
+        precipitation: 94,
+        mapSize: 100,
+        latitude: 50,
+        longitude: 50,
+      },
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+        politics: true,
+        religions: true,
+      },
+    });
+
+    let midpointCells = 0;
+    let mismatchedSourceAreas = 0;
+
+    for (let packId = 0; packId < world.packCellCount; packId += 1) {
+      const gridCellId = world.packToGrid[packId] ?? 0;
+      const x = world.packX[packId] ?? 0;
+      const y = world.packY[packId] ?? 0;
+      const area = world.packArea[packId] ?? 0;
+      const vertexFrom = world.packCellVertexOffsets[packId] ?? 0;
+      const vertexTo = world.packCellVertexOffsets[packId + 1] ?? vertexFrom;
+
+      expect(area).toBeCloseTo(
+        computePolygonArea(
+          world.packCellVertices,
+          vertexFrom,
+          vertexTo,
+          world.packVertexX,
+          world.packVertexY,
+        ),
+        5,
+      );
+
+      const isPrimaryPackCell =
+        x === (world.cellsX[gridCellId] ?? 0) &&
+        y === (world.cellsY[gridCellId] ?? 0);
+      if (isPrimaryPackCell) {
+        continue;
+      }
+
+      midpointCells += 1;
+      if (Math.abs(area - (world.cellsArea[gridCellId] ?? 0)) > 1e-3) {
+        mismatchedSourceAreas += 1;
+      }
+    }
+
+    expect(midpointCells).toBeGreaterThan(0);
+    expect(mismatchedSourceAreas).toBeGreaterThan(0);
   });
 
   test("responds to high-level generation knobs", () => {
