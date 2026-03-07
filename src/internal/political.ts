@@ -66,10 +66,14 @@ type QueueEntry = {
   extra: number;
 };
 
+type CostQueue = {
+  entries: QueueEntry[];
+  priorities: number[];
+  length: number;
+};
+
 const compareQueueEntries = (left: QueueEntry, right: QueueEntry): number => {
-  if (left.cost !== right.cost) return left.cost - right.cost;
-  if (left.owner !== right.owner) return left.owner - right.owner;
-  return left.id - right.id;
+  return left.cost - right.cost;
 };
 
 const pushQueue = (heap: QueueEntry[], entry: QueueEntry): void => {
@@ -107,6 +111,78 @@ const popQueue = (heap: QueueEntry[]): QueueEntry | undefined => {
     index = smallest;
   }
   heap[index] = last;
+  return first;
+};
+
+const createCostQueue = (): CostQueue => ({
+  entries: [],
+  priorities: [],
+  length: 0,
+});
+
+const pushCostQueue = (
+  queue: CostQueue,
+  entry: QueueEntry,
+  priority: number,
+): void => {
+  let index = queue.length;
+  queue.length += 1;
+
+  while (index > 0) {
+    const parentIndex = (index - 1) >> 1;
+    const parentPriority = queue.priorities[parentIndex];
+    if (parentPriority === undefined || priority >= parentPriority) break;
+    queue.entries[index] = queue.entries[parentIndex] as QueueEntry;
+    queue.priorities[index] = parentPriority;
+    index = parentIndex;
+  }
+
+  queue.entries[index] = entry;
+  queue.priorities[index] = priority;
+};
+
+const popCostQueue = (queue: CostQueue): QueueEntry | undefined => {
+  if (queue.length === 0) return undefined;
+
+  const first = queue.entries[0];
+  queue.length -= 1;
+
+  if (queue.length > 0) {
+    const lastEntry = queue.entries[queue.length] as QueueEntry;
+    const lastPriority = queue.priorities[queue.length] as number;
+    const halfLength = queue.length >> 1;
+    let index = 0;
+
+    while (index < halfLength) {
+      let childIndex = 1 + (index << 1);
+      const rightIndex = childIndex + 1;
+      let childEntry = queue.entries[childIndex] as QueueEntry;
+      let childPriority = queue.priorities[childIndex] as number;
+      const rightPriority = queue.priorities[rightIndex];
+
+      if (
+        rightIndex < queue.length &&
+        rightPriority !== undefined &&
+        rightPriority < childPriority
+      ) {
+        childIndex = rightIndex;
+        childEntry = queue.entries[rightIndex] as QueueEntry;
+        childPriority = rightPriority;
+      }
+
+      if (childPriority >= lastPriority) break;
+
+      queue.entries[index] = childEntry;
+      queue.priorities[index] = childPriority;
+      index = childIndex;
+    }
+
+    queue.entries[index] = lastEntry;
+    queue.priorities[index] = lastPriority;
+  }
+
+  queue.entries.length = queue.length;
+  queue.priorities.length = queue.length;
   return first;
 };
 
@@ -1136,7 +1212,6 @@ const getReligionPassageCost = (
   nextCellId: number,
 ): number => {
   const { cellsFeature, cellsBiome, cellsBurg, cellsState } = context.world;
-
   const currentIsWater = (cellsFeature[currentCellId] ?? 0) !== 1;
   if (currentIsWater) {
     return 500;
@@ -1808,7 +1883,7 @@ export const runReligionsStage = (context: GenerationContext): void => {
 
   const maxExpansionCost =
     (Math.max(cellCount, 1) / 20) * context.config.hiddenControls.growthRate;
-  const queue: QueueEntry[] = [];
+  const queue = createCostQueue();
   const cost = new Float64Array(cellCount);
   cost.fill(Number.POSITIVE_INFINITY);
   const routeStateKeys = buildReligionRouteStateSet(context);
@@ -1818,16 +1893,20 @@ export const runReligionsStage = (context: GenerationContext): void => {
     const seedCell = religionSeedCell[religionId] ?? 0;
     cellsReligion[seedCell] = religionId;
     cost[seedCell] = 1;
-    pushQueue(queue, {
-      id: seedCell,
-      owner: religionId,
-      extra: cellsState[seedCell] ?? 0,
-      cost: 0,
-    });
+    pushCostQueue(
+      queue,
+      {
+        id: seedCell,
+        owner: religionId,
+        extra: cellsState[seedCell] ?? 0,
+        cost: 0,
+      },
+      0,
+    );
   }
 
   while (queue.length > 0) {
-    const next = popQueue(queue);
+    const next = popCostQueue(queue);
     if (!next) break;
     const religionId = next.owner;
     const cultureId = religionCultureList[religionId] ?? 0;
@@ -1856,12 +1935,16 @@ export const runReligionsStage = (context: GenerationContext): void => {
       if ((cellsCulture[nextCell] ?? 0) > 0) {
         cellsReligion[nextCell] = religionId;
       }
-      pushQueue(queue, {
-        id: nextCell,
-        owner: religionId,
-        extra: stateId,
-        cost: totalCost,
-      });
+      pushCostQueue(
+        queue,
+        {
+          id: nextCell,
+          owner: religionId,
+          extra: stateId,
+          cost: totalCost,
+        },
+        totalCost,
+      );
     });
   }
 
