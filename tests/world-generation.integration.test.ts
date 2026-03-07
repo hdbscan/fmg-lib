@@ -900,6 +900,48 @@ describe("world generation integration", () => {
     );
   });
 
+  test("keeps oracle-query culture placement stable", () => {
+    const world = generateWorld({
+      seed: "42424242",
+      width: 1280,
+      height: 900,
+      cells: 9996,
+      culturesCount: 9,
+      statesCount: 23,
+      townsCount: 1000,
+      hiddenControls: {
+        sizeVariety: 7.5,
+        growthRate: 1.6,
+        religionsNumber: 7,
+      },
+      climate: {
+        lakeElevationLimit: 20,
+        precipitation: 94,
+        mapSize: 100,
+        latitude: 50,
+        longitude: 50,
+      },
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+        politics: true,
+        religions: true,
+      },
+    });
+
+    expect(world.cultureCount).toBe(9);
+    expect(createHash("sha256").update(world.cellsCulture).digest("hex")).toBe(
+      "b849266ce9e59ed05f395a93cdafb5acb5cab141c250db18502e2a94ca1af25f",
+    );
+    expect(
+      createHash("sha256").update(world.cultureSeedCell).digest("hex"),
+    ).toBe("6681bdea623a49c1cfb266f2ebf8011e00fb5600bcf6430584fd1e691ef94cb1");
+    expect(createHash("sha256").update(world.cultureSize).digest("hex")).toBe(
+      "ce7205dbf59bec63f4737539683f9c965f0cda07c20e8f235d7e902b5e30275e",
+    );
+  });
+
   test("generates deterministic burgs when settlements layer is enabled", () => {
     const withSettlementsA = generateWorld({
       ...baseConfig,
