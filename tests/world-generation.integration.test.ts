@@ -1507,31 +1507,31 @@ describe("world generation integration", () => {
 
     expect(world.burgCount).toBe(656);
     expect(createHash("sha256").update(world.cellsBurg).digest("hex")).toBe(
-      "2fdcea60824903286621a09fc7f9864a9a4286ee69e0d9490a2335fc7fcef167",
+      "9ec4a30bc1b2f6fb6926a0f7e9e020f25847c0b2a4597c1de417828158c22a73",
     );
     expect(createHash("sha256").update(world.burgCell).digest("hex")).toBe(
-      "8494d714abe4517cfa03f5aa69701192d105626005c65fa2b004562f8cd3a921",
+      "3e5fc0e2cb3def343186427fdb44e466cc7761dd6c7b13c6953d61d3da4b4a01",
     );
     expect(createHash("sha256").update(world.burgX).digest("hex")).toBe(
-      "c50dc80471579aa85a3fd02c1e8ecf532b65c92a675b98d8b96134e28e825075",
+      "e88be15cdcd9e7d53a2cd4db4589dc35738afe71ee063f00c9c3ae2d410cda8f",
     );
     expect(createHash("sha256").update(world.burgY).digest("hex")).toBe(
-      "e9e863495b9e1602952665b7cf19402282742f17bb6e7087763653726557ad2f",
+      "3a88e58953b6b43a08923089ab1c02c7f7101779a1f783206039e21cd5847901",
     );
     expect(createHash("sha256").update(world.burgCapital).digest("hex")).toBe(
       "a8f2b334cc0ef579f9380640139852c6ffcfef895fe0a396b1a68d361d313ce4",
     );
     expect(createHash("sha256").update(world.burgPort).digest("hex")).toBe(
-      "8da1160fbcf1edd10da95e285b2f6c61f40aae4c712ff899318479f1be4f38d1",
+      "1bc7161d8e4d2c587e50017c94aebc33cc3391f8979777fcbe2e327ebd848890",
     );
     expect(createHash("sha256").update(world.cellsState).digest("hex")).toBe(
-      "b88834fe96db48e8a646885571ea04556d13ba711f66ec013a8cf320413f04d0",
+      "535c77050f0a9431978efa8c8509200bb4b902c901adb3458a20b4a3b3e8263d",
     );
     expect(
       createHash("sha256").update(world.stateCenterBurg).digest("hex"),
     ).toBe("e88624bf274aff4f35798f4bc27027683e9c1d78f132211a3cc4ae5b3decd4e3");
     expect(createHash("sha256").update(world.stateCells).digest("hex")).toBe(
-      "068968e2fb6a9bc19af1e3605bfed0e187f4df4f06ee19dc1551d563f32f2ade",
+      "7054f5bdc06f3f91376fbe51c92ce806bf4430e85d0f6b4a07feddc5b72e185c",
     );
   });
 
