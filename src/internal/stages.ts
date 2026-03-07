@@ -2,7 +2,7 @@ import { Delaunay } from "d3-delaunay";
 import type { GenerationContext, PoliticalType } from "../types";
 import {
   computeLakeFeatureMetadata,
-  computeSuitability,
+  computePackCellSuitability,
   isPoliticalPackCell,
   runBurgGenerationStage as runPoliticalBurgGenerationStage,
   runBurgSpecificationStage as runPoliticalBurgSpecificationStage,
@@ -5147,7 +5147,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     packId: number;
   }>;
 
-  const suitability = computeSuitability(context);
+  const suitability = computePackCellSuitability(context);
   const populatedPackIds = eligiblePackIds.filter(
     (packId) => (suitability[packId] ?? 0) > 0,
   );
