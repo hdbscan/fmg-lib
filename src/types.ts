@@ -160,7 +160,7 @@ export type WorldGraphV1 = Readonly<{
   cellsTemp: Int8Array;
   cellsPrec: Uint8Array;
   cellsFlow: Uint32Array;
-  cellsRiver: Uint8Array;
+  cellsRiver: Uint32Array;
   cellsBiome: Uint8Array;
   cellsWaterbody: Uint32Array;
   waterbodyCount: number;
@@ -414,7 +414,7 @@ export type GenerationContext = {
     cellsTemp: Int8Array;
     cellsPrec: Uint8Array;
     cellsFlow: Uint32Array;
-    cellsRiver: Uint8Array;
+    cellsRiver: Uint32Array;
     cellsBiome: Uint8Array;
     cellsWaterbody: Uint32Array;
     waterbodyCount: number;

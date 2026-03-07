@@ -155,7 +155,7 @@ export const serializeWorld = (world: WorldGraphV1): string => {
       cellsTemp: encodeTypedArray(world.cellsTemp, "i8"),
       cellsPrec: encodeTypedArray(world.cellsPrec, "u8"),
       cellsFlow: encodeTypedArray(world.cellsFlow, "u32"),
-      cellsRiver: encodeTypedArray(world.cellsRiver, "u8"),
+      cellsRiver: encodeTypedArray(world.cellsRiver, "u32"),
       cellsBiome: encodeTypedArray(world.cellsBiome, "u8"),
       cellsWaterbody: encodeTypedArray(world.cellsWaterbody, "u32"),
       waterbodyType: encodeTypedArray(world.waterbodyType, "u8"),
@@ -432,7 +432,7 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     !(cellsTemp instanceof Int8Array) ||
     !(cellsPrec instanceof Uint8Array) ||
     !(cellsFlow instanceof Uint32Array) ||
-    !(cellsRiver instanceof Uint8Array) ||
+    !(cellsRiver instanceof Uint32Array) ||
     !(cellsBiome instanceof Uint8Array) ||
     !(cellsWaterbody instanceof Uint32Array) ||
     !(waterbodyType instanceof Uint8Array) ||
