@@ -1965,8 +1965,6 @@ export const runPackStage = (context: GenerationContext): void => {
     cellsY,
     cellsH,
     cellsCoast,
-    cellsWaterbody,
-    waterbodyType,
     cellNeighborOffsets,
     cellNeighbors,
     gridToPack,
@@ -1979,7 +1977,6 @@ export const runPackStage = (context: GenerationContext): void => {
   const pointX: number[] = [];
   const pointY: number[] = [];
   const pointH: number[] = [];
-  const pointCoast: number[] = [];
 
   const includeGridCell = (cellId: number): boolean => {
     const height = cellsH[cellId] ?? 0;
@@ -1991,10 +1988,6 @@ export const runPackStage = (context: GenerationContext): void => {
       return false;
     }
     if (coast === -2) {
-      const waterbodyId = cellsWaterbody[cellId] ?? 0;
-      if ((waterbodyType[waterbodyId] ?? 0) === 2) {
-        return false;
-      }
       if (cellId % 4 === 0) {
         return false;
       }
@@ -2007,7 +2000,6 @@ export const runPackStage = (context: GenerationContext): void => {
     pointX.push(x);
     pointY.push(y);
     pointH.push(cellsH[cellId] ?? 0);
-    pointCoast.push(cellsCoast[cellId] ?? 0);
   };
 
   for (let cellId = 0; cellId < cellCount; cellId += 1) {
@@ -2063,7 +2055,7 @@ export const runPackStage = (context: GenerationContext): void => {
   const packY = Float32Array.from(pointY);
   const packH = Uint8Array.from(pointH);
   const packArea = new Float32Array(packCellCount);
-  const packCoast = Int8Array.from(pointCoast);
+  const packCoast = new Int8Array(packCellCount);
   const packHaven = new Int32Array(packCellCount);
   const packHarbor = new Uint8Array(packCellCount);
   const packAdjacency = buildVoronoiAdjacency(
@@ -2097,39 +2089,6 @@ export const runPackStage = (context: GenerationContext): void => {
       packAdjacency.vertexX,
       packAdjacency.vertexY,
     );
-
-    if ((cellsH[gridCellId] ?? 0) < 20) {
-      continue;
-    }
-
-    let nearestWaterCell = -1;
-    let nearestDistanceSq = Number.POSITIVE_INFINITY;
-    let adjacentWaterCount = 0;
-
-    forEachNeighbor(
-      gridCellId,
-      cellNeighborOffsets,
-      cellNeighbors,
-      (neighborCellId) => {
-        if ((cellsH[neighborCellId] ?? 0) >= 20) {
-          return;
-        }
-
-        adjacentWaterCount += 1;
-        const dx = (cellsX[neighborCellId] ?? 0) - (cellsX[gridCellId] ?? 0);
-        const dy = (cellsY[neighborCellId] ?? 0) - (cellsY[gridCellId] ?? 0);
-        const distanceSq = dx * dx + dy * dy;
-        if (distanceSq < nearestDistanceSq) {
-          nearestDistanceSq = distanceSq;
-          nearestWaterCell = neighborCellId;
-        }
-      },
-    );
-
-    if (adjacentWaterCount > 0) {
-      packHaven[packId] = nearestWaterCell;
-      packHarbor[packId] = Math.min(adjacentWaterCount, 255);
-    }
   }
 
   context.world.packCellCount = packCellCount;

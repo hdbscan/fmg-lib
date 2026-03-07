@@ -57,6 +57,148 @@ const collectPackNeighbors = (
   return Array.from(world.packNeighbors.slice(from, to));
 };
 
+const computeExpectedPackedCoastalSemantics = (
+  world: ReturnType<typeof generateWorld>,
+): Readonly<{
+  coast: Int8Array;
+  haven: Int32Array;
+  harbor: Uint8Array;
+}> => {
+  const seaLevel = baseConfig.seaLevel ?? 20;
+  const coast = new Int8Array(world.packCellCount);
+  const haven = new Int32Array(world.packCellCount);
+  const harbor = new Uint8Array(world.packCellCount);
+  const featureIds = new Uint32Array(world.packCellCount);
+  haven.fill(-1);
+
+  const isLandPackCell = (packId: number): boolean =>
+    (world.packH[packId] ?? 0) >= seaLevel;
+
+  const defineHaven = (packId: number): void => {
+    const neighbors = collectPackNeighbors(world, packId);
+    const x = world.packX[packId] ?? 0;
+    const y = world.packY[packId] ?? 0;
+    let nearestWaterPackId = -1;
+    let nearestDistanceSquared = Number.POSITIVE_INFINITY;
+    let adjacentWaterCount = 0;
+
+    for (const neighborPackId of neighbors) {
+      if (isLandPackCell(neighborPackId)) {
+        continue;
+      }
+
+      coast[packId] = 1;
+      coast[neighborPackId] = -1;
+      adjacentWaterCount += 1;
+
+      const dx = (world.packX[neighborPackId] ?? 0) - x;
+      const dy = (world.packY[neighborPackId] ?? 0) - y;
+      const distanceSquared = dx * dx + dy * dy;
+      if (distanceSquared < nearestDistanceSquared) {
+        nearestDistanceSquared = distanceSquared;
+        nearestWaterPackId = neighborPackId;
+      }
+    }
+
+    harbor[packId] = Math.min(adjacentWaterCount, 255);
+    if (nearestWaterPackId >= 0) {
+      haven[packId] = world.packToGrid[nearestWaterPackId] ?? -1;
+    }
+  };
+
+  let featureId = 0;
+  for (
+    let startPackId = 0;
+    startPackId < world.packCellCount;
+    startPackId += 1
+  ) {
+    if ((featureIds[startPackId] ?? 0) !== 0) {
+      continue;
+    }
+
+    featureId += 1;
+    const queue = [startPackId];
+    featureIds[startPackId] = featureId;
+    const land = isLandPackCell(startPackId);
+
+    while (queue.length > 0) {
+      const packId = queue.pop();
+      if (packId === undefined) {
+        break;
+      }
+
+      for (const neighborPackId of collectPackNeighbors(world, packId)) {
+        const neighborIsLand = isLandPackCell(neighborPackId);
+
+        if (land && !neighborIsLand) {
+          coast[packId] = 1;
+          coast[neighborPackId] = -1;
+          if ((haven[packId] ?? -1) < 0) {
+            defineHaven(packId);
+          }
+        } else if (land && neighborIsLand) {
+          if (
+            (coast[neighborPackId] ?? 0) === 0 &&
+            (coast[packId] ?? 0) === 1
+          ) {
+            coast[neighborPackId] = 2;
+          } else if (
+            (coast[packId] ?? 0) === 0 &&
+            (coast[neighborPackId] ?? 0) === 1
+          ) {
+            coast[packId] = 2;
+          }
+        }
+
+        if (
+          (featureIds[neighborPackId] ?? 0) !== 0 ||
+          neighborIsLand !== land
+        ) {
+          continue;
+        }
+
+        featureIds[neighborPackId] = featureId;
+        queue.push(neighborPackId);
+      }
+    }
+  }
+
+  const markDistanceField = (
+    start: number,
+    increment: 1 | -1,
+    limit = Number.POSITIVE_INFINITY,
+  ): void => {
+    for (
+      let distance = start, marked = Number.POSITIVE_INFINITY;
+      marked > 0 && distance !== limit;
+      distance += increment
+    ) {
+      marked = 0;
+      const previousDistance = distance - increment;
+
+      for (let packId = 0; packId < world.packCellCount; packId += 1) {
+        if ((coast[packId] ?? 0) !== previousDistance) {
+          continue;
+        }
+
+        for (const neighborPackId of collectPackNeighbors(world, packId)) {
+          if ((coast[neighborPackId] ?? 0) !== 0) {
+            continue;
+          }
+
+          coast[neighborPackId] = distance;
+          marked += 1;
+        }
+      }
+    }
+  };
+
+  markDistanceField(3, 1);
+  markDistanceField(-2, -1, -10);
+
+  return { coast, haven, harbor };
+};
+
 const computePolygonArea = (
   vertexIds: Uint32Array,
   from: number,
@@ -1111,6 +1253,38 @@ describe("world generation integration", () => {
         topologyBorderByFeature[featureId],
       );
     }
+  });
+
+  test("recomputes packed coast haven and harbor from packed adjacency", () => {
+    const world = generateWorld({
+      seed: "42424242",
+      width: 1280,
+      height: 900,
+      cells: 9996,
+      culturesCount: 9,
+      statesCount: 23,
+      townsCount: 1000,
+      climate: {
+        lakeElevationLimit: 20,
+        precipitation: 94,
+        mapSize: 100,
+        latitude: 50,
+        longitude: 50,
+      },
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+        politics: true,
+        religions: true,
+      },
+    });
+
+    const expected = computeExpectedPackedCoastalSemantics(world);
+
+    expect(Array.from(world.packCoast)).toEqual(Array.from(expected.coast));
+    expect(Array.from(world.packHaven)).toEqual(Array.from(expected.haven));
+    expect(Array.from(world.packHarbor)).toEqual(Array.from(expected.harbor));
   });
 
   test("generates deterministic cultures when culture layer is enabled", () => {
