@@ -3841,6 +3841,7 @@ const computePackHydrology = (
 ): Readonly<{
   flow: Uint32Array;
   river: Uint32Array;
+  heights: Uint8Array;
 }> => {
   const {
     cellsTemp,
@@ -3870,6 +3871,7 @@ const computePackHydrology = (
     return {
       flow: new Uint32Array(0),
       river: new Uint32Array(0),
+      heights: new Uint8Array(0),
     };
   }
 
@@ -4403,9 +4405,44 @@ const computePackHydrology = (
     }
   }
 
+  const finalHeights = Uint8Array.from(alteredHeights, (value) =>
+    Math.max(0, Math.min(255, Math.trunc(value))),
+  );
+  for (let packId = 0; packId < packCellCount; packId += 1) {
+    if ((finalHeights[packId] ?? 0) < 35 || (packFlow[packId] ?? 0) === 0) {
+      continue;
+    }
+
+    const higherCells = getPackNeighbors(packId).filter(
+      (neighborId) =>
+        (finalHeights[neighborId] ?? 0) > (finalHeights[packId] ?? 0),
+    );
+    if (higherCells.length === 0) {
+      continue;
+    }
+
+    const higherFlux =
+      higherCells.reduce(
+        (sum, neighborId) => sum + (packFlow[neighborId] ?? 0),
+        0,
+      ) / higherCells.length;
+    if (higherFlux === 0) {
+      continue;
+    }
+
+    const downcut = Math.floor((packFlow[packId] ?? 0) / higherFlux);
+    if (downcut > 0) {
+      finalHeights[packId] = Math.max(
+        0,
+        (finalHeights[packId] ?? 0) - Math.min(downcut, 5),
+      );
+    }
+  }
+
   return {
     flow: Uint32Array.from(packFlow),
     river: Uint32Array.from(finalRiver),
+    heights: finalHeights,
   };
 };
 
@@ -4930,6 +4967,7 @@ export const runHydrologyStage = (context: GenerationContext): void => {
   const packHydrology = computePackHydrology(context);
   context.internal.packCellsFlow = packHydrology.flow;
   context.internal.packCellsRiver = packHydrology.river;
+  context.internal.packCellsH = packHydrology.heights;
 };
 
 export const runBiomeStage = (context: GenerationContext): void => {
@@ -4940,46 +4978,104 @@ export const runBiomeStage = (context: GenerationContext): void => {
     cellsPrec,
     cellsRiver,
     cellsBiome,
+    packCellCount,
+    gridToPack,
+    packToGrid,
+    packH,
+    packNeighborOffsets,
+    packNeighbors,
   } = context.world;
+  const packFlow = context.internal.packCellsFlow;
+  const packRiver = context.internal.packCellsRiver;
+  const packHeights = context.internal.packCellsH;
+  const packBiome = new Uint8Array(packCellCount);
+  const biomesMatrix = [
+    Uint8Array.from([
+      1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+      10,
+    ]),
+    Uint8Array.from([
+      3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 9, 9, 9, 9, 10,
+      10, 10,
+    ]),
+    Uint8Array.from([
+      5, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 6, 9, 9, 9, 9, 9, 10,
+      10, 10,
+    ]),
+    Uint8Array.from([
+      5, 6, 6, 6, 6, 6, 6, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 10,
+      10, 10,
+    ]),
+    Uint8Array.from([
+      7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 9, 9, 9, 9, 9, 9, 9,
+      10, 10,
+    ]),
+  ] as const;
+
+  const getPackNeighbors = (packId: number): number[] =>
+    Array.from(
+      packNeighbors.slice(
+        packNeighborOffsets[packId] ?? 0,
+        packNeighborOffsets[packId + 1] ?? packNeighborOffsets[packId] ?? 0,
+      ),
+    );
+
+  const getBiomeId = (
+    moisture: number,
+    temperature: number,
+    height: number,
+    hasRiver: boolean,
+  ): number => {
+    if (height < 20) return 0;
+    if (temperature < -5) return 11;
+    if (temperature >= 25 && !hasRiver && moisture < 8) return 1;
+    if (
+      temperature > -2 &&
+      ((moisture > 40 && height < 25) ||
+        (moisture > 24 && height > 24 && height < 60))
+    ) {
+      return 12;
+    }
+
+    const moistureBand = Math.min((moisture / 5) | 0, 4);
+    const temperatureBand = Math.min(Math.max(20 - temperature, 0), 25);
+    return biomesMatrix[moistureBand]?.[temperatureBand] ?? 0;
+  };
+
+  for (let packId = 0; packId < packCellCount; packId += 1) {
+    const height = packHeights?.[packId] ?? packH[packId] ?? 0;
+    if (height < 20) {
+      packBiome[packId] = 0;
+      continue;
+    }
+
+    const gridCellId = packToGrid[packId] ?? 0;
+    let moisture = cellsPrec[gridCellId] ?? 0;
+    if ((packRiver?.[packId] ?? 0) > 0) {
+      moisture += Math.max((packFlow?.[packId] ?? 0) / 10, 2);
+    }
+
+    const moistAround = getPackNeighbors(packId)
+      .filter(
+        (neighborId) =>
+          (packHeights?.[neighborId] ?? packH[neighborId] ?? 0) >= 20,
+      )
+      .map((neighborId) => cellsPrec[packToGrid[neighborId] ?? 0] ?? 0)
+      .concat([moisture]);
+    const packedMoisture = rn(4 + mean(moistAround));
+    packBiome[packId] = getBiomeId(
+      packedMoisture,
+      cellsTemp[gridCellId] ?? 0,
+      height,
+      (packRiver?.[packId] ?? 0) > 0,
+    );
+  }
+
+  context.internal.packCellsBiome = packBiome;
 
   for (let cellId = 0; cellId < cellCount; cellId += 1) {
-    const isLand = (cellsFeature[cellId] ?? 0) === 1;
-    if (!isLand) {
-      cellsBiome[cellId] = 0;
-      continue;
-    }
-
-    const temp = cellsTemp[cellId] ?? 0;
-    const prec = cellsPrec[cellId] ?? 0;
-    const river = cellsRiver[cellId] ?? 0;
-    const wetness = Math.min(255, prec + (river > 0 ? 30 : 0));
-
-    if (temp < -15) {
-      cellsBiome[cellId] = wetness > 100 ? 2 : 1;
-      continue;
-    }
-
-    if (temp < -2) {
-      cellsBiome[cellId] = wetness > 120 ? 3 : 2;
-      continue;
-    }
-
-    if (temp < 12) {
-      if (wetness < 80) {
-        cellsBiome[cellId] = 4;
-      } else {
-        cellsBiome[cellId] = 5;
-      }
-      continue;
-    }
-
-    if (wetness < 70) {
-      cellsBiome[cellId] = 7;
-    } else if (wetness < 130) {
-      cellsBiome[cellId] = 8;
-    } else {
-      cellsBiome[cellId] = 6;
-    }
+    const packId = gridToPack[cellId] ?? -1;
+    cellsBiome[cellId] = packId >= 0 ? (packBiome[packId] ?? 0) : 0;
   }
 };
 
