@@ -1074,7 +1074,7 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
     }
   }
 
-  for (const burgIds of portCandidates.values()) {
+  for (const [waterbodyId, burgIds] of portCandidates.entries()) {
     if (burgIds.length < 2) continue;
 
     for (const burgId of burgIds) {
@@ -1083,7 +1083,7 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
       const haven = packId >= 0 ? (packHaven[packId] ?? -1) : -1;
       if (haven < 0) continue;
 
-      burgPort[burgId] = 1;
+      burgPort[burgId] = waterbodyId;
       const edgePoint = getSharedEdgePoint(context, cellId, haven);
       if (!edgePoint) continue;
       burgX[burgId] = edgePoint[0];

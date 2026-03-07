@@ -256,4 +256,26 @@ describe("lake suitability metadata", () => {
 
     expect(context.world.stateForm[1]).toBe(1);
   });
+
+  test("stores the assigned port waterbody id", () => {
+    const context = createContext();
+
+    context.world.cellsCulture = new Uint16Array([1, 0, 1, 0]);
+    context.world.cultureCount = 1;
+    context.world.cultureSeedCell = new Uint32Array([0, 0]);
+    context.world.packHarbor = new Uint8Array([1, 0, 1, 0]);
+    context.world.packHaven = new Int32Array([3, -1, 3, -1]);
+    context.world.cellsWaterbody = new Uint32Array([0, 0, 0, 2]);
+    context.world.waterbodyType = new Uint8Array([0, 1, 2]);
+    context.world.waterbodySize = new Uint32Array([0, 1, 200]);
+    context.world.cellsTemp = new Int8Array([20, 10, 20, 25]);
+
+    runBurgGenerationStage(context);
+
+    const ports = Array.from(context.world.burgPort).filter(
+      (value) => value > 0,
+    );
+    expect(ports.length).toBeGreaterThan(1);
+    expect(ports.every((value) => value === 2)).toBe(true);
+  });
 });
