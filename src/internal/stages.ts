@@ -5151,11 +5151,16 @@ export const runCulturesStage = (context: GenerationContext): void => {
   const populatedPackIds = eligiblePackIds.filter(
     (packId) => (suitability[packId] ?? 0) > 0,
   );
-  const targetCultures = Math.min(
+  let targetCultures = Math.min(
     requestedCultures,
     Math.max(populatedPackIds.length, 1),
   );
+  if (populatedPackIds.length < targetCultures * 25) {
+    targetCultures = Math.max(Math.floor(populatedPackIds.length / 50), 1);
+  }
   const candidatePackIds =
+    populatedPackIds.length > 0 ? populatedPackIds : eligiblePackIds;
+  const assignablePackIds =
     populatedPackIds.length > 0 ? populatedPackIds : eligiblePackIds;
 
   let maxSuitability = 0;
@@ -5457,7 +5462,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     return false;
   };
   const getBiasedIndex = (maxInclusive: number): number =>
-    Math.floor(context.random() ** 5 * (maxInclusive + 1));
+    Math.round(maxInclusive * context.random() ** 5);
   const placeCenter = (sortingFn: (packId: number) => number): number => {
     const sorted = candidatePackIds
       .slice()
@@ -5512,10 +5517,13 @@ export const runCulturesStage = (context: GenerationContext): void => {
     ) {
       return "Naval";
     }
-    if ((cellsFlow[cellId] ?? 0) > 100) {
+    if (
+      (context.world.cellsRiver[cellId] ?? 0) > 0 &&
+      (cellsFlow[cellId] ?? 0) > 100
+    ) {
       return "River";
     }
-    if ((packCoast[packId] ?? 0) > 2 && [3, 5, 6, 7, 8].includes(biome)) {
+    if ((packCoast[packId] ?? 0) > 2 && [3, 7, 8, 9, 10, 12].includes(biome)) {
       return "Hunting";
     }
     return "Generic";
@@ -5654,11 +5662,12 @@ export const runCulturesStage = (context: GenerationContext): void => {
   };
   const getRiverCost = (packId: number, type: PoliticalType): number => {
     const cellId = packToGrid[packId] ?? 0;
+    const riverId = context.world.cellsRiver[cellId] ?? 0;
     const flow = cellsFlow[cellId] ?? 0;
     if (type === "River") {
-      return flow > 0 ? 0 : 100;
+      return riverId > 0 ? 0 : 100;
     }
-    if (flow <= 0) {
+    if (riverId <= 0) {
       return 0;
     }
     return clamp(flow / 10, 20, 100);
@@ -5743,7 +5752,9 @@ export const runCulturesStage = (context: GenerationContext): void => {
         }
 
         cost[neighborPackId] = totalCost;
-        packCulture[neighborPackId] = next.cultureId;
+        if ((suitability[neighborPackId] ?? 0) > 0) {
+          packCulture[neighborPackId] = next.cultureId;
+        }
         pushQueue({
           cost: totalCost,
           cultureId: next.cultureId,
@@ -5753,35 +5764,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     );
   }
 
-  for (const packId of eligiblePackIds) {
-    if ((packCulture[packId] ?? 0) > 0) {
-      continue;
-    }
-
-    const x = packX[packId] ?? 0;
-    const y = packY[packId] ?? 0;
-    let bestCultureId = 1;
-    let bestDistance = Number.POSITIVE_INFINITY;
-
-    for (let cultureId = 1; cultureId <= cultureCount; cultureId += 1) {
-      const seedPackId = seedPackIds[cultureId - 1] ?? 0;
-      const dx = x - (packX[seedPackId] ?? 0);
-      const dy = y - (packY[seedPackId] ?? 0);
-      const distanceSq = dx * dx + dy * dy;
-
-      if (distanceSq < bestDistance) {
-        bestDistance = distanceSq;
-        bestCultureId = cultureId;
-      }
-    }
-
-    const gridCellId = packToGrid[packId] ?? 0;
-    packCulture[packId] = bestCultureId;
-    cellsCulture[gridCellId] = bestCultureId;
-    cultureSize[bestCultureId] = (cultureSize[bestCultureId] ?? 0) + 1;
-  }
-
-  for (const packId of eligiblePackIds) {
+  for (const packId of assignablePackIds) {
     const cultureId = packCulture[packId] ?? 0;
     const gridCellId = packToGrid[packId] ?? 0;
     if (cultureId <= 0 || (cellsCulture[gridCellId] ?? 0) === cultureId) {
