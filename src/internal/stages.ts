@@ -2767,7 +2767,7 @@ const buildPackFeatureBoundaryData = (
     }
     chainOffsets.push(vertexOffsets.length - 1);
 
-    const shorelineSet = new Set<number>();
+    const shorelineCells: number[] = [];
     if (featureType === 2) {
       const chainStart = chainOffsets[featureId - 1] ?? 0;
       const chainEnd = chainOffsets[featureId] ?? chainStart;
@@ -2786,15 +2786,18 @@ const buildPackFeatureBoundaryData = (
             }
             const shorelineFeatureType =
               packFeatureType[packCellsFeatureId[packId] ?? 0] ?? 0;
-            if (shorelineFeatureType === 3) {
-              shorelineSet.add(packId);
+            if (
+              shorelineFeatureType === 3 &&
+              !shorelineCells.includes(packId)
+            ) {
+              shorelineCells.push(packId);
             }
           }
         }
       }
     }
 
-    shoreline.push(...shorelineSet);
+    shoreline.push(...shorelineCells);
     shorelineOffsets.push(shoreline.length);
   }
 
@@ -4138,12 +4141,10 @@ const computePackHydrology = (
       continue;
     }
 
-    const outCell = feature.shoreline
-      .slice()
-      .sort(
-        (left, right) =>
-          (alteredHeights[left] ?? 0) - (alteredHeights[right] ?? 0),
-      )[0];
+    const outCell = feature.shoreline.sort(
+      (left, right) =>
+        (alteredHeights[left] ?? 0) - (alteredHeights[right] ?? 0),
+    )[0];
     if (outCell !== undefined) {
       feature.outCell = outCell;
       lakeOutCells[outCell] = feature.i;
