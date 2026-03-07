@@ -108,6 +108,24 @@ describe("oracle config replay", () => {
     });
   });
 
+  test("derives requested cells from upstream grid spacing", () => {
+    const config = buildGenerationConfigFromOracle({
+      ...baseOracle,
+      width: 1280,
+      height: 900,
+      gridSpacing: 10.73,
+      terrain: {
+        ...baseOracle.terrain,
+        mesh: {
+          ...baseOracle.terrain.mesh,
+          polygons: Array.from({ length: 9996 }, () => [0, 1, 2, 3]),
+        },
+      },
+    });
+
+    expect(config.cells).toBe(10006);
+  });
+
   test("accepts exact upstream terrain template ids in normalized config", () => {
     const normalized = normalizeConfig({
       seed: "exact-template",
