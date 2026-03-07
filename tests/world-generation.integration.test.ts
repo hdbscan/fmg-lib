@@ -57,6 +57,52 @@ const collectPackNeighbors = (
   return Array.from(world.packNeighbors.slice(from, to));
 };
 
+const collectHydrologyStats = (
+  world: ReturnType<typeof generateWorld>,
+): Readonly<{
+  riverCells: number;
+  maxLandFlow: number;
+  riverThreshold: number;
+  biomeCount: number;
+}> => {
+  let riverCells = 0;
+  let maxLandFlow = 0;
+  const biomes = new Set<number>();
+  const riverThreshold = Math.max(600, Math.floor(world.cellCount / 10));
+
+  for (let index = 0; index < world.cellCount; index += 1) {
+    const feature = world.cellsFeature[index] ?? 0;
+    const river = world.cellsRiver[index] ?? 0;
+    const flow = world.cellsFlow[index] ?? 0;
+    const biome = world.cellsBiome[index] ?? 0;
+
+    if (feature === 1) {
+      biomes.add(biome);
+      maxLandFlow = Math.max(maxLandFlow, flow);
+    }
+
+    if (river === 1) {
+      riverCells += 1;
+      expect(feature).toBe(1);
+      expect(flow).toBeGreaterThanOrEqual(riverThreshold);
+      expect(biome).not.toBe(0);
+    }
+  }
+
+  if (riverCells === 0) {
+    expect(maxLandFlow).toBeLessThan(riverThreshold);
+  } else {
+    expect(maxLandFlow).toBeGreaterThanOrEqual(riverThreshold);
+  }
+
+  return {
+    riverCells,
+    maxLandFlow,
+    riverThreshold,
+    biomeCount: biomes.size,
+  };
+};
+
 describe("world generation integration", () => {
   test("builds a coherent physical world graph", () => {
     const world = generateWorld(baseConfig);
@@ -1892,31 +1938,20 @@ describe("world generation integration", () => {
   });
 
   test("keeps river and biome outputs structurally consistent", () => {
-    const world = generateWorld(baseConfig);
+    const zeroRiverWorld = generateWorld(baseConfig);
+    const zeroRiverStats = collectHydrologyStats(zeroRiverWorld);
 
-    let riverCells = 0;
-    const biomes = new Set<number>();
+    expect(zeroRiverStats.riverCells).toBe(0);
+    expect(zeroRiverStats.biomeCount).toBeGreaterThan(2);
 
-    for (let index = 0; index < world.cellCount; index += 1) {
-      const feature = world.cellsFeature[index] ?? 0;
-      const river = world.cellsRiver[index] ?? 0;
-      const flow = world.cellsFlow[index] ?? 0;
-      const biome = world.cellsBiome[index] ?? 0;
+    const riverWorld = generateWorld({ ...baseConfig, seed: "38" });
+    const riverStats = collectHydrologyStats(riverWorld);
 
-      if (feature === 1) {
-        biomes.add(biome);
-      }
-
-      if (river === 1) {
-        riverCells += 1;
-        expect(feature).toBe(1);
-        expect(flow).toBeGreaterThan(0);
-        expect(biome).not.toBe(0);
-      }
-    }
-
-    expect(riverCells).toBeGreaterThan(0);
-    expect(biomes.size).toBeGreaterThan(2);
+    expect(riverStats.riverCells).toBeGreaterThan(0);
+    expect(riverStats.maxLandFlow).toBeGreaterThanOrEqual(
+      riverStats.riverThreshold,
+    );
+    expect(riverStats.biomeCount).toBeGreaterThan(2);
   });
 
   test("supports full world serialization round-trip", () => {
