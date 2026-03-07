@@ -1,6 +1,8 @@
 import { Delaunay } from "d3-delaunay";
 import type { GenerationContext } from "../types";
 import {
+  computeSuitability,
+  isPoliticalPackCell,
   runProvincesStage as runPoliticalProvincesStage,
   runReligionsStage as runPoliticalReligionsStage,
   runSettlementsStage as runPoliticalSettlementsStage,
@@ -2824,13 +2826,26 @@ export const runCulturesStage = (context: GenerationContext): void => {
 
   const {
     cellsCulture,
+    cellsBiome,
     cellsFeature,
+    cellsFlow,
+    cellsLandmass,
     cellsTemp,
-    cellsPrec,
+    cellsWaterbody,
+    landmassKind,
     packCellCount,
+    packArea,
+    packCoast,
+    packH,
+    packHarbor,
+    packHaven,
+    packNeighborOffsets,
+    packNeighbors,
     packToGrid,
     packX,
     packY,
+    waterbodySize,
+    waterbodyType,
   } = context.world;
 
   cellsCulture.fill(0);
@@ -2863,104 +2878,665 @@ export const runCulturesStage = (context: GenerationContext): void => {
     return;
   }
 
-  const targetCultures = Math.min(requestedCultures, eligiblePackIds.length);
-  const isSeed = new Uint8Array(packCellCount);
-  const seedPackIds: number[] = [];
+  type CultureType =
+    | "Generic"
+    | "Naval"
+    | "Lake"
+    | "Highland"
+    | "River"
+    | "Nomadic"
+    | "Hunting";
 
-  const firstSeed =
-    eligiblePackIds[Math.floor(context.random() * eligiblePackIds.length)] ?? 0;
-  seedPackIds.push(firstSeed);
-  isSeed[firstSeed] = 1;
+  type CultureTemplate = Readonly<{
+    odd: number;
+    sort: (packId: number) => number;
+  }>;
 
-  const minDistance = new Float64Array(packCellCount);
-  minDistance.fill(Number.POSITIVE_INFINITY);
+  type CultureQueueEntry = Readonly<{
+    cost: number;
+    cultureId: number;
+    packId: number;
+  }>;
 
-  const updateDistances = (seedPackId: number): void => {
-    const sx = packX[seedPackId] ?? 0;
-    const sy = packY[seedPackId] ?? 0;
+  const suitability = computeSuitability(context);
+  const populatedPackIds = eligiblePackIds.filter(
+    (packId) => (suitability[packId] ?? 0) > 0,
+  );
+  const targetCultures = Math.min(
+    requestedCultures,
+    Math.max(populatedPackIds.length, 1),
+  );
+  const candidatePackIds =
+    populatedPackIds.length > 0 ? populatedPackIds : eligiblePackIds;
 
-    for (const packId of eligiblePackIds) {
-      const x = packX[packId] ?? 0;
-      const y = packY[packId] ?? 0;
-      const dx = x - sx;
-      const dy = y - sy;
-      const distanceSq = dx * dx + dy * dy;
-      const currentMinDistance = minDistance[packId];
-
-      if (currentMinDistance === undefined || distanceSq < currentMinDistance) {
-        minDistance[packId] = distanceSq;
-      }
+  let maxSuitability = 0;
+  for (const packId of candidatePackIds) {
+    const score = suitability[packId] ?? 0;
+    if (score > maxSuitability) {
+      maxSuitability = score;
     }
+  }
+  maxSuitability = Math.max(maxSuitability, 1);
+
+  const biomeCosts = [0, 20, 80, 70, 60, 40, 30, 20, 30];
+  const getNormalizedScore = (packId: number): number =>
+    Math.ceil(((suitability[packId] ?? 0) / maxSuitability) * 3);
+  const getTemperatureDistance = (packId: number, goal: number): number => {
+    const gridCellId = packToGrid[packId] ?? 0;
+    return Math.abs((cellsTemp[gridCellId] ?? 0) - goal) + 1;
+  };
+  const getBiomePenalty = (
+    packId: number,
+    biomes: readonly number[],
+    fee = 4,
+  ): number => {
+    const gridCellId = packToGrid[packId] ?? 0;
+    return biomes.includes(cellsBiome[gridCellId] ?? 0) ? 1 : fee;
+  };
+  const getSeaCoastPenalty = (packId: number, fee = 4): number => {
+    const havenCell = packHaven[packId] ?? -1;
+    if (havenCell < 0) {
+      return fee;
+    }
+    const waterbodyId = cellsWaterbody[havenCell] ?? 0;
+    return (waterbodyType[waterbodyId] ?? 0) === 1 ? 1 : fee;
+  };
+  const getCoastDistance = (packId: number): number =>
+    Math.max(packCoast[packId] ?? 0, 1);
+  const getAltitude = (packId: number): number => packH[packId] ?? 0;
+
+  const cultureTemplates: CultureTemplate[] = [
+    {
+      odd: 0.7,
+      sort: (packId) =>
+        getNormalizedScore(packId) /
+        getTemperatureDistance(packId, 10) /
+        getBiomePenalty(packId, [6, 8]),
+    },
+    {
+      odd: 1,
+      sort: (packId) =>
+        getNormalizedScore(packId) /
+        getTemperatureDistance(packId, 10) /
+        getSeaCoastPenalty(packId),
+    },
+    {
+      odd: 0.6,
+      sort: (packId) =>
+        getNormalizedScore(packId) /
+        getTemperatureDistance(packId, 12) /
+        getBiomePenalty(packId, [6, 8]),
+    },
+    {
+      odd: 0.6,
+      sort: (packId) =>
+        getNormalizedScore(packId) / getTemperatureDistance(packId, 15),
+    },
+    {
+      odd: 0.6,
+      sort: (packId) =>
+        getNormalizedScore(packId) / getTemperatureDistance(packId, 16),
+    },
+    {
+      odd: 0.7,
+      sort: (packId) =>
+        (getNormalizedScore(packId) / getTemperatureDistance(packId, 6)) *
+        getCoastDistance(packId),
+    },
+    {
+      odd: 0.7,
+      sort: (packId) =>
+        getNormalizedScore(packId) / getTemperatureDistance(packId, 5),
+    },
+    {
+      odd: 0.7,
+      sort: (packId) =>
+        (getNormalizedScore(packId) / getTemperatureDistance(packId, 18)) *
+        getAltitude(packId),
+    },
+    {
+      odd: 0.7,
+      sort: (packId) =>
+        getNormalizedScore(packId) / getTemperatureDistance(packId, 15),
+    },
+    {
+      odd: 0.3,
+      sort: (packId) =>
+        (getNormalizedScore(packId) /
+          getTemperatureDistance(packId, 5) /
+          getBiomePenalty(packId, [9])) *
+        getCoastDistance(packId),
+    },
+    {
+      odd: 0.1,
+      sort: (packId) =>
+        getNormalizedScore(packId) /
+        getTemperatureDistance(packId, 12) /
+        getCoastDistance(packId),
+    },
+    {
+      odd: 0.1,
+      sort: (packId) =>
+        getNormalizedScore(packId) / getTemperatureDistance(packId, 13),
+    },
+    {
+      odd: 0.1,
+      sort: (packId) =>
+        getNormalizedScore(packId) /
+        getTemperatureDistance(packId, 15) /
+        getCoastDistance(packId),
+    },
+    {
+      odd: 0.4,
+      sort: (packId) =>
+        getNormalizedScore(packId) /
+        getTemperatureDistance(packId, 17) /
+        getSeaCoastPenalty(packId),
+    },
+    {
+      odd: 0.1,
+      sort: (packId) =>
+        getAltitude(packId) /
+        getTemperatureDistance(packId, 18) /
+        getBiomePenalty(packId, [7]),
+    },
+    {
+      odd: 0.2,
+      sort: (packId) =>
+        (getNormalizedScore(packId) /
+          getTemperatureDistance(packId, 11) /
+          getBiomePenalty(packId, [4])) *
+        getCoastDistance(packId),
+    },
+    {
+      odd: 0.2,
+      sort: (packId) =>
+        getNormalizedScore(packId) / getTemperatureDistance(packId, 13),
+    },
+    {
+      odd: 0.1,
+      sort: (packId) =>
+        (getNormalizedScore(packId) /
+          getTemperatureDistance(packId, 19) /
+          getBiomePenalty(packId, [1, 2, 3], 7)) *
+        getCoastDistance(packId),
+    },
+    {
+      odd: 0.2,
+      sort: (packId) =>
+        (getNormalizedScore(packId) /
+          getTemperatureDistance(packId, 26) /
+          getBiomePenalty(packId, [1, 2], 7)) *
+        getCoastDistance(packId),
+    },
+    {
+      odd: 0.05,
+      sort: (packId) =>
+        getTemperatureDistance(packId, -1) /
+        getBiomePenalty(packId, [10, 11]) /
+        getSeaCoastPenalty(packId),
+    },
+    {
+      odd: 0.05,
+      sort: (packId) =>
+        (getNormalizedScore(packId) / getTemperatureDistance(packId, 15)) *
+        getAltitude(packId),
+    },
+    {
+      odd: 0.05,
+      sort: (packId) =>
+        getNormalizedScore(packId) /
+        getTemperatureDistance(packId, 15) /
+        getBiomePenalty(packId, [5, 7]),
+    },
+    {
+      odd: 0.05,
+      sort: (packId) =>
+        (getNormalizedScore(packId) /
+          getTemperatureDistance(packId, 11) /
+          getBiomePenalty(packId, [6, 8])) *
+        getCoastDistance(packId),
+    },
+    {
+      odd: 0.05,
+      sort: (packId) =>
+        (getNormalizedScore(packId) / getTemperatureDistance(packId, 22)) *
+        getCoastDistance(packId),
+    },
+    {
+      odd: 0.1,
+      sort: (packId) =>
+        (getNormalizedScore(packId) / getTemperatureDistance(packId, 18)) *
+        getAltitude(packId),
+    },
+    {
+      odd: 0.05,
+      sort: (packId) =>
+        getNormalizedScore(packId) /
+        getTemperatureDistance(packId, 24) /
+        getSeaCoastPenalty(packId) /
+        getCoastDistance(packId),
+    },
+    {
+      odd: 0.05,
+      sort: (packId) =>
+        getNormalizedScore(packId) / getTemperatureDistance(packId, 26),
+    },
+    {
+      odd: 0.05,
+      sort: (packId) =>
+        getAltitude(packId) / getTemperatureDistance(packId, 13),
+    },
+    {
+      odd: 0.1,
+      sort: (packId) =>
+        getNormalizedScore(packId) /
+        getTemperatureDistance(packId, 29) /
+        getBiomePenalty(packId, [1, 3, 5, 7]),
+    },
+    {
+      odd: 0.1,
+      sort: (packId) =>
+        getNormalizedScore(packId) /
+        getTemperatureDistance(packId, 25) /
+        getBiomePenalty(packId, [7], 7) /
+        getCoastDistance(packId),
+    },
+    {
+      odd: 0.1,
+      sort: (packId) =>
+        getNormalizedScore(packId) / getTemperatureDistance(packId, 17),
+    },
+    {
+      odd: 0.1,
+      sort: (packId) =>
+        (getNormalizedScore(packId) /
+          getTemperatureDistance(packId, 5) /
+          getBiomePenalty(packId, [2, 4, 10], 7)) *
+        getCoastDistance(packId),
+    },
+    {
+      odd: 0.2,
+      sort: (packId) =>
+        (getNormalizedScore(packId) / getTemperatureDistance(packId, 18)) *
+        getSeaCoastPenalty(packId),
+    },
+  ];
+
+  const selectTemplates = (count: number): CultureTemplate[] => {
+    const pool = cultureTemplates.slice();
+    const selected: CultureTemplate[] = [];
+
+    while (selected.length < count && pool.length > 0) {
+      let attempts = 0;
+      let templateIndex = 0;
+      do {
+        templateIndex = Math.floor(context.random() * pool.length);
+        attempts += 1;
+      } while (
+        attempts < 200 &&
+        context.random() >= (pool[templateIndex]?.odd ?? 1)
+      );
+
+      selected.push(pool[templateIndex] as CultureTemplate);
+      pool.splice(templateIndex, 1);
+    }
+
+    return selected;
   };
 
-  updateDistances(firstSeed);
+  const templates = selectTemplates(targetCultures);
+  const isSeed = new Uint8Array(packCellCount);
+  const seedPackIds: number[] = [];
+  const hasCenterNear = (
+    selectedPackIds: readonly number[],
+    packId: number,
+    spacing: number,
+  ): boolean => {
+    const x = packX[packId] ?? 0;
+    const y = packY[packId] ?? 0;
+    const spacingSq = spacing * spacing;
 
-  while (seedPackIds.length < targetCultures) {
-    let bestPackId = -1;
-    let bestScore = -1;
+    for (const selectedPackId of selectedPackIds) {
+      const dx = (packX[selectedPackId] ?? 0) - x;
+      const dy = (packY[selectedPackId] ?? 0) - y;
+      if (dx * dx + dy * dy <= spacingSq) {
+        return true;
+      }
+    }
 
-    for (const packId of eligiblePackIds) {
-      if ((isSeed[packId] ?? 0) === 1) {
+    return false;
+  };
+  const getBiasedIndex = (maxInclusive: number): number =>
+    Math.floor(context.random() ** 5 * (maxInclusive + 1));
+  const placeCenter = (sortingFn: (packId: number) => number): number => {
+    const sorted = candidatePackIds
+      .slice()
+      .sort(
+        (left, right) => sortingFn(right) - sortingFn(left) || left - right,
+      );
+    const maxIndex = Math.max(Math.floor(sorted.length / 2), 0);
+    let spacing =
+      (context.config.width + context.config.height) / 2 / targetCultures;
+    let selectedPackId = sorted[0] ?? candidatePackIds[0] ?? 0;
+
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const candidate = sorted[getBiasedIndex(maxIndex)] ?? selectedPackId;
+      selectedPackId = candidate;
+      spacing *= 0.9;
+      if ((isSeed[candidate] ?? 0) === 1) {
         continue;
       }
-
-      const gridCellId = packToGrid[packId] ?? 0;
-      const precipitation = cellsPrec[gridCellId] ?? 0;
-      const temperature = cellsTemp[gridCellId] ?? 0;
-      const tempBonus = temperature > 0 ? temperature / 80 : 0;
-      const suitability = 1 + precipitation / 510 + tempBonus * 0.25;
-      const score = (minDistance[packId] ?? 0) * suitability;
-
-      if (
-        score > bestScore ||
-        (score === bestScore && (bestPackId < 0 || packId < bestPackId))
-      ) {
-        bestScore = score;
-        bestPackId = packId;
+      if (!hasCenterNear(seedPackIds, candidate, spacing)) {
+        break;
       }
     }
 
-    if (bestPackId < 0) {
-      break;
-    }
+    return selectedPackId;
+  };
 
-    seedPackIds.push(bestPackId);
-    isSeed[bestPackId] = 1;
-    updateDistances(bestPackId);
+  const getCultureType = (packId: number): CultureType => {
+    const cellId = packToGrid[packId] ?? 0;
+    const biome = cellsBiome[cellId] ?? 0;
+    const height = packH[packId] ?? 0;
+    const harbor = packHarbor[packId] ?? 0;
+    const havenCell = packHaven[packId] ?? -1;
+    const waterbodyId = havenCell >= 0 ? (cellsWaterbody[havenCell] ?? 0) : 0;
+    const waterType = waterbodyType[waterbodyId] ?? 0;
+    const waterSize = waterbodySize[waterbodyId] ?? 0;
+    const landmassId = cellsLandmass[cellId] ?? 0;
+    const isIsle = landmassId > 0 && (landmassKind[landmassId] ?? 0) === 3;
+
+    if (height < 70 && [1, 2, 4].includes(biome)) {
+      return "Nomadic";
+    }
+    if (height > 50) {
+      return "Highland";
+    }
+    if (waterType === 2 && waterSize > 5) {
+      return "Lake";
+    }
+    if (
+      (harbor > 0 && waterType === 1 && context.random() < 0.1) ||
+      (harbor === 1 && context.random() < 0.6) ||
+      (isIsle && context.random() < 0.4)
+    ) {
+      return "Naval";
+    }
+    if ((cellsFlow[cellId] ?? 0) > 100) {
+      return "River";
+    }
+    if ((packCoast[packId] ?? 0) > 2 && [3, 5, 6, 7, 8].includes(biome)) {
+      return "Hunting";
+    }
+    return "Generic";
+  };
+  const getExpansionism = (type: CultureType): number => {
+    let base = 1;
+    if (type === "Lake") base = 0.8;
+    else if (type === "Naval") base = 1.5;
+    else if (type === "River") base = 0.9;
+    else if (type === "Nomadic") base = 1.5;
+    else if (type === "Hunting") base = 0.7;
+    else if (type === "Highland") base = 1.2;
+    return rn(
+      ((context.random() * context.config.hiddenControls.sizeVariety) / 2 + 1) *
+        base,
+      1,
+    );
+  };
+
+  for (const template of templates) {
+    const centerPackId = placeCenter(template.sort);
+    seedPackIds.push(centerPackId);
+    isSeed[centerPackId] = 1;
   }
 
   const cultureCount = seedPackIds.length;
   const cultureSeedCell = new Uint32Array(cultureCount + 1);
   const cultureSize = new Uint32Array(cultureCount + 1);
+  const packCulture = new Uint16Array(packCellCount);
+  const cost = new Float64Array(packCellCount);
+  const cultureTypes: CultureType[] = ["Generic"];
+  const cultureNativeBiome = new Uint8Array(cultureCount + 1);
+  const cultureExpansionism = new Float64Array(cultureCount + 1);
+  const queue: CultureQueueEntry[] = [];
+
+  const compareEntries = (
+    left: CultureQueueEntry,
+    right: CultureQueueEntry,
+  ): number => {
+    if (left.cost !== right.cost) {
+      return left.cost - right.cost;
+    }
+    if (left.cultureId !== right.cultureId) {
+      return left.cultureId - right.cultureId;
+    }
+    return left.packId - right.packId;
+  };
+  const pushQueue = (entry: CultureQueueEntry): void => {
+    queue.push(entry);
+    let index = queue.length - 1;
+
+    while (index > 0) {
+      const parentIndex = Math.floor((index - 1) / 2);
+      const parent = queue[parentIndex];
+      if (!parent || compareEntries(parent, entry) <= 0) {
+        break;
+      }
+      queue[index] = parent;
+      index = parentIndex;
+    }
+
+    queue[index] = entry;
+  };
+  const popQueue = (): CultureQueueEntry | undefined => {
+    const first = queue[0];
+    const last = queue.pop();
+
+    if (!first) {
+      return undefined;
+    }
+    if (!last || queue.length === 0) {
+      return first;
+    }
+
+    let index = 0;
+    while (true) {
+      const leftIndex = index * 2 + 1;
+      const rightIndex = leftIndex + 1;
+      let smallestIndex = index;
+      const current =
+        smallestIndex === index ? last : (queue[smallestIndex] ?? last);
+      const left = queue[leftIndex];
+      if (left && compareEntries(left, current) < 0) {
+        smallestIndex = leftIndex;
+      }
+      const smallest =
+        smallestIndex === index ? last : (queue[smallestIndex] ?? last);
+      const right = queue[rightIndex];
+      if (right && compareEntries(right, smallest) < 0) {
+        smallestIndex = rightIndex;
+      }
+      if (smallestIndex === index) {
+        break;
+      }
+      queue[index] = queue[smallestIndex] as CultureQueueEntry;
+      index = smallestIndex;
+    }
+
+    queue[index] = last;
+    return first;
+  };
+  const getBiomeCost = (
+    nativeBiome: number,
+    biome: number,
+    type: CultureType,
+  ): number => {
+    if (nativeBiome === biome) {
+      return 10;
+    }
+    const baseCost = biomeCosts[biome] ?? 50;
+    if (type === "Hunting") {
+      return baseCost * 5;
+    }
+    if (type === "Nomadic" && biome > 4 && biome < 10) {
+      return baseCost * 10;
+    }
+    return baseCost * 2;
+  };
+  const getHeightCost = (packId: number, type: CultureType): number => {
+    const cellId = packToGrid[packId] ?? 0;
+    const height = packH[packId] ?? 0;
+    const waterbodyId = cellsWaterbody[cellId] ?? 0;
+    const waterType = waterbodyType[waterbodyId] ?? 0;
+    const area = packArea[packId] ?? 0;
+
+    if (type === "Lake" && waterType === 2) return 10;
+    if (type === "Naval" && height < 20) return area * 2;
+    if (type === "Nomadic" && height < 20) return area * 50;
+    if (height < 20) return area * 6;
+    if (type === "Highland" && height < 44) return 3000;
+    if (type === "Highland" && height < 62) return 200;
+    if (type === "Highland") return 0;
+    if (height >= 67) return 200;
+    if (height >= 44) return 30;
+    return 0;
+  };
+  const getRiverCost = (packId: number, type: CultureType): number => {
+    const cellId = packToGrid[packId] ?? 0;
+    const flow = cellsFlow[cellId] ?? 0;
+    if (type === "River") {
+      return flow > 0 ? 0 : 100;
+    }
+    if (flow <= 0) {
+      return 0;
+    }
+    return clamp(flow / 10, 20, 100);
+  };
+  const getTypeCost = (packId: number, type: CultureType): number => {
+    const coast = packCoast[packId] ?? 0;
+    if (coast === 1) {
+      return type === "Naval" || type === "Lake"
+        ? 0
+        : type === "Nomadic"
+          ? 60
+          : 20;
+    }
+    if (coast === 2) {
+      return type === "Naval" || type === "Nomadic" ? 30 : 0;
+    }
+    if (coast > 2) {
+      return type === "Naval" || type === "Lake" ? 100 : 0;
+    }
+    return 0;
+  };
+
+  cost.fill(Number.POSITIVE_INFINITY);
 
   for (let cultureIndex = 0; cultureIndex < cultureCount; cultureIndex += 1) {
     const packId = seedPackIds[cultureIndex] ?? 0;
-    cultureSeedCell[cultureIndex + 1] = packToGrid[packId] ?? 0;
+    const cultureId = cultureIndex + 1;
+    const centerCell = packToGrid[packId] ?? 0;
+    const type = getCultureType(packId);
+    cultureSeedCell[cultureId] = centerCell;
+    cultureTypes[cultureId] = type;
+    cultureNativeBiome[cultureId] = cellsBiome[centerCell] ?? 0;
+    cultureExpansionism[cultureId] = getExpansionism(type);
+    packCulture[packId] = cultureId;
+    cost[packId] = 0;
+    pushQueue({ cost: 0, cultureId, packId });
+  }
+
+  const maxExpansionCost =
+    Math.max(candidatePackIds.length, 1) *
+    0.6 *
+    context.config.hiddenControls.growthRate;
+
+  while (queue.length > 0) {
+    const next = popQueue();
+    if (!next) {
+      break;
+    }
+    if (next.cost > (cost[next.packId] ?? Number.POSITIVE_INFINITY)) {
+      continue;
+    }
+
+    const type = cultureTypes[next.cultureId] ?? "Generic";
+    const nativeBiome = cultureNativeBiome[next.cultureId] ?? 0;
+    const expansionism = cultureExpansionism[next.cultureId] ?? 1;
+
+    forEachNeighbor(
+      next.packId,
+      packNeighborOffsets,
+      packNeighbors,
+      (neighborPackId) => {
+        if (!isPoliticalPackCell(context, neighborPackId)) {
+          return;
+        }
+
+        const neighborCell = packToGrid[neighborPackId] ?? 0;
+        const totalCost =
+          next.cost +
+          (getBiomeCost(nativeBiome, cellsBiome[neighborCell] ?? 0, type) +
+            getHeightCost(neighborPackId, type) +
+            getRiverCost(neighborPackId, type) +
+            getTypeCost(neighborPackId, type)) /
+            Math.max(expansionism, 0.1);
+
+        if (totalCost > maxExpansionCost) {
+          return;
+        }
+        if (totalCost >= (cost[neighborPackId] ?? Number.POSITIVE_INFINITY)) {
+          return;
+        }
+
+        cost[neighborPackId] = totalCost;
+        packCulture[neighborPackId] = next.cultureId;
+        pushQueue({
+          cost: totalCost,
+          cultureId: next.cultureId,
+          packId: neighborPackId,
+        });
+      },
+    );
   }
 
   for (const packId of eligiblePackIds) {
+    if ((packCulture[packId] ?? 0) > 0) {
+      continue;
+    }
+
     const x = packX[packId] ?? 0;
     const y = packY[packId] ?? 0;
-
-    let bestCultureIndex = 0;
+    let bestCultureId = 1;
     let bestDistance = Number.POSITIVE_INFINITY;
 
-    for (let cultureIndex = 0; cultureIndex < cultureCount; cultureIndex += 1) {
-      const seedPackId = seedPackIds[cultureIndex] ?? 0;
-      const sx = packX[seedPackId] ?? 0;
-      const sy = packY[seedPackId] ?? 0;
-      const dx = x - sx;
-      const dy = y - sy;
+    for (let cultureId = 1; cultureId <= cultureCount; cultureId += 1) {
+      const seedPackId = seedPackIds[cultureId - 1] ?? 0;
+      const dx = x - (packX[seedPackId] ?? 0);
+      const dy = y - (packY[seedPackId] ?? 0);
       const distanceSq = dx * dx + dy * dy;
 
       if (distanceSq < bestDistance) {
         bestDistance = distanceSq;
-        bestCultureIndex = cultureIndex;
+        bestCultureId = cultureId;
       }
     }
 
-    const cultureId = bestCultureIndex + 1;
     const gridCellId = packToGrid[packId] ?? 0;
+    packCulture[packId] = bestCultureId;
+    cellsCulture[gridCellId] = bestCultureId;
+    cultureSize[bestCultureId] = (cultureSize[bestCultureId] ?? 0) + 1;
+  }
+
+  for (const packId of eligiblePackIds) {
+    const cultureId = packCulture[packId] ?? 0;
+    const gridCellId = packToGrid[packId] ?? 0;
+    if (cultureId <= 0 || (cellsCulture[gridCellId] ?? 0) === cultureId) {
+      continue;
+    }
+
     cellsCulture[gridCellId] = cultureId;
     cultureSize[cultureId] = (cultureSize[cultureId] ?? 0) + 1;
   }

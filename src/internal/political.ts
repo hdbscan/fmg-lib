@@ -101,7 +101,9 @@ const popQueue = (heap: QueueEntry[]): QueueEntry | undefined => {
   return first;
 };
 
-const computeSuitability = (context: GenerationContext): Float64Array => {
+export const computeSuitability = (
+  context: GenerationContext,
+): Float64Array => {
   const {
     packCellCount,
     packToGrid,
@@ -247,7 +249,7 @@ const isPrimaryPackCell = (
   );
 };
 
-const isPoliticalPackCell = (
+export const isPoliticalPackCell = (
   context: GenerationContext,
   packId: number,
 ): boolean => {

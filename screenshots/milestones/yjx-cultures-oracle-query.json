@@ -1,0 +1,15 @@
+{
+  "slug": "yjx-cultures-oracle-query",
+  "capturedAt": "2026-03-07T11:06:51.257Z",
+  "url": "http://127.0.0.1:44019/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "900x600",
+  "fullPage": false,
+  "delayMs": 2000,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "yjx-cultures-oracle-query.png",
+  "sha256": "7764c9b2e06ba111ecaf31cf8cf8be34cc572c517f714cef58144dc7bc23841d"
+}
