@@ -43,25 +43,25 @@
     "height": 180
   },
   "terrain": {
-    "pixelIntersection": 12187,
-    "pixelUnion": 21069,
-    "iou": 0.5784327685224738
+    "pixelIntersection": 12155,
+    "pixelUnion": 21077,
+    "iou": 0.5766949755657826
   },
   "politics": {
     "oracleRegionCount": 23,
     "localRegionCount": 23,
     "matchedRegionPairs": 13,
-    "pixelIntersection": 4749,
-    "pixelUnion": 27250,
-    "iou": 0.17427522935779816
+    "pixelIntersection": 4750,
+    "pixelUnion": 27232,
+    "iou": 0.17442714453584018
   },
   "religions": {
     "oracleRegionCount": 14,
-    "localRegionCount": 16,
+    "localRegionCount": 14,
     "matchedRegionPairs": 9,
-    "pixelIntersection": 5947,
-    "pixelUnion": 25004,
-    "iou": 0.2378419452887538
+    "pixelIntersection": 5655,
+    "pixelUnion": 25272,
+    "iou": 0.22376543209876543
   },
   "burgs": {
     "oracleCount": 796,
