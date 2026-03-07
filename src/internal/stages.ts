@@ -1971,6 +1971,7 @@ export const runPackStage = (context: GenerationContext): void => {
     cellNeighbors,
     gridToPack,
   } = context.world;
+  const retentionCoast = context.internal.packRetentionCoast ?? cellsCoast;
 
   gridToPack.fill(-1);
 
@@ -1983,7 +1984,7 @@ export const runPackStage = (context: GenerationContext): void => {
 
   const includeGridCell = (cellId: number): boolean => {
     const height = cellsH[cellId] ?? 0;
-    const coast = cellsCoast[cellId] ?? 0;
+    const coast = retentionCoast[cellId] ?? 0;
     if (height >= 20) {
       return true;
     }
@@ -2007,7 +2008,7 @@ export const runPackStage = (context: GenerationContext): void => {
     pointX.push(x);
     pointY.push(y);
     pointH.push(cellsH[cellId] ?? 0);
-    pointCoast.push(cellsCoast[cellId] ?? 0);
+    pointCoast.push(retentionCoast[cellId] ?? 0);
   };
 
   for (let cellId = 0; cellId < cellCount; cellId += 1) {
@@ -2019,7 +2020,7 @@ export const runPackStage = (context: GenerationContext): void => {
     const y = cellsY[cellId] ?? 0;
     pushPackPoint(cellId, x, y);
 
-    const coast = cellsCoast[cellId] ?? 0;
+    const coast = retentionCoast[cellId] ?? 0;
     if (coast !== 1 && coast !== -1) {
       continue;
     }
@@ -2037,7 +2038,7 @@ export const runPackStage = (context: GenerationContext): void => {
           return;
         }
 
-        if ((cellsCoast[neighborCellId] ?? 0) !== coast) {
+        if ((retentionCoast[neighborCellId] ?? 0) !== coast) {
           return;
         }
 
@@ -2606,6 +2607,9 @@ export const runOpenNearSeaLakesStage = (
 
   const breachLimit = 22;
   let openedAnyLake = false;
+  const packRetentionCoast =
+    context.internal.packRetentionCoast ?? context.world.cellsCoast.slice();
+  context.internal.packRetentionCoast = packRetentionCoast;
 
   const removeLake = (
     thresholdCellId: number,
@@ -2615,6 +2619,7 @@ export const runOpenNearSeaLakesStage = (
     cellsH[thresholdCellId] = seaLevel - 1;
     cellsFeature[thresholdCellId] = 0;
     cellsCoast[thresholdCellId] = -1;
+    packRetentionCoast[thresholdCellId] = -1;
     cellsWaterbody[thresholdCellId] = oceanId;
 
     forEachNeighbor(
@@ -2624,6 +2629,7 @@ export const runOpenNearSeaLakesStage = (
       (neighborId) => {
         if ((cellsH[neighborId] ?? 0) >= seaLevel) {
           cellsCoast[neighborId] = 1;
+          packRetentionCoast[neighborId] = 1;
         }
       },
     );
