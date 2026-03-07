@@ -65,6 +65,9 @@ const createContext = (heights: readonly number[]): GenerationContext => {
       burgPackIds: new Uint32Array(1),
       packRetentionCoast: null,
       packRetentionWaterType: null,
+      packHavenPack: null,
+      packCellsFlow: null,
+      packCellsRiver: null,
     },
     world: {
       cellCount,

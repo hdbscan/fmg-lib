@@ -108,6 +108,9 @@ type PhysicalWorldView = Readonly<{
   cellsFlow: ArrayLike<number>;
   cellsRiver: ArrayLike<number>;
   cellsBiome: ArrayLike<number>;
+  packFlow?: ArrayLike<number>;
+  packRiver?: ArrayLike<number>;
+  packBiome?: ArrayLike<number>;
 }>;
 
 export const capturePhysicalDiagnosticStep = (
@@ -134,9 +137,12 @@ export const capturePhysicalDiagnosticStep = (
     const packY = world.packY[packId] ?? 0;
     const tempValue = world.cellsTemp[gridCellId] ?? 0;
     const precValue = world.cellsPrec[gridCellId] ?? 0;
-    const flowValue = world.cellsFlow[gridCellId] ?? 0;
-    const riverValue = world.cellsRiver[gridCellId] ?? 0;
-    const biomeValue = world.cellsBiome[gridCellId] ?? 0;
+    const flowValue =
+      world.packFlow?.[packId] ?? world.cellsFlow[gridCellId] ?? 0;
+    const riverValue =
+      world.packRiver?.[packId] ?? world.cellsRiver[gridCellId] ?? 0;
+    const biomeValue =
+      world.packBiome?.[packId] ?? world.cellsBiome[gridCellId] ?? 0;
 
     packToGrid[packId] = gridCellId;
     packH[packId] = packHeight;

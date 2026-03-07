@@ -101,6 +101,9 @@ const createContext = (
       burgPackIds: new Uint32Array(1),
       packRetentionCoast: null,
       packRetentionWaterType: null,
+      packHavenPack: null,
+      packCellsFlow: null,
+      packCellsRiver: null,
     },
     world: {
       cellCount: 0,
@@ -529,7 +532,15 @@ export const generatePhysicalDiagnostics = (
   runHydrologyStage(context);
   steps.push(
     capturePhysicalDiagnosticStep(
-      context.world,
+      {
+        ...context.world,
+        ...(context.internal.packCellsFlow
+          ? { packFlow: context.internal.packCellsFlow }
+          : {}),
+        ...(context.internal.packCellsRiver
+          ? { packRiver: context.internal.packCellsRiver }
+          : {}),
+      },
       "physical:hydrology",
       "Hydrology",
     ),

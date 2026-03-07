@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { runOpenNearSeaLakesStage, runPackStage } from "../src/internal/stages";
+import {
+  runOpenNearSeaLakesStage,
+  runPackFeatureStage,
+  runPackStage,
+} from "../src/internal/stages";
 import type {
   GenerationContext,
   NormalizedGenerationConfig,
@@ -63,6 +67,9 @@ const createContext = (): GenerationContext => {
       burgPackIds: new Uint32Array(1),
       packRetentionCoast: null,
       packRetentionWaterType: null,
+      packHavenPack: null,
+      packCellsFlow: null,
+      packCellsRiver: null,
     },
     world: {
       cellCount: 4,
@@ -199,5 +206,24 @@ describe("packed retention", () => {
 
     expect(context.world.gridToPack[1]).toBeGreaterThanOrEqual(0);
     expect(Array.from(context.world.packToGrid)).toContain(1);
+  });
+
+  test("stores exact packed haven ids for hydrology", () => {
+    const context = createContext();
+
+    runPackStage(context);
+    runPackFeatureStage(context);
+
+    const coastalPackId = context.world.gridToPack[1] ?? -1;
+    const havenGridCell =
+      coastalPackId >= 0 ? (context.world.packHaven[coastalPackId] ?? -1) : -1;
+    const havenPackId =
+      coastalPackId >= 0
+        ? (context.internal.packHavenPack?.[coastalPackId] ?? -1)
+        : -1;
+
+    expect(coastalPackId).toBeGreaterThanOrEqual(0);
+    expect(havenPackId).toBeGreaterThanOrEqual(0);
+    expect(context.world.packToGrid[havenPackId]).toBe(havenGridCell);
   });
 });

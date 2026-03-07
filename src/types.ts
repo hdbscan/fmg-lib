@@ -386,6 +386,9 @@ export type GenerationContext = {
     burgPackIds: Uint32Array;
     packRetentionCoast: Int8Array | null;
     packRetentionWaterType: Uint8Array | null;
+    packHavenPack: Int32Array | null;
+    packCellsFlow: Uint32Array | null;
+    packCellsRiver: Uint32Array | null;
   };
   world: {
     cellCount: number;
