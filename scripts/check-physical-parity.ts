@@ -113,17 +113,18 @@ const fetchUpstreamPhysicalDiagnostics = async (
           prec: ArrayLike<number>;
         };
       };
-      const pack = globalData.pack as {
-        cells: {
-          i: ArrayLike<number>;
-          g: ArrayLike<number>;
-          h: ArrayLike<number>;
-          p: ArrayLike<readonly [number, number]>;
-          fl?: ArrayLike<number>;
-          r?: ArrayLike<number>;
-          biome?: ArrayLike<number>;
+      const getPack = () =>
+        globalData.pack as {
+          cells: {
+            i: ArrayLike<number>;
+            g: ArrayLike<number>;
+            h: ArrayLike<number>;
+            p: ArrayLike<readonly [number, number]>;
+            fl?: ArrayLike<number>;
+            r?: ArrayLike<number>;
+            biome?: ArrayLike<number>;
+          };
         };
-      };
       const Features = globalData.Features as {
         markupPack: () => void;
       };
@@ -156,6 +157,7 @@ const fetchUpstreamPhysicalDiagnostics = async (
         key: string,
         label: string,
       ): Promise<BrowserPhysicalStep> => {
+        const pack = getPack();
         const packCellCount = pack.cells.i.length;
         const packToGrid = new Array<number>(packCellCount);
         const packH = new Array<number>(packCellCount);
@@ -237,6 +239,11 @@ const fetchUpstreamPhysicalDiagnostics = async (
       const steps: BrowserPhysicalStep[] = [];
       const seaLevel = 20;
 
+      globalData.pack = {};
+      reGraph();
+      Features.markupPack();
+      grid.cells.temp = new Int8Array(grid.cells.temp.length);
+      grid.cells.prec = new Uint8Array(grid.cells.prec.length);
       steps.push(await capture("physical:pack-ready", "Pack ready"));
 
       calculateTemperatures();
@@ -260,7 +267,7 @@ const fetchUpstreamPhysicalDiagnostics = async (
         width,
         height,
         cellCount: grid.cells.temp.length,
-        packCellCount: pack.cells.i.length,
+        packCellCount: getPack().cells.i.length,
         heightTemplate,
         seaLevel,
         steps,
