@@ -1,0 +1,15 @@
+{
+  "slug": "ur2-hidden-controls-local",
+  "capturedAt": "2026-03-07T10:36:23.125Z",
+  "url": "http://127.0.0.1:34409/?seed=42424242&width=1280&height=900&cells=10440&culturesCount=12&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50&heightTemplate=continents",
+  "selector": "[data-screenshot=\"ui-shell\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "1440x960",
+  "fullPage": false,
+  "delayMs": 1500,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=10440&culturesCount=12&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50&heightTemplate=continents",
+  "artifact": "ur2-hidden-controls-local.png",
+  "sha256": "204f8d1b03f4a6060e5e20fcd524fe93e91d4370e0e2a8c7e6ad9232a714a797"
+}

@@ -93,6 +93,18 @@ if (import.meta.main) {
     ...(oracle.winds !== undefined ? { winds: oracle.winds } : {}),
   };
 
+  const hiddenControls = {
+    ...(oracle.sizeVariety !== undefined
+      ? { sizeVariety: oracle.sizeVariety }
+      : {}),
+    ...(oracle.growthRate !== undefined
+      ? { growthRate: oracle.growthRate }
+      : {}),
+    ...(oracle.religionsNumber !== undefined
+      ? { religionsNumber: oracle.religionsNumber }
+      : {}),
+  };
+
   const config = {
     seed: oracle.seed,
     width: oracle.width,
@@ -105,6 +117,7 @@ if (import.meta.main) {
     ...(oracle.townsNumber !== undefined
       ? { townsCount: oracle.townsNumber }
       : {}),
+    ...(Object.keys(hiddenControls).length > 0 ? { hiddenControls } : {}),
     ...(Object.keys(climate).length > 0 ? { climate } : {}),
     layers: {
       physical: true,

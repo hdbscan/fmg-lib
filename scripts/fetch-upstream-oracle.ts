@@ -59,6 +59,9 @@ const normalizeOracle = (payload: {
   cultureCount: number;
   statesNumber: number | null;
   townsNumber: number | null;
+  sizeVariety: number | null;
+  growthRate: number | null;
+  religionsNumber: number | null;
   lakeElevationLimit: number | null;
   precipitation: number | null;
   mapSize: number | null;
@@ -92,6 +95,11 @@ const normalizeOracle = (payload: {
     ? { statesNumber: payload.statesNumber }
     : {}),
   ...(payload.townsNumber !== null ? { townsNumber: payload.townsNumber } : {}),
+  ...(payload.sizeVariety !== null ? { sizeVariety: payload.sizeVariety } : {}),
+  ...(payload.growthRate !== null ? { growthRate: payload.growthRate } : {}),
+  ...(payload.religionsNumber !== null
+    ? { religionsNumber: payload.religionsNumber }
+    : {}),
   ...(payload.lakeElevationLimit !== null
     ? { lakeElevationLimit: payload.lakeElevationLimit }
     : {}),
@@ -244,6 +252,36 @@ export const fetchUpstreamOracle = async (
                 };
               }
             ).document?.getElementById("manorsInput")?.value ?? "0",
+          ) || null,
+        sizeVariety:
+          Number(
+            (
+              globalThis as {
+                document?: {
+                  getElementById: (id: string) => { value?: string } | null;
+                };
+              }
+            ).document?.getElementById("sizeVariety")?.value ?? "0",
+          ) || null,
+        growthRate:
+          Number(
+            (
+              globalThis as {
+                document?: {
+                  getElementById: (id: string) => { value?: string } | null;
+                };
+              }
+            ).document?.getElementById("growthRate")?.value ?? "0",
+          ) || null,
+        religionsNumber:
+          Number(
+            (
+              globalThis as {
+                document?: {
+                  getElementById: (id: string) => { value?: string } | null;
+                };
+              }
+            ).document?.getElementById("religionsNumber")?.value ?? "0",
           ) || null,
         lakeElevationLimit:
           Number(

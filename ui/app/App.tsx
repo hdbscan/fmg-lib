@@ -40,6 +40,9 @@ type GenerationDraft = {
   culturesCount: number;
   statesCount: number | null;
   townsCount: number | null;
+  sizeVariety: number;
+  growthRate: number;
+  religionsNumber: number | null;
   precipitation: number;
   mapSize: number;
   latitude: number;
@@ -156,6 +159,9 @@ const toGenerationDraft = (config: GenerationConfig): GenerationDraft => ({
   culturesCount: config.culturesCount ?? 10,
   statesCount: config.statesCount ?? null,
   townsCount: config.townsCount ?? null,
+  sizeVariety: config.hiddenControls?.sizeVariety ?? 2,
+  growthRate: config.hiddenControls?.growthRate ?? 1,
+  religionsNumber: config.hiddenControls?.religionsNumber ?? null,
   precipitation: config.climate?.precipitation ?? 100,
   mapSize: config.climate?.mapSize ?? 100,
   latitude: config.climate?.latitude ?? 50,
@@ -196,6 +202,21 @@ const readConfigOverride = (): Partial<GenerationDraft> => {
 
   const towns = params.get("townsCount");
   if (towns) next.townsCount = coerceInteger(towns, 0, 0);
+
+  const sizeVariety = params.get("sizeVariety");
+  if (sizeVariety) {
+    next.sizeVariety = Math.max(0, Number.parseFloat(sizeVariety) || 0);
+  }
+
+  const growthRate = params.get("growthRate");
+  if (growthRate) {
+    next.growthRate = Math.max(0.1, Number.parseFloat(growthRate) || 1);
+  }
+
+  const religionsNumber = params.get("religionsNumber");
+  if (religionsNumber) {
+    next.religionsNumber = coerceInteger(religionsNumber, 0, 0);
+  }
 
   const precipitation = params.get("precipitation");
   if (precipitation) next.precipitation = coerceInteger(precipitation, 100, 1);
@@ -635,6 +656,13 @@ export const App = () => {
       ...(current.townsCount !== null
         ? { townsCount: current.townsCount }
         : {}),
+      hiddenControls: {
+        sizeVariety: current.sizeVariety,
+        growthRate: current.growthRate,
+        ...(current.religionsNumber !== null
+          ? { religionsNumber: current.religionsNumber }
+          : {}),
+      },
       climate: {
         precipitation: current.precipitation,
         mapSize: current.mapSize,
@@ -841,7 +869,7 @@ export const App = () => {
     const session = loadUiSession();
     const configOverride = readConfigOverride();
     if (Object.keys(configOverride).length > 0) {
-      setDraft((current) => ({
+      setDraft((current: GenerationDraft) => ({
         ...current,
         ...configOverride,
       }));
@@ -893,6 +921,13 @@ export const App = () => {
             ...(mergedDraft.townsCount !== null
               ? { townsCount: mergedDraft.townsCount }
               : {}),
+            hiddenControls: {
+              sizeVariety: mergedDraft.sizeVariety,
+              growthRate: mergedDraft.growthRate,
+              ...(mergedDraft.religionsNumber !== null
+                ? { religionsNumber: mergedDraft.religionsNumber }
+                : {}),
+            },
             climate: {
               precipitation: mergedDraft.precipitation,
               mapSize: mergedDraft.mapSize,

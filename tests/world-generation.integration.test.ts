@@ -2097,6 +2097,76 @@ describe("world generation integration", () => {
         },
       }),
     ).toThrow("layers.physical=false is not supported yet");
+    expect(() =>
+      generateWorld({
+        ...baseConfig,
+        hiddenControls: {
+          sizeVariety: 11,
+        },
+      }),
+    ).toThrow("hiddenControls.sizeVariety must be within [0, 10]");
+    expect(() =>
+      generateWorld({
+        ...baseConfig,
+        hiddenControls: {
+          growthRate: 0,
+        },
+      }),
+    ).toThrow("hiddenControls.growthRate must be within [0.1, 2]");
+    expect(() =>
+      generateWorld({
+        ...baseConfig,
+        hiddenControls: {
+          religionsNumber: 51,
+        },
+      }),
+    ).toThrow(
+      "hiddenControls.religionsNumber must be an integer within [0, 50]",
+    );
+  });
+
+  test("applies reconstructed hidden controls to politics and religion growth", () => {
+    const lowGrowth = generateWorld({
+      ...baseConfig,
+      layers: {
+        cultures: true,
+        politics: true,
+        religions: true,
+      },
+      hiddenControls: {
+        growthRate: 0.2,
+        sizeVariety: 0,
+        religionsNumber: 0,
+      },
+    });
+    const highGrowth = generateWorld({
+      ...baseConfig,
+      layers: {
+        cultures: true,
+        politics: true,
+        religions: true,
+      },
+      hiddenControls: {
+        growthRate: 2,
+        sizeVariety: 8,
+        religionsNumber: 50,
+      },
+    });
+
+    const lowStateCells = Array.from(lowGrowth.stateCells).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+    const highStateCells = Array.from(highGrowth.stateCells).reduce(
+      (sum, value) => sum + value,
+      0,
+    );
+
+    expect(highStateCells).toBeGreaterThan(lowStateCells);
+    expect(Array.from(highGrowth.stateCells)).not.toEqual(
+      Array.from(lowGrowth.stateCells),
+    );
+    expect(highGrowth.religionCount).toBeGreaterThan(lowGrowth.religionCount);
   });
 
   test("enforces current layer-combination support matrix", () => {
