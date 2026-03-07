@@ -69,6 +69,7 @@ const createContext = (
     },
     internal: {
       cultureTypes: ["Generic"],
+      burgPackIds: new Uint32Array(1),
     },
     world: {
       cellCount: 0,

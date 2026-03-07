@@ -483,7 +483,10 @@ export const computeLakeFeatureMetadata = (
   return { flux, evaporation, outlet, group };
 };
 
-const computeRankedSuitability = (context: GenerationContext): Float64Array => {
+const computeRankedSuitability = (
+  context: GenerationContext,
+  includeSecondaryPacks = false,
+): Float64Array => {
   const {
     packCellCount,
     packToGrid,
@@ -506,8 +509,13 @@ const computeRankedSuitability = (context: GenerationContext): Float64Array => {
   const positiveFlux: number[] = [];
   let maxFlux = 0;
 
+  const isEligiblePackCell = (packId: number): boolean =>
+    includeSecondaryPacks
+      ? isInhabitedPackCell(context, packId)
+      : isPoliticalPackCell(context, packId);
+
   for (let packId = 0; packId < packCellCount; packId += 1) {
-    if (!isPoliticalPackCell(context, packId)) continue;
+    if (!isEligiblePackCell(packId)) continue;
     const cellId = packToGrid[packId] ?? 0;
     const flux = (cellsFlow[cellId] ?? 0) + (confluence[cellId] ?? 0);
     if (flux > 0) positiveFlux.push(flux);
@@ -525,7 +533,7 @@ const computeRankedSuitability = (context: GenerationContext): Float64Array => {
         : (positiveFlux[midpoint] ?? 0);
 
   for (let packId = 0; packId < packCellCount; packId += 1) {
-    if (!isPoliticalPackCell(context, packId)) {
+    if (!isEligiblePackCell(packId)) {
       suitability[packId] = 0;
       continue;
     }
@@ -809,6 +817,23 @@ const hasCellBurgNear = (
   return false;
 };
 
+const hasPackBurgNear = (
+  context: GenerationContext,
+  selectedPackIds: readonly number[],
+  packId: number,
+  spacing: number,
+): boolean => {
+  const x = context.world.packX[packId] ?? 0;
+  const y = context.world.packY[packId] ?? 0;
+  const spacingSq = spacing * spacing;
+  for (const selectedPackId of selectedPackIds) {
+    const dx = (context.world.packX[selectedPackId] ?? 0) - x;
+    const dy = (context.world.packY[selectedPackId] ?? 0) - y;
+    if (dx * dx + dy * dy <= spacingSq) return true;
+  }
+  return false;
+};
+
 const sortCellIdsByScore = (
   cellIds: readonly number[],
   getScore: (cellId: number) => number,
@@ -819,6 +844,17 @@ const sortCellIdsByScore = (
       (left, right) => right.score - left.score || left.cellId - right.cellId,
     )
     .map(({ cellId }) => cellId);
+
+const sortPackIdsByScore = (
+  packIds: readonly number[],
+  getScore: (packId: number) => number,
+): number[] =>
+  packIds
+    .map((packId) => ({ packId, score: getScore(packId) }))
+    .sort(
+      (left, right) => right.score - left.score || left.packId - right.packId,
+    )
+    .map(({ packId }) => packId);
 
 const isPrimaryPackCell = (
   context: GenerationContext,
@@ -845,6 +881,17 @@ export const isPoliticalPackCell = (
   return (
     (context.world.cellsFeature[gridCellId] ?? 0) === 1 &&
     isPrimaryPackCell(context, packId)
+  );
+};
+
+const isInhabitedPackCell = (
+  context: GenerationContext,
+  packId: number,
+): boolean => {
+  const gridCellId = context.world.packToGrid[packId] ?? 0;
+  return (
+    (context.world.cellsFeature[gridCellId] ?? 0) === 1 &&
+    (context.world.cellsCulture[gridCellId] ?? 0) > 0
   );
 };
 
@@ -938,13 +985,17 @@ const resetBurgs = (context: GenerationContext): void => {
   context.world.burgCapital = new Uint8Array(1);
   context.world.burgPort = new Uint8Array(1);
   context.world.burgCulture = new Uint16Array(1);
+  context.internal.burgPackIds = new Uint32Array(1);
 };
 
 export const runBurgGenerationStage = (context: GenerationContext): void => {
   const {
+    packCellCount,
+    packToGrid,
+    packX,
+    packY,
     cellsBurg,
     cellsCulture,
-    gridToPack,
     packHaven,
     packHarbor,
     cellsWaterbody,
@@ -960,81 +1011,90 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
     return;
   }
 
-  const suitability = computeBurgCellSuitability(context);
-  const populatedCellIds = Array.from(
-    { length: context.world.cellCount },
-    (_, cellId) => cellId,
-  ).filter((cellId) => {
-    if ((context.world.cellsFeature[cellId] ?? 0) !== 1) return false;
-    if ((cellsCulture[cellId] ?? 0) <= 0) return false;
-    return (suitability[cellId] ?? 0) > 0;
+  const suitability = computeRankedSuitability(context, true);
+  const populatedPackIds = Array.from(
+    { length: packCellCount },
+    (_, packId) => packId,
+  ).filter((packId) => {
+    if (!isInhabitedPackCell(context, packId)) return false;
+    return (suitability[packId] ?? 0) > 0;
   });
-  if (populatedCellIds.length === 0) {
+  if (populatedPackIds.length === 0) {
     resetBurgs(context);
     return;
   }
 
-  const capitalsNumber = getTargetStates(context, populatedCellIds.length);
+  const capitalsNumber = getTargetStates(context, populatedPackIds.length);
   let capitals: number[] = [];
+  const occupiedCells = new Uint8Array(context.world.cellCount);
   let spacing =
     (context.config.width + context.config.height) / 2 / capitalsNumber;
-  const capitalOrder = sortCellIdsByScore(
-    populatedCellIds,
-    (cellId) => (suitability[cellId] ?? 0) * (0.5 + context.random() * 0.5),
+  const capitalOrder = sortPackIdsByScore(
+    populatedPackIds,
+    (packId) => (suitability[packId] ?? 0) * (0.5 + context.random() * 0.5),
   );
 
   while (capitals.length < capitalsNumber && spacing > 1) {
     capitals = [];
-    for (const cellId of capitalOrder) {
-      if (!hasCellBurgNear(context, capitals, cellId, spacing)) {
-        capitals.push(cellId);
-      }
+    occupiedCells.fill(0);
+    for (const packId of capitalOrder) {
+      const cellId = packToGrid[packId] ?? 0;
+      if ((occupiedCells[cellId] ?? 0) === 1) continue;
+      if (hasPackBurgNear(context, capitals, packId, spacing)) continue;
+      capitals.push(packId);
+      occupiedCells[cellId] = 1;
       if (capitals.length >= capitalsNumber) break;
     }
     if (capitals.length < capitalsNumber) spacing /= 1.2;
   }
 
-  const townsNumber = getTargetTowns(context, populatedCellIds.length);
-  const townOrder = sortCellIdsByScore(
-    populatedCellIds,
-    (cellId) =>
-      (suitability[cellId] ?? 0) * gauss(context.random, 1, 3, 0, 20, 3),
+  const townsNumber = getTargetTowns(context, populatedPackIds.length);
+  const townOrder = sortPackIdsByScore(
+    populatedPackIds,
+    (packId) =>
+      (suitability[packId] ?? 0) * gauss(context.random, 1, 3, 0, 20, 3),
   );
 
-  const burgCellIds = capitals.slice();
+  const burgPackIds = capitals.slice();
   let townSpacing =
     (context.config.width + context.config.height) /
     150 /
     (Math.max(townsNumber, 1) ** 0.7 / 66);
+  occupiedCells.fill(0);
+  for (const packId of burgPackIds) {
+    occupiedCells[packToGrid[packId] ?? 0] = 1;
+  }
   while (
-    burgCellIds.length - capitals.length < townsNumber &&
+    burgPackIds.length - capitals.length < townsNumber &&
     townSpacing > 1
   ) {
-    for (const cellId of townOrder) {
-      if (burgCellIds.length - capitals.length >= townsNumber) break;
-      if ((cellsBurg[cellId] ?? 0) > 0) continue;
+    for (const packId of townOrder) {
+      if (burgPackIds.length - capitals.length >= townsNumber) break;
+      const cellId = packToGrid[packId] ?? 0;
+      if ((occupiedCells[cellId] ?? 0) === 1) continue;
       const minSpacing = townSpacing * gauss(context.random, 1, 0.3, 0.2, 2, 2);
-      if (hasCellBurgNear(context, burgCellIds, cellId, minSpacing)) continue;
-      burgCellIds.push(cellId);
-      cellsBurg[cellId] = burgCellIds.length;
+      if (hasPackBurgNear(context, burgPackIds, packId, minSpacing)) continue;
+      burgPackIds.push(packId);
+      occupiedCells[cellId] = 1;
     }
     townSpacing *= 0.5;
   }
 
-  const burgCount = burgCellIds.length;
+  const burgCount = burgPackIds.length;
   const burgCell = new Uint32Array(burgCount + 1);
   const burgX = new Float32Array(burgCount + 1);
   const burgY = new Float32Array(burgCount + 1);
   const burgCapital = new Uint8Array(burgCount + 1);
   const burgPort = new Uint8Array(burgCount + 1);
   const burgCulture = new Uint16Array(burgCount + 1);
+  const selectedBurgPackIds = new Uint32Array(burgCount + 1);
   const portCandidates = new Map<number, number[]>();
 
   cellsBurg.fill(0);
   for (let index = 0; index < burgCount; index += 1) {
     const burgId = index + 1;
-    const cellId = burgCellIds[index] ?? 0;
-    const packId = gridToPack[cellId] ?? -1;
+    const packId = burgPackIds[index] ?? 0;
+    const cellId = packToGrid[packId] ?? 0;
     const capital = index < capitals.length ? 1 : 0;
     const harbor = packId >= 0 ? (packHarbor[packId] ?? 0) : 0;
     const haven = packId >= 0 ? (packHaven[packId] ?? -1) : -1;
@@ -1051,11 +1111,12 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
 
     cellsBurg[cellId] = burgId;
     burgCell[burgId] = cellId;
-    burgX[burgId] = rn(context.world.cellsX[cellId] ?? 0, 2);
-    burgY[burgId] = rn(context.world.cellsY[cellId] ?? 0, 2);
+    burgX[burgId] = rn(packX[packId] ?? 0, 2);
+    burgY[burgId] = rn(packY[packId] ?? 0, 2);
     burgCapital[burgId] = capital;
     burgPort[burgId] = 0;
     burgCulture[burgId] = cellsCulture[cellId] ?? 0;
+    selectedBurgPackIds[burgId] = packId;
 
     if (isPortCandidate) {
       const candidates = portCandidates.get(waterbodyId);
@@ -1079,7 +1140,7 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
 
     for (const burgId of burgIds) {
       const cellId = burgCell[burgId] ?? 0;
-      const packId = gridToPack[cellId] ?? -1;
+      const packId = selectedBurgPackIds[burgId] ?? -1;
       const haven = packId >= 0 ? (packHaven[packId] ?? -1) : -1;
       if (haven < 0) continue;
 
@@ -1099,6 +1160,7 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
   context.world.burgCapital = burgCapital;
   context.world.burgPort = burgPort;
   context.world.burgCulture = burgCulture;
+  context.internal.burgPackIds = selectedBurgPackIds;
 };
 
 export const runBurgSpecificationStage = (context: GenerationContext): void => {
@@ -1110,12 +1172,13 @@ export const runBurgSpecificationStage = (context: GenerationContext): void => {
     return;
   }
 
-  const suitability = computeRankedSuitability(context);
+  const suitability = computeRankedSuitability(context, true);
   const burgPopulation = new Uint16Array(burgCount + 1);
 
   for (let burgId = 1; burgId <= burgCount; burgId += 1) {
     const cellId = burgCell[burgId] ?? 0;
-    const packId = gridToPack[cellId] ?? -1;
+    const packId =
+      context.internal.burgPackIds[burgId] ?? gridToPack[cellId] ?? -1;
     const suitabilityScore = packId >= 0 ? (suitability[packId] ?? 0) : 0;
     const capital = burgCapital[burgId] ?? 0;
     const port = burgPort[burgId] ?? 0;
@@ -1255,9 +1318,9 @@ export const runStatesStage = (context: GenerationContext): void => {
     burgCapital,
     burgCulture,
     burgPort,
+    gridToPack,
     packCellCount,
     packToGrid,
-    gridToPack,
     packNeighborOffsets,
     packNeighbors,
   } = context.world;
@@ -1300,7 +1363,8 @@ export const runStatesStage = (context: GenerationContext): void => {
     const stateId = index + 1;
     const burgId = capitalBurgIds[index] ?? 0;
     const centerCell = burgCell[burgId] ?? 0;
-    const centerPack = gridToPack[centerCell] ?? -1;
+    const centerPack =
+      context.internal.burgPackIds[burgId] ?? gridToPack[centerCell] ?? -1;
     const cultureId = burgCulture[burgId] ?? 0;
     const cultureCenter = cultureSeedCell[cultureId] ?? centerCell;
     stateCenterBurg[stateId] = burgId;

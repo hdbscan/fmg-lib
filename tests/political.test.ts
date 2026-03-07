@@ -65,6 +65,7 @@ const createContext = (): GenerationContext => {
     },
     internal: {
       cultureTypes: ["Generic"],
+      burgPackIds: new Uint32Array(1),
     },
     world: {
       cellCount: 4,
@@ -277,5 +278,63 @@ describe("lake suitability metadata", () => {
     );
     expect(ports.length).toBeGreaterThan(1);
     expect(ports.every((value) => value === 2)).toBe(true);
+  });
+
+  test("uses inhabited secondary packs as burg candidates", () => {
+    const context = createContext();
+
+    context.config = {
+      ...context.config,
+      width: 300,
+      height: 120,
+      requestedCells: 2,
+      statesCount: 1,
+      townsCount: 0,
+    };
+    context.world.cellCount = 2;
+    context.world.cellsX = new Float32Array([80, 150]);
+    context.world.cellsY = new Float32Array([60, 60]);
+    context.world.cellsFeature = new Uint8Array([1, 0]);
+    context.world.cellsCulture = new Uint16Array([1, 0]);
+    context.world.cellsH = new Uint8Array([70, 19]);
+    context.world.cellsTemp = new Int8Array([15, 10]);
+    context.world.cellsPrec = new Uint8Array([0, 0]);
+    context.world.cellsFlow = new Uint32Array([0, 0]);
+    context.world.cellsRiver = new Uint8Array([0, 0]);
+    context.world.cellsBiome = new Uint8Array([1, 0]);
+    context.world.cellsWaterbody = new Uint32Array([0, 1]);
+    context.world.cellsCoast = new Int8Array([1, -1]);
+    context.world.cellsBurg = new Uint16Array(2);
+    context.world.packCellCount = 3;
+    context.world.gridToPack = new Int32Array([0, 2]);
+    context.world.packToGrid = new Uint32Array([0, 0, 1]);
+    context.world.packX = new Float32Array([80, 120, 150]);
+    context.world.packY = new Float32Array([60, 60, 60]);
+    context.world.packH = new Uint8Array([70, 70, 19]);
+    context.world.packArea = new Float32Array([1, 1, 1]);
+    context.world.packCoast = new Int8Array([0, 1, -1]);
+    context.world.packHaven = new Int32Array([-1, 1, -1]);
+    context.world.packHarbor = new Uint8Array([0, 1, 0]);
+    context.world.waterbodyCount = 1;
+    context.world.waterbodyType = new Uint8Array([0, 1]);
+    context.world.waterbodySize = new Uint32Array([0, 2]);
+    context.world.featureCount = 2;
+    context.world.featureType = new Uint8Array([0, 1, 3]);
+    context.world.featureLand = new Uint8Array([0, 0, 1]);
+    context.world.featureSize = new Uint32Array([0, 1, 1]);
+    context.world.featureFirstCell = new Uint32Array([0, 1, 0]);
+    context.world.cellsFeatureId = new Uint32Array([2, 1]);
+    context.world.packCellsFeatureId = new Uint32Array([2, 2, 1]);
+    context.world.cellNeighborOffsets = new Uint32Array([0, 1, 2]);
+    context.world.cellNeighbors = new Uint32Array([1, 0]);
+    context.internal.burgPackIds = new Uint32Array(1);
+
+    runBurgGenerationStage(context);
+
+    expect(context.world.burgCount).toBe(1);
+    expect(context.world.burgCell[1]).toBe(0);
+    expect(context.internal.burgPackIds[1]).toBe(1);
+    expect(context.world.burgX[1]).toBe(120);
+    expect(context.world.burgY[1]).toBe(60);
   });
 });
