@@ -72,6 +72,20 @@ const isPackedTopologyBorderCell = (
   return vertexTo - vertexFrom > neighborTo - neighborFrom;
 };
 
+const isPackedFeatureBoundaryCell = (
+  world: ReturnType<typeof generateWorld>,
+  packId: number,
+): boolean => {
+  if (isPackedTopologyBorderCell(world, packId)) {
+    return true;
+  }
+
+  const featureId = world.packCellsFeatureId[packId] ?? 0;
+  return collectPackNeighbors(world, packId).some(
+    (neighborId) => (world.packCellsFeatureId[neighborId] ?? 0) !== featureId,
+  );
+};
+
 const collectHydrologyStats = (
   world: ReturnType<typeof generateWorld>,
 ): Readonly<{
@@ -818,7 +832,14 @@ describe("world generation integration", () => {
       expect(packFeatureId).toBeGreaterThan(0);
       expect(packFeatureId).toBeLessThanOrEqual(world.packFeatureCount);
       expect(packCoast).toBeGreaterThanOrEqual(-10);
-      expect(packCoast).toBeLessThanOrEqual(10);
+      expect(packCoast).toBeLessThanOrEqual(127);
+
+      const packNeighbors = collectPackNeighbors(world, packId);
+      const adjacentWaterPackCount = packNeighbors.filter(
+        (neighborId) => (world.packH[neighborId] ?? 0) < seaLevel,
+      ).length;
+      const adjacentLandPackCount =
+        packNeighbors.length - adjacentWaterPackCount;
 
       if ((world.cellsCoast[gridCellId] ?? 0) <= 1) {
         if (packHarbor > 0) {
@@ -826,6 +847,22 @@ describe("world generation integration", () => {
           expect(packHaven).toBeLessThan(world.cellCount);
           expect(world.cellsFeature[packHaven]).toBe(0);
         }
+      }
+
+      if (h >= seaLevel) {
+        if (packCoast === 1) {
+          expect(adjacentWaterPackCount).toBeGreaterThan(0);
+          expect(packHarbor).toBe(adjacentWaterPackCount);
+          expect(packHaven).toBeGreaterThanOrEqual(0);
+          expect(packHaven).toBeLessThan(world.cellCount);
+          expect(world.cellsFeature[packHaven]).toBe(0);
+        } else if (packCoast > 1) {
+          expect(adjacentWaterPackCount).toBe(0);
+        }
+      } else if (packCoast === -1) {
+        expect(adjacentLandPackCount).toBeGreaterThan(0);
+      } else if (packCoast < -1) {
+        expect(adjacentLandPackCount).toBe(0);
       }
 
       const gridX = world.cellsX[gridCellId];
@@ -860,7 +897,6 @@ describe("world generation integration", () => {
         summedPrimaryLandPackArea += area;
       }
 
-      const packNeighbors = collectPackNeighbors(world, packId);
       for (const neighborId of packNeighbors) {
         expect(neighborId).toBeGreaterThanOrEqual(0);
         expect(neighborId).toBeLessThan(world.packCellCount);
@@ -1279,6 +1315,28 @@ describe("world generation integration", () => {
       expect(world.packFeatureBorder[featureId]).toBe(
         topologyBorderByFeature[featureId],
       );
+
+      if ((world.packFeatureType[featureId] ?? 0) === 1) {
+        continue;
+      }
+
+      const firstCell = world.packFeatureFirstCell[featureId] ?? 0;
+      expect(world.packCellsFeatureId[firstCell]).toBe(featureId);
+      expect(isPackedFeatureBoundaryCell(world, firstCell)).toBe(true);
+
+      let minimumBoundaryPackId = Number.POSITIVE_INFINITY;
+      for (let packId = 0; packId < world.packCellCount; packId += 1) {
+        if ((world.packCellsFeatureId[packId] ?? 0) !== featureId) {
+          continue;
+        }
+        if (!isPackedFeatureBoundaryCell(world, packId)) {
+          continue;
+        }
+
+        minimumBoundaryPackId = Math.min(minimumBoundaryPackId, packId);
+      }
+
+      expect(firstCell).toBe(minimumBoundaryPackId);
     }
   });
 

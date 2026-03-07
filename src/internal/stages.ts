@@ -937,6 +937,40 @@ const isTopologyBorderCell = (
   return vertexTo - vertexFrom > neighborTo - neighborFrom;
 };
 
+const markDistanceField = (
+  distanceField: Int8Array,
+  cellCount: number,
+  neighborOffsets: Uint32Array,
+  neighbors: Uint32Array,
+  start: number,
+  increment: 1 | -1,
+  limit = Number.POSITIVE_INFINITY,
+): void => {
+  for (
+    let distance = start, marked = Number.POSITIVE_INFINITY;
+    marked > 0 && distance !== limit;
+    distance += increment
+  ) {
+    marked = 0;
+    const previousDistance = distance - increment;
+
+    for (let cellId = 0; cellId < cellCount; cellId += 1) {
+      if ((distanceField[cellId] ?? 0) !== previousDistance) {
+        continue;
+      }
+
+      forEachNeighbor(cellId, neighborOffsets, neighbors, (neighborId) => {
+        if ((distanceField[neighborId] ?? 0) !== 0) {
+          return;
+        }
+
+        distanceField[neighborId] = distance;
+        marked += 1;
+      });
+    }
+  }
+};
+
 type FrontierEntry = {
   cost: number;
   stateId: number;
@@ -2113,6 +2147,9 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
   const {
     packH,
     packCellCount,
+    packToGrid,
+    packX,
+    packY,
     packNeighborOffsets,
     packNeighbors,
     packCellVertexOffsets,
@@ -2132,12 +2169,74 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
   }
 
   let packFeatureCount = 0;
+  const packCoast = new Int8Array(packCellCount);
+  const packHaven = new Int32Array(packCellCount);
+  const packHarbor = new Uint8Array(packCellCount);
   const packFeatureType: number[] = [0];
   const packFeatureBorder: number[] = [0];
   const packFeatureSize: number[] = [0];
   const packFeatureFirstCell: number[] = [0];
   const isLandPackCell = (packId: number): boolean =>
     (packH[packId] ?? 0) >= seaLevel;
+  const isFeatureBoundaryCell = (packId: number, land: boolean): boolean => {
+    if (
+      isTopologyBorderCell(packId, packCellVertexOffsets, packNeighborOffsets)
+    ) {
+      return true;
+    }
+
+    let boundary = false;
+    forEachNeighbor(
+      packId,
+      packNeighborOffsets,
+      packNeighbors,
+      (neighborId) => {
+        if (boundary) {
+          return;
+        }
+
+        if (isLandPackCell(neighborId) !== land) {
+          boundary = true;
+        }
+      },
+    );
+
+    return boundary;
+  };
+  packHaven.fill(-1);
+
+  const defineHaven = (packId: number): void => {
+    let closestPackId = -1;
+    let closestDistanceSquared = Number.POSITIVE_INFINITY;
+    let adjacentWaterCount = 0;
+    const x = packX[packId] ?? 0;
+    const y = packY[packId] ?? 0;
+
+    forEachNeighbor(
+      packId,
+      packNeighborOffsets,
+      packNeighbors,
+      (neighborId) => {
+        if (isLandPackCell(neighborId)) {
+          return;
+        }
+
+        adjacentWaterCount += 1;
+        const dx = (packX[neighborId] ?? 0) - x;
+        const dy = (packY[neighborId] ?? 0) - y;
+        const distanceSquared = dx * dx + dy * dy;
+        if (distanceSquared < closestDistanceSquared) {
+          closestDistanceSquared = distanceSquared;
+          closestPackId = neighborId;
+        }
+      },
+    );
+
+    packHarbor[packId] = Math.min(adjacentWaterCount, 255);
+    if (closestPackId >= 0) {
+      packHaven[packId] = packToGrid[closestPackId] ?? -1;
+    }
+  };
 
   for (
     let startPackCell = 0;
@@ -2156,6 +2255,7 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
     let size = 0;
     let border = false;
     const land = isLandPackCell(startPackCell);
+    let firstBoundaryPackCell = Number.POSITIVE_INFINITY;
 
     while (queue.length > 0) {
       const packCellId = queue.pop();
@@ -2173,6 +2273,9 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
       ) {
         border = true;
       }
+      if (isFeatureBoundaryCell(packCellId, land)) {
+        firstBoundaryPackCell = Math.min(firstBoundaryPackCell, packCellId);
+      }
 
       forEachNeighbor(
         packCellId,
@@ -2180,6 +2283,26 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
         packNeighbors,
         (neighborPackId) => {
           const neighborIsLand = isLandPackCell(neighborPackId);
+
+          if (land && !neighborIsLand) {
+            packCoast[packCellId] = 1;
+            packCoast[neighborPackId] = -1;
+            if ((packHaven[packCellId] ?? -1) < 0) {
+              defineHaven(packCellId);
+            }
+          } else if (land && neighborIsLand) {
+            if (
+              (packCoast[neighborPackId] ?? 0) === 0 &&
+              (packCoast[packCellId] ?? 0) === 1
+            ) {
+              packCoast[neighborPackId] = 2;
+            } else if (
+              (packCoast[packCellId] ?? 0) === 0 &&
+              (packCoast[neighborPackId] ?? 0) === 1
+            ) {
+              packCoast[packCellId] = 2;
+            }
+          }
 
           if (
             (packCellsFeatureId[neighborPackId] ?? 0) !== 0 ||
@@ -2197,10 +2320,36 @@ export const runPackFeatureStage = (context: GenerationContext): void => {
     packFeatureType[packFeatureId] = land ? 3 : border ? 1 : 2;
     packFeatureBorder[packFeatureId] = border ? 1 : 0;
     packFeatureSize[packFeatureId] = size;
-    packFeatureFirstCell[packFeatureId] = startPackCell;
+    packFeatureFirstCell[packFeatureId] =
+      land || !border
+        ? Number.isFinite(firstBoundaryPackCell)
+          ? firstBoundaryPackCell
+          : startPackCell
+        : startPackCell;
   }
 
+  markDistanceField(
+    packCoast,
+    packCellCount,
+    packNeighborOffsets,
+    packNeighbors,
+    3,
+    1,
+  );
+  markDistanceField(
+    packCoast,
+    packCellCount,
+    packNeighborOffsets,
+    packNeighbors,
+    -2,
+    -1,
+    -10,
+  );
+
   context.world.packFeatureCount = packFeatureCount;
+  context.world.packCoast = packCoast;
+  context.world.packHaven = packHaven;
+  context.world.packHarbor = packHarbor;
   context.world.packFeatureType = Uint8Array.from(packFeatureType);
   context.world.packFeatureBorder = Uint8Array.from(packFeatureBorder);
   context.world.packFeatureSize = Uint32Array.from(packFeatureSize);
