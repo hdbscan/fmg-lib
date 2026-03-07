@@ -6,7 +6,7 @@ import {
   runSettlementsStage as runPoliticalSettlementsStage,
   runStatesStage as runPoliticalStatesStage,
 } from "./political";
-import { hashSeed } from "./random";
+import { createAlea, hashSeed } from "./random";
 
 const EPSILON = 1e-10;
 
@@ -1169,18 +1169,19 @@ export const runHeightmapStage = (context: GenerationContext): void => {
     context.config;
   const { cellCount, cellsH } = context.world;
   const heights = new Uint8Array(cellCount);
+  const heightmapRandom = createAlea(context.config.seed);
   const blobPower = getBlobPower(requestedCells);
   const linePower = getLinePower(requestedCells);
   const steps = HEIGHTMAP_STEPS[heightTemplate] ?? [];
 
   const rand = (min?: number, max?: number): number => {
     if (min === undefined && max === undefined) {
-      return context.random();
+      return heightmapRandom();
     }
 
     const low = max === undefined ? 0 : (min ?? 0);
     const high = max === undefined ? (min ?? 0) : max;
-    return Math.floor(context.random() * (high - low + 1)) + low;
+    return Math.floor(heightmapRandom() * (high - low + 1)) + low;
   };
 
   const probability = (value: number): boolean => {
@@ -1190,7 +1191,7 @@ export const runHeightmapStage = (context: GenerationContext): void => {
     if (value <= 0) {
       return false;
     }
-    return context.random() < value;
+    return heightmapRandom() < value;
   };
 
   const getNumberInRange = (spec: string): number => {
@@ -1271,7 +1272,7 @@ export const runHeightmapStage = (context: GenerationContext): void => {
 
           change[neighbor] =
             (change[current] ?? 0) ** blobPower *
-            (context.random() * 0.2 + 0.9);
+            (heightmapRandom() * 0.2 + 0.9);
           if ((change[neighbor] ?? 0) > 1) {
             queue.push(neighbor);
           }
@@ -1315,7 +1316,7 @@ export const runHeightmapStage = (context: GenerationContext): void => {
       const queue = [start];
       while (queue.length) {
         const current = queue.shift() ?? 0;
-        h = h ** blobPower * (context.random() * 0.2 + 0.9);
+        h = h ** blobPower * (heightmapRandom() * 0.2 + 0.9);
         if (h < 1) {
           return;
         }
@@ -1326,7 +1327,7 @@ export const runHeightmapStage = (context: GenerationContext): void => {
           }
 
           heights[neighbor] = clamp(
-            (heights[neighbor] ?? 0) - h * (context.random() * 0.2 + 0.9),
+            (heights[neighbor] ?? 0) - h * (heightmapRandom() * 0.2 + 0.9),
             0,
             100,
           );
@@ -1368,7 +1369,7 @@ export const runHeightmapStage = (context: GenerationContext): void => {
           ((context.world.cellsY[endCellId] ?? 0) -
             (context.world.cellsY[neighbor] ?? 0)) **
             2;
-        if (context.random() > randomDividerChance) {
+        if (heightmapRandom() > randomDividerChance) {
           diff /= 2;
         }
         if (diff < min) {
@@ -1423,8 +1424,8 @@ export const runHeightmapStage = (context: GenerationContext): void => {
         let endX = 0;
         let endY = 0;
         do {
-          endX = context.random() * width * 0.8 + width * 0.1;
-          endY = context.random() * height * 0.7 + height * 0.15;
+          endX = heightmapRandom() * width * 0.8 + width * 0.1;
+          endY = heightmapRandom() * height * 0.7 + height * 0.15;
           dist = Math.abs(endY - startY) + Math.abs(endX - startX);
           limit += 1;
         } while (
@@ -1452,7 +1453,7 @@ export const runHeightmapStage = (context: GenerationContext): void => {
         for (const cellId of frontier) {
           heights[cellId] = clamp(
             (heights[cellId] ?? 0) +
-              (isTrough ? -1 : 1) * h * (context.random() * 0.3 + 0.85),
+              (isTrough ? -1 : 1) * h * (heightmapRandom() * 0.3 + 0.85),
             0,
             100,
           );
@@ -1519,20 +1520,20 @@ export const runHeightmapStage = (context: GenerationContext): void => {
     const used = new Uint8Array(heights.length);
     const vertical = direction === "vertical";
     const startX = vertical
-      ? Math.floor(context.random() * width * 0.4 + width * 0.3)
+      ? Math.floor(heightmapRandom() * width * 0.4 + width * 0.3)
       : 5;
     const startY = vertical
       ? 5
-      : Math.floor(context.random() * height * 0.4 + height * 0.3);
+      : Math.floor(heightmapRandom() * height * 0.4 + height * 0.3);
     const endX = vertical
       ? Math.floor(
-          width - startX - width * 0.1 + context.random() * width * 0.2,
+          width - startX - width * 0.1 + heightmapRandom() * width * 0.2,
         )
       : width - 5;
     const endY = vertical
       ? height - 5
       : Math.floor(
-          height - startY - height * 0.1 + context.random() * height * 0.2,
+          height - startY - height * 0.1 + heightmapRandom() * height * 0.2,
         );
     const startCellId = findGridCell(startX, startY);
     const endCellId = findGridCell(endX, endY);
@@ -1553,7 +1554,7 @@ export const runHeightmapStage = (context: GenerationContext): void => {
             ((context.world.cellsY[end] ?? 0) -
               (context.world.cellsY[neighbor] ?? 0)) **
               2;
-          if (context.random() > 0.8) {
+          if (heightmapRandom() > 0.8) {
             diff /= 2;
           }
           if (diff < min) {
@@ -1571,10 +1572,10 @@ export const runHeightmapStage = (context: GenerationContext): void => {
     };
 
     let frontier = getStraitPath(startCellId, endCellId);
+    const query: number[] = [];
     const step = 0.1 / desiredWidth;
 
     for (let layer = 0; layer < desiredWidth; layer += 1) {
-      const query: number[] = [];
       const exponent = 0.9 - step * desiredWidth;
 
       for (const cellId of frontier) {
