@@ -66,7 +66,6 @@ const createContext = (): GenerationContext => {
     internal: {
       cultureTypes: ["Generic"],
       burgPackIds: new Uint32Array(1),
-      packRetentionCoast: null,
     },
     world: {
       cellCount: 4,
@@ -141,7 +140,7 @@ const createContext = (): GenerationContext => {
       cellsTemp: new Int8Array([20, 10, 20, 25]),
       cellsPrec: new Uint8Array([100, 0, 100, 0]),
       cellsFlow: new Uint32Array([500, 0, 500, 0]),
-      cellsRiver: new Uint32Array(4),
+      cellsRiver: new Uint8Array(4),
       cellsBiome: new Uint8Array([5, 0, 5, 0]),
       cellsWaterbody: new Uint32Array([0, 1, 0, 2]),
       waterbodyCount: 2,
@@ -197,6 +196,26 @@ describe("lake suitability metadata", () => {
     expect(suitability[0] ?? 0).toBeGreaterThan(suitability[2] ?? 0);
   });
 
+  test("uses exact upstream rankCells suitability without legacy blending", () => {
+    const context = createContext();
+
+    context.world.cellsBiome = new Uint8Array([5, 0, 2, 0]);
+    context.world.cellsH = new Uint8Array([30, 19, 80, 19]);
+    context.world.cellsTemp = new Int8Array([20, 10, 20, 25]);
+    context.world.cellsPrec = new Uint8Array([100, 0, 100, 0]);
+    context.world.cellsFlow = new Uint32Array([500, 0, 0, 0]);
+    context.world.cellsRiver = new Uint8Array([1, 0, 0, 0]);
+    context.world.packCoast = new Int8Array([1, -1, 0, -1]);
+    context.world.cellsCoast = new Int8Array([1, -1, 0, -1]);
+    context.world.packHaven = new Int32Array([1, -1, -1, -1]);
+    context.world.packHarbor = new Uint8Array([1, 0, 0, 0]);
+
+    const suitability = computePoliticalSuitability(context);
+
+    expect(suitability[0]).toBeGreaterThan(0);
+    expect(suitability[2]).toBe(0);
+  });
+
   test("keeps warm coastal burgs as ports over cold water", () => {
     const context = createContext();
 
@@ -217,7 +236,7 @@ describe("lake suitability metadata", () => {
     context.world.cellsTemp = new Int8Array([5, -5, 5, -5]);
     context.world.cellsPrec = new Uint8Array([100, 0, 100, 0]);
     context.world.cellsFlow = new Uint32Array([400, 0, 300, 0]);
-    context.world.cellsRiver = new Uint32Array([1, 0, 1, 0]);
+    context.world.cellsRiver = new Uint8Array([1, 0, 1, 0]);
     context.world.cellsBiome = new Uint8Array([5, 0, 5, 0]);
     context.world.cellsWaterbody = new Uint32Array([0, 1, 0, 1]);
     context.world.waterbodyType = new Uint8Array([0, 1]);
@@ -301,8 +320,8 @@ describe("lake suitability metadata", () => {
     context.world.cellsTemp = new Int8Array([15, 10]);
     context.world.cellsPrec = new Uint8Array([0, 0]);
     context.world.cellsFlow = new Uint32Array([0, 0]);
-    context.world.cellsRiver = new Uint32Array([0, 0]);
-    context.world.cellsBiome = new Uint8Array([1, 0]);
+    context.world.cellsRiver = new Uint8Array([0, 0]);
+    context.world.cellsBiome = new Uint8Array([5, 0]);
     context.world.cellsWaterbody = new Uint32Array([0, 1]);
     context.world.cellsCoast = new Int8Array([1, -1]);
     context.world.cellsBurg = new Uint16Array(2);
