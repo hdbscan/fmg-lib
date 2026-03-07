@@ -57,11 +57,16 @@ const normalizeOracle = (payload: {
     burgs: number;
   };
   cultureCount: number;
+  heightmapTemplate: string | null;
   statesNumber: number | null;
   townsNumber: number | null;
   sizeVariety: number | null;
   growthRate: number | null;
   religionsNumber: number | null;
+  temperatureEquator: number | null;
+  temperatureNorthPole: number | null;
+  temperatureSouthPole: number | null;
+  elevationExponent: number | null;
   lakeElevationLimit: number | null;
   precipitation: number | null;
   mapSize: number | null;
@@ -91,6 +96,9 @@ const normalizeOracle = (payload: {
   burgs: payload.burgs,
   counts: payload.counts,
   cultureCount: payload.cultureCount,
+  ...(payload.heightmapTemplate !== null
+    ? { heightmapTemplate: payload.heightmapTemplate }
+    : {}),
   ...(payload.statesNumber !== null
     ? { statesNumber: payload.statesNumber }
     : {}),
@@ -99,6 +107,18 @@ const normalizeOracle = (payload: {
   ...(payload.growthRate !== null ? { growthRate: payload.growthRate } : {}),
   ...(payload.religionsNumber !== null
     ? { religionsNumber: payload.religionsNumber }
+    : {}),
+  ...(payload.temperatureEquator !== null
+    ? { temperatureEquator: payload.temperatureEquator }
+    : {}),
+  ...(payload.temperatureNorthPole !== null
+    ? { temperatureNorthPole: payload.temperatureNorthPole }
+    : {}),
+  ...(payload.temperatureSouthPole !== null
+    ? { temperatureSouthPole: payload.temperatureSouthPole }
+    : {}),
+  ...(payload.elevationExponent !== null
+    ? { elevationExponent: payload.elevationExponent }
     : {}),
   ...(payload.lakeElevationLimit !== null
     ? { lakeElevationLimit: payload.lakeElevationLimit }
@@ -161,6 +181,39 @@ export const fetchUpstreamOracle = async (
 
     const payload = await page.evaluate(() => {
       const globalData = globalThis as Record<string, unknown>;
+      const evaluateExpression = (expression: string): unknown => {
+        const evaluator = globalThis.eval as
+          | ((code: string) => unknown)
+          | undefined;
+        if (!evaluator) {
+          return undefined;
+        }
+
+        try {
+          return evaluator(expression);
+        } catch {
+          return undefined;
+        }
+      };
+      const readEvaluatedNumber = (expression: string): number | null => {
+        const value = evaluateExpression(expression);
+        return typeof value === "number" && Number.isFinite(value)
+          ? value
+          : null;
+      };
+      const readEvaluatedWinds = ():
+        | [number, number, number, number, number, number]
+        | null => {
+        const value = evaluateExpression("options.winds");
+        if (!Array.isArray(value) || value.length < 6) {
+          return null;
+        }
+
+        const winds = value.slice(0, 6).map(Number);
+        return winds.every((entry) => Number.isFinite(entry))
+          ? (winds as [number, number, number, number, number, number])
+          : null;
+      };
       const pack = globalData.pack as {
         burgs: unknown[];
         vertices: { p: [number, number][] };
@@ -233,6 +286,16 @@ export const fetchUpstreamOracle = async (
           burgs: burgs.length,
         },
         cultureCount: Math.max(pack.cultures.length - 1, 1),
+        heightmapTemplate:
+          ((
+            globalThis as {
+              document?: {
+                getElementById: (id: string) => { value?: string } | null;
+              };
+            }
+          ).document?.getElementById("templateInput")?.value ??
+            null) ||
+          null,
         statesNumber:
           Number(
             (
@@ -282,6 +345,23 @@ export const fetchUpstreamOracle = async (
                 };
               }
             ).document?.getElementById("religionsNumber")?.value ?? "0",
+          ) || null,
+        temperatureEquator: readEvaluatedNumber("options.temperatureEquator"),
+        temperatureNorthPole: readEvaluatedNumber(
+          "options.temperatureNorthPole",
+        ),
+        temperatureSouthPole: readEvaluatedNumber(
+          "options.temperatureSouthPole",
+        ),
+        elevationExponent:
+          Number(
+            (
+              globalThis as {
+                document?: {
+                  getElementById: (id: string) => { value?: string } | null;
+                };
+              }
+            ).document?.getElementById("heightExponentInput")?.value ?? "0",
           ) || null,
         lakeElevationLimit:
           Number(
@@ -334,14 +414,7 @@ export const fetchUpstreamOracle = async (
               }
             ).document?.getElementById("longitudeOutput")?.value ?? "0",
           ) || null,
-        winds: Array.isArray(
-          (globalData.options as { winds?: number[] } | undefined)?.winds,
-        )
-          ? (((globalData.options as { winds?: number[] }).winds ?? []).slice(
-              0,
-              6,
-            ) as [number, number, number, number, number, number])
-          : null,
+        winds: readEvaluatedWinds(),
         sourceUrl: String(
           (globalData.location as { href?: string } | undefined)?.href ?? "",
         ),

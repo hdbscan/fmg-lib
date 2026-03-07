@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { generateWorld } from "../src/index";
+import { buildGenerationConfigFromOracle } from "../src/internal/oracle-config";
 import {
   type ParityReport,
   type ParitySnapshot,
@@ -80,53 +81,7 @@ if (import.meta.main) {
     : ((await loadCachedOracle(oraclePath)) ??
       (await fetchUpstreamOracle(args.url)));
 
-  const climate = {
-    ...(oracle.lakeElevationLimit !== undefined
-      ? { lakeElevationLimit: oracle.lakeElevationLimit }
-      : {}),
-    ...(oracle.precipitation !== undefined
-      ? { precipitation: oracle.precipitation }
-      : {}),
-    ...(oracle.mapSize !== undefined ? { mapSize: oracle.mapSize } : {}),
-    ...(oracle.latitude !== undefined ? { latitude: oracle.latitude } : {}),
-    ...(oracle.longitude !== undefined ? { longitude: oracle.longitude } : {}),
-    ...(oracle.winds !== undefined ? { winds: oracle.winds } : {}),
-  };
-
-  const hiddenControls = {
-    ...(oracle.sizeVariety !== undefined
-      ? { sizeVariety: oracle.sizeVariety }
-      : {}),
-    ...(oracle.growthRate !== undefined
-      ? { growthRate: oracle.growthRate }
-      : {}),
-    ...(oracle.religionsNumber !== undefined
-      ? { religionsNumber: oracle.religionsNumber }
-      : {}),
-  };
-
-  const config = {
-    seed: oracle.seed,
-    width: oracle.width,
-    height: oracle.height,
-    cells: oracle.terrain.mesh.polygons.length,
-    culturesCount: Math.max(1, oracle.cultureCount ?? 12),
-    ...(oracle.statesNumber !== undefined
-      ? { statesCount: oracle.statesNumber }
-      : {}),
-    ...(oracle.townsNumber !== undefined
-      ? { townsCount: oracle.townsNumber }
-      : {}),
-    ...(Object.keys(hiddenControls).length > 0 ? { hiddenControls } : {}),
-    ...(Object.keys(climate).length > 0 ? { climate } : {}),
-    layers: {
-      physical: true,
-      cultures: true,
-      settlements: true,
-      politics: true,
-      religions: true,
-    },
-  } as const;
+  const config = buildGenerationConfigFromOracle(oracle);
 
   const world = generateWorld(config);
   const local = buildLocalParitySnapshot(world, config);
