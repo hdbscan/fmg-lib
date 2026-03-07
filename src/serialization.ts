@@ -120,6 +120,9 @@ export const serializeWorld = (world: WorldGraphV1): string => {
       routeToState: encodeTypedArray(world.routeToState, "u16"),
       routeKind: encodeTypedArray(world.routeKind, "u8"),
       routeWeight: encodeTypedArray(world.routeWeight, "u16"),
+      cellRouteOffsets: encodeTypedArray(world.cellRouteOffsets, "u32"),
+      cellRouteNeighbors: encodeTypedArray(world.cellRouteNeighbors, "u32"),
+      cellRouteKinds: encodeTypedArray(world.cellRouteKinds, "u8"),
       cellsProvince: encodeTypedArray(world.cellsProvince, "u16"),
       provinceState: encodeTypedArray(world.provinceState, "u16"),
       provinceCenterCell: encodeTypedArray(world.provinceCenterCell, "u32"),
@@ -296,6 +299,9 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
   const routeToState = decodeTypedArray(world.arrays.routeToState);
   const routeKind = decodeTypedArray(world.arrays.routeKind);
   const routeWeight = decodeTypedArray(world.arrays.routeWeight);
+  const cellRouteOffsets = decodeTypedArray(world.arrays.cellRouteOffsets);
+  const cellRouteNeighbors = decodeTypedArray(world.arrays.cellRouteNeighbors);
+  const cellRouteKinds = decodeTypedArray(world.arrays.cellRouteKinds);
   const cellsProvince = decodeTypedArray(world.arrays.cellsProvince);
   const provinceState = decodeTypedArray(world.arrays.provinceState);
   const provinceCenterCell = decodeTypedArray(world.arrays.provinceCenterCell);
@@ -397,6 +403,9 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     !(routeToState instanceof Uint16Array) ||
     !(routeKind instanceof Uint8Array) ||
     !(routeWeight instanceof Uint16Array) ||
+    !(cellRouteOffsets instanceof Uint32Array) ||
+    !(cellRouteNeighbors instanceof Uint32Array) ||
+    !(cellRouteKinds instanceof Uint8Array) ||
     !(cellsProvince instanceof Uint16Array) ||
     !(provinceState instanceof Uint16Array) ||
     !(provinceCenterCell instanceof Uint32Array) ||
@@ -506,6 +515,9 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     routeToState,
     routeKind,
     routeWeight,
+    cellRouteOffsets,
+    cellRouteNeighbors,
+    cellRouteKinds,
     cellsProvince,
     provinceCount: world.provinceCount,
     provinceState,

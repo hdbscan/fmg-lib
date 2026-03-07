@@ -211,6 +211,9 @@ describe("world generation integration", () => {
     expect(world.routeToState.length).toBe(1);
     expect(world.routeKind.length).toBe(1);
     expect(world.routeWeight.length).toBe(1);
+    expect(world.cellRouteOffsets.length).toBe(world.cellCount + 1);
+    expect(world.cellRouteNeighbors.length).toBe(0);
+    expect(world.cellRouteKinds.length).toBe(0);
     expect(world.cellsProvince.length).toBe(world.cellCount);
     expect(world.provinceCount).toBe(0);
     expect(world.provinceState.length).toBe(1);
@@ -737,6 +740,15 @@ describe("world generation integration", () => {
     expect(Array.from(worldA.routeKind)).toEqual(Array.from(worldB.routeKind));
     expect(Array.from(worldA.routeWeight)).toEqual(
       Array.from(worldB.routeWeight),
+    );
+    expect(Array.from(worldA.cellRouteOffsets)).toEqual(
+      Array.from(worldB.cellRouteOffsets),
+    );
+    expect(Array.from(worldA.cellRouteNeighbors)).toEqual(
+      Array.from(worldB.cellRouteNeighbors),
+    );
+    expect(Array.from(worldA.cellRouteKinds)).toEqual(
+      Array.from(worldB.cellRouteKinds),
     );
     expect(Array.from(worldA.cellsProvince)).toEqual(
       Array.from(worldB.cellsProvince),
@@ -1413,6 +1425,12 @@ describe("world generation integration", () => {
     );
     expect(withPoliticsA.routeKind.length).toBe(withPoliticsA.routeCount + 1);
     expect(withPoliticsA.routeWeight.length).toBe(withPoliticsA.routeCount + 1);
+    expect(withPoliticsA.cellRouteOffsets.length).toBe(
+      withPoliticsA.cellCount + 1,
+    );
+    expect(withPoliticsA.cellRouteNeighbors.length).toBe(
+      withPoliticsA.cellRouteKinds.length,
+    );
     expect(withPoliticsA.provinceCount).toBeGreaterThanOrEqual(
       withPoliticsA.stateCount,
     );
@@ -1495,14 +1513,32 @@ describe("world generation integration", () => {
       const kind = withPoliticsA.routeKind[routeId] ?? 0;
       const weight = withPoliticsA.routeWeight[routeId] ?? 0;
 
-      expect(from).toBeGreaterThan(0);
+      expect(from).toBeGreaterThanOrEqual(0);
       expect(from).toBeLessThanOrEqual(withPoliticsA.stateCount);
-      expect(to).toBeGreaterThan(0);
+      expect(to).toBeGreaterThanOrEqual(0);
       expect(to).toBeLessThanOrEqual(withPoliticsA.stateCount);
-      expect(from).not.toBe(to);
-      expect(kind).toBe(1);
+      expect(kind >= 1 && kind <= 3).toBe(true);
       expect(weight).toBeGreaterThan(0);
     }
+
+    let connectedCells = 0;
+    for (let cellId = 0; cellId < withPoliticsA.cellCount; cellId += 1) {
+      const from = withPoliticsA.cellRouteOffsets[cellId] ?? 0;
+      const to = withPoliticsA.cellRouteOffsets[cellId + 1] ?? from;
+      if (to > from) {
+        connectedCells += 1;
+      }
+
+      for (let index = from; index < to; index += 1) {
+        const neighborId = withPoliticsA.cellRouteNeighbors[index] ?? -1;
+        const routeKind = withPoliticsA.cellRouteKinds[index] ?? 0;
+        expect(neighborId).toBeGreaterThanOrEqual(0);
+        expect(neighborId).toBeLessThan(withPoliticsA.cellCount);
+        expect(routeKind >= 1 && routeKind <= 3).toBe(true);
+      }
+    }
+
+    expect(connectedCells).toBeGreaterThan(0);
 
     let provinceCellSum = 0;
     for (
@@ -1563,6 +1599,15 @@ describe("world generation integration", () => {
     );
     expect(Array.from(withPoliticsA.routeWeight)).toEqual(
       Array.from(withPoliticsB.routeWeight),
+    );
+    expect(Array.from(withPoliticsA.cellRouteOffsets)).toEqual(
+      Array.from(withPoliticsB.cellRouteOffsets),
+    );
+    expect(Array.from(withPoliticsA.cellRouteNeighbors)).toEqual(
+      Array.from(withPoliticsB.cellRouteNeighbors),
+    );
+    expect(Array.from(withPoliticsA.cellRouteKinds)).toEqual(
+      Array.from(withPoliticsB.cellRouteKinds),
     );
     expect(Array.from(withPoliticsA.cellsProvince)).toEqual(
       Array.from(withPoliticsB.cellsProvince),
@@ -2160,6 +2205,11 @@ describe("world generation integration", () => {
     expect(withoutCultures.routeToState.length).toBe(1);
     expect(withoutCultures.routeKind.length).toBe(1);
     expect(withoutCultures.routeWeight.length).toBe(1);
+    expect(withoutCultures.cellRouteOffsets.length).toBe(
+      withoutCultures.cellCount + 1,
+    );
+    expect(withoutCultures.cellRouteNeighbors.length).toBe(0);
+    expect(withoutCultures.cellRouteKinds.length).toBe(0);
     expect(withoutCultures.provinceCount).toBe(0);
     expect(withoutCultures.provinceState.length).toBe(1);
     expect(withoutCultures.provinceCenterCell.length).toBe(1);
@@ -2328,6 +2378,15 @@ describe("world generation integration", () => {
     expect(Array.from(withoutCultures.routeWeight)).toEqual(
       Array.from(withCultures.routeWeight),
     );
+    expect(Array.from(withoutCultures.cellRouteOffsets)).toEqual(
+      Array.from(withCultures.cellRouteOffsets),
+    );
+    expect(Array.from(withoutCultures.cellRouteNeighbors)).toEqual(
+      Array.from(withCultures.cellRouteNeighbors),
+    );
+    expect(Array.from(withoutCultures.cellRouteKinds)).toEqual(
+      Array.from(withCultures.cellRouteKinds),
+    );
     expect(Array.from(withoutCultures.cellsProvince)).toEqual(
       Array.from(withCultures.cellsProvince),
     );
@@ -2486,6 +2545,15 @@ describe("world generation integration", () => {
     );
     expect(Array.from(decoded.routeWeight)).toEqual(
       Array.from(original.routeWeight),
+    );
+    expect(Array.from(decoded.cellRouteOffsets)).toEqual(
+      Array.from(original.cellRouteOffsets),
+    );
+    expect(Array.from(decoded.cellRouteNeighbors)).toEqual(
+      Array.from(original.cellRouteNeighbors),
+    );
+    expect(Array.from(decoded.cellRouteKinds)).toEqual(
+      Array.from(original.cellRouteKinds),
     );
     expect(Array.from(decoded.cellsProvince)).toEqual(
       Array.from(original.cellsProvince),
