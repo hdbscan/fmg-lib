@@ -1,0 +1,15 @@
+{
+  "slug": "5kn-burg-order-oracle-query",
+  "capturedAt": "2026-03-07T11:03:46.239Z",
+  "url": "http://127.0.0.1:37621/?seed=42424242&culturesCount=9&statesCount=23&townsCount=1000&lakeElevationLimit=20&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "900x600",
+  "fullPage": false,
+  "delayMs": 1000,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&culturesCount=9&statesCount=23&townsCount=1000&lakeElevationLimit=20&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "5kn-burg-order-oracle-query.png",
+  "sha256": "8515b3bc6cff9d347750e8a753a430a38f2515651949e17b1526655e9cadc778"
+}

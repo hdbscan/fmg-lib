@@ -330,16 +330,25 @@ const getBurgType = (
   return "Generic";
 };
 
-export const runSettlementsStage = (context: GenerationContext): void => {
+const resetBurgs = (context: GenerationContext): void => {
+  context.world.burgCount = 0;
+  context.world.burgCell = new Uint32Array(1);
+  context.world.burgX = new Float32Array(1);
+  context.world.burgY = new Float32Array(1);
+  context.world.burgPopulation = new Uint16Array(1);
+  context.world.burgCapital = new Uint8Array(1);
+  context.world.burgPort = new Uint8Array(1);
+  context.world.burgCulture = new Uint16Array(1);
+};
+
+export const runBurgGenerationStage = (context: GenerationContext): void => {
   const {
     cellsBurg,
     cellsCulture,
-    cellsFeature,
     packCellCount,
     packToGrid,
     packX,
     packY,
-    gridToPack,
     packHaven,
     packHarbor,
     cellsWaterbody,
@@ -351,14 +360,7 @@ export const runSettlementsStage = (context: GenerationContext): void => {
   } = context.world;
   cellsBurg.fill(0);
   if (packCellCount <= 0) {
-    context.world.burgCount = 0;
-    context.world.burgCell = new Uint32Array(1);
-    context.world.burgX = new Float32Array(1);
-    context.world.burgY = new Float32Array(1);
-    context.world.burgPopulation = new Uint16Array(1);
-    context.world.burgCapital = new Uint8Array(1);
-    context.world.burgPort = new Uint8Array(1);
-    context.world.burgCulture = new Uint16Array(1);
+    resetBurgs(context);
     return;
   }
 
@@ -373,14 +375,7 @@ export const runSettlementsStage = (context: GenerationContext): void => {
       (cellsCulture[packToGrid[packId] ?? 0] ?? 0) > 0,
   );
   if (populatedPackIds.length === 0) {
-    context.world.burgCount = 0;
-    context.world.burgCell = new Uint32Array(1);
-    context.world.burgX = new Float32Array(1);
-    context.world.burgY = new Float32Array(1);
-    context.world.burgPopulation = new Uint16Array(1);
-    context.world.burgCapital = new Uint8Array(1);
-    context.world.burgPort = new Uint8Array(1);
-    context.world.burgCulture = new Uint16Array(1);
+    resetBurgs(context);
     return;
   }
 
@@ -435,7 +430,6 @@ export const runSettlementsStage = (context: GenerationContext): void => {
   const burgCell = new Uint32Array(burgCount + 1);
   const burgX = new Float32Array(burgCount + 1);
   const burgY = new Float32Array(burgCount + 1);
-  const burgPopulation = new Uint16Array(burgCount + 1);
   const burgCapital = new Uint8Array(burgCount + 1);
   const burgPort = new Uint8Array(burgCount + 1);
   const burgCulture = new Uint16Array(burgCount + 1);
@@ -460,22 +454,11 @@ export const runSettlementsStage = (context: GenerationContext): void => {
       !isFrozen
         ? waterbodyId
         : 0;
-    const basePopulation = (suitability[packId] ?? 0) / 5;
-    let population = basePopulation * (capital ? 1.5 : 1);
-    if (port > 0) population *= 1.2;
-    if ((cellsRiver[cellId] ?? 0) > 0) population *= 1.1;
-    population *= gauss(context.random, 1, 1, 0.25, 4, 5);
-    population += (burgId % 100) / 1000;
 
     cellsBurg[cellId] = burgId;
     burgCell[burgId] = cellId;
     burgX[burgId] = rn(packX[packId] ?? 0, 2);
     burgY[burgId] = rn(packY[packId] ?? 0, 2);
-    burgPopulation[burgId] = clamp(
-      Math.round(Math.max(population, 1) * 10),
-      1,
-      65535,
-    );
     burgCapital[burgId] = capital;
     burgPort[burgId] = port > 0 ? 1 : 0;
     burgCulture[burgId] = cellsCulture[cellId] ?? 0;
@@ -500,10 +483,45 @@ export const runSettlementsStage = (context: GenerationContext): void => {
   context.world.burgCell = burgCell;
   context.world.burgX = burgX;
   context.world.burgY = burgY;
-  context.world.burgPopulation = burgPopulation;
+  context.world.burgPopulation = new Uint16Array(burgCount + 1);
   context.world.burgCapital = burgCapital;
   context.world.burgPort = burgPort;
   context.world.burgCulture = burgCulture;
+};
+
+export const runBurgSpecificationStage = (context: GenerationContext): void => {
+  const { burgCount, burgCell, burgCapital, burgPort, cellsRiver, gridToPack } =
+    context.world;
+
+  if (burgCount <= 0) {
+    context.world.burgPopulation = new Uint16Array(1);
+    return;
+  }
+
+  const suitability = computeSuitability(context);
+  const burgPopulation = new Uint16Array(burgCount + 1);
+
+  for (let burgId = 1; burgId <= burgCount; burgId += 1) {
+    const cellId = burgCell[burgId] ?? 0;
+    const packId = gridToPack[cellId] ?? -1;
+    const suitabilityScore = packId >= 0 ? (suitability[packId] ?? 0) : 0;
+    const capital = burgCapital[burgId] ?? 0;
+    const port = burgPort[burgId] ?? 0;
+    const basePopulation = suitabilityScore / 5;
+    let population = basePopulation * (capital ? 1.5 : 1);
+    if (port > 0) population *= 1.2;
+    if ((cellsRiver[cellId] ?? 0) > 0) population *= 1.1;
+    population *= gauss(context.random, 1, 1, 0.25, 4, 5);
+    population += (burgId % 100) / 1000;
+
+    burgPopulation[burgId] = clamp(
+      Math.round(Math.max(population, 1) * 10),
+      1,
+      65535,
+    );
+  }
+
+  context.world.burgPopulation = burgPopulation;
 };
 
 const getBiomeCost = (

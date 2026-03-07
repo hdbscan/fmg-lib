@@ -1366,6 +1366,54 @@ describe("world generation integration", () => {
     expect(withPoliticsOnly.stateForm[theocracyStateId]).toBe(1);
   });
 
+  test("keeps burg placement stable while later specification timing shifts", () => {
+    const sharedConfig = {
+      ...baseConfig,
+      seed: "burg-order",
+      culturesCount: 10,
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+        politics: true,
+      },
+    };
+    const withPoliticsOnly = generateWorld(sharedConfig);
+    const withReligions = generateWorld({
+      ...sharedConfig,
+      layers: {
+        ...sharedConfig.layers,
+        religions: true,
+      },
+    });
+
+    expect(Array.from(withPoliticsOnly.cellsBurg)).toEqual(
+      Array.from(withReligions.cellsBurg),
+    );
+    expect(withPoliticsOnly.burgCount).toBe(withReligions.burgCount);
+    expect(Array.from(withPoliticsOnly.burgCell)).toEqual(
+      Array.from(withReligions.burgCell),
+    );
+    expect(Array.from(withPoliticsOnly.burgX)).toEqual(
+      Array.from(withReligions.burgX),
+    );
+    expect(Array.from(withPoliticsOnly.burgY)).toEqual(
+      Array.from(withReligions.burgY),
+    );
+    expect(Array.from(withPoliticsOnly.burgCapital)).toEqual(
+      Array.from(withReligions.burgCapital),
+    );
+    expect(Array.from(withPoliticsOnly.burgPort)).toEqual(
+      Array.from(withReligions.burgPort),
+    );
+    expect(Array.from(withPoliticsOnly.burgCulture)).toEqual(
+      Array.from(withReligions.burgCulture),
+    );
+    expect(Array.from(withPoliticsOnly.burgPopulation)).not.toEqual(
+      Array.from(withReligions.burgPopulation),
+    );
+  });
+
   test("generates deterministic military layer outputs", () => {
     const withMilitaryA = generateWorld({
       ...baseConfig,

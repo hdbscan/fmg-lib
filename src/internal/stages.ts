@@ -3,6 +3,8 @@ import type { GenerationContext } from "../types";
 import {
   computeSuitability,
   isPoliticalPackCell,
+  runBurgGenerationStage as runPoliticalBurgGenerationStage,
+  runBurgSpecificationStage as runPoliticalBurgSpecificationStage,
   runProvincesStage as runPoliticalProvincesStage,
   runReligionsStage as runPoliticalReligionsStage,
   runSettlementsStage as runPoliticalSettlementsStage,
@@ -3546,8 +3548,11 @@ export const runCulturesStage = (context: GenerationContext): void => {
   context.world.cultureSize = cultureSize;
 };
 
-export const runSettlementsStage = (context: GenerationContext): void =>
-  runPoliticalSettlementsStage(context);
+export const runBurgGenerationStage = (context: GenerationContext): void =>
+  runPoliticalBurgGenerationStage(context);
+
+export const runBurgSpecificationStage = (context: GenerationContext): void =>
+  runPoliticalBurgSpecificationStage(context);
 
 export const runStatesStage = (context: GenerationContext): void =>
   runPoliticalStatesStage(context);
