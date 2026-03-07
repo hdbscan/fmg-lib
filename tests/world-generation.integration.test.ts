@@ -1271,6 +1271,59 @@ describe("world generation integration", () => {
     );
   });
 
+  test("assigns state forms after religions are available", () => {
+    const sharedConfig = {
+      ...baseConfig,
+      seed: "beta",
+      culturesCount: 10,
+    };
+    const withPoliticsOnly = generateWorld({
+      ...sharedConfig,
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+        politics: true,
+      },
+    });
+    const withReligions = generateWorld({
+      ...sharedConfig,
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+        politics: true,
+        religions: true,
+      },
+    });
+
+    expect(Array.from(withPoliticsOnly.cellsState)).toEqual(
+      Array.from(withReligions.cellsState),
+    );
+    expect(Array.from(withPoliticsOnly.stateCells)).toEqual(
+      Array.from(withReligions.stateCells),
+    );
+    expect(Array.from(withPoliticsOnly.routeFromState)).toEqual(
+      Array.from(withReligions.routeFromState),
+    );
+    expect(Array.from(withPoliticsOnly.routeToState)).toEqual(
+      Array.from(withReligions.routeToState),
+    );
+    expect(Array.from(withPoliticsOnly.stateForm)).not.toEqual(
+      Array.from(withReligions.stateForm),
+    );
+
+    const theocracyStateId = withReligions.stateForm.findIndex(
+      (form, index) => index > 0 && form === 3,
+    );
+
+    expect(theocracyStateId).toBeGreaterThan(0);
+    const capitalBurgId = withReligions.stateCenterBurg[theocracyStateId] ?? 0;
+    const capitalCell = withReligions.burgCell[capitalBurgId] ?? 0;
+    expect(withReligions.cellsReligion[capitalCell]).toBeGreaterThan(0);
+    expect(withPoliticsOnly.stateForm[theocracyStateId]).toBe(1);
+  });
+
   test("generates deterministic military layer outputs", () => {
     const withMilitaryA = generateWorld({
       ...baseConfig,
