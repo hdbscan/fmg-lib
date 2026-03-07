@@ -62,6 +62,8 @@ const normalizeOracle = (payload: {
   townsNumber: number | null;
   sizeVariety: number | null;
   growthRate: number | null;
+  statesGrowthRate: number | null;
+  provincesRatio: number | null;
   religionsNumber: number | null;
   temperatureEquator: number | null;
   temperatureNorthPole: number | null;
@@ -105,6 +107,12 @@ const normalizeOracle = (payload: {
   ...(payload.townsNumber !== null ? { townsNumber: payload.townsNumber } : {}),
   ...(payload.sizeVariety !== null ? { sizeVariety: payload.sizeVariety } : {}),
   ...(payload.growthRate !== null ? { growthRate: payload.growthRate } : {}),
+  ...(payload.statesGrowthRate !== null
+    ? { statesGrowthRate: payload.statesGrowthRate }
+    : {}),
+  ...(payload.provincesRatio !== null
+    ? { provincesRatio: payload.provincesRatio }
+    : {}),
   ...(payload.religionsNumber !== null
     ? { religionsNumber: payload.religionsNumber }
     : {}),
@@ -200,6 +208,23 @@ export const fetchUpstreamOracle = async (
         return typeof value === "number" && Number.isFinite(value)
           ? value
           : null;
+      };
+      const readSearchParamNumber = (name: string): number | null => {
+        try {
+          const value = new URL(
+            String(
+              (globalThis as { location?: { href?: string } }).location?.href ??
+                "",
+            ),
+          ).searchParams.get(name);
+          if (value === null || value.length === 0) {
+            return null;
+          }
+          const parsed = Number(value);
+          return Number.isFinite(parsed) ? parsed : null;
+        } catch {
+          return null;
+        }
       };
       const readEvaluatedWinds = ():
         | [number, number, number, number, number, number]
@@ -335,6 +360,28 @@ export const fetchUpstreamOracle = async (
                 };
               }
             ).document?.getElementById("growthRate")?.value ?? "0",
+          ) || null,
+        statesGrowthRate:
+          readSearchParamNumber("statesGrowthRate") ??
+          (Number(
+            (
+              globalThis as {
+                document?: {
+                  getElementById: (id: string) => { value?: string } | null;
+                };
+              }
+            ).document?.getElementById("statesGrowthRate")?.value ?? "0",
+          ) ||
+            null),
+        provincesRatio:
+          Number(
+            (
+              globalThis as {
+                document?: {
+                  getElementById: (id: string) => { value?: string } | null;
+                };
+              }
+            ).document?.getElementById("provincesRatio")?.value ?? "0",
           ) || null,
         religionsNumber:
           Number(

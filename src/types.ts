@@ -27,6 +27,8 @@ export type HeightTemplate = "continents" | "archipelago" | "inland-sea";
 export type HiddenGenerationControls = Readonly<{
   sizeVariety?: number;
   growthRate?: number;
+  statesGrowthRate?: number;
+  provincesRatio?: number;
   religionsNumber?: number;
 }>;
 
@@ -62,6 +64,8 @@ export type NormalizedGenerationConfig = Readonly<{
   hiddenControls: Readonly<{
     sizeVariety: number;
     growthRate: number;
+    statesGrowthRate: number;
+    provincesRatio: number;
     religionsNumber: number | null;
   }>;
   climate: Readonly<{

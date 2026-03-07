@@ -1342,7 +1342,8 @@ export const runStatesStage = (context: GenerationContext): void => {
   const queue: QueueEntry[] = [];
   const growthRate =
     (Math.max(activePackCount, 1) / 2) *
-    context.config.hiddenControls.growthRate;
+    context.config.hiddenControls.growthRate *
+    context.config.hiddenControls.statesGrowthRate;
 
   for (let index = 0; index < capitalBurgIds.length; index += 1) {
     const stateId = index + 1;
@@ -1604,7 +1605,7 @@ export const runProvincesStage = (context: GenerationContext): void => {
     { length: stateCount + 1 },
     () => [],
   );
-  const ratio = 40;
+  const ratio = context.config.hiddenControls.provincesRatio;
 
   for (let stateId = 1; stateId <= stateCount; stateId += 1) {
     const stateBurgs = Array.from(

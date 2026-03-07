@@ -78,6 +78,12 @@ export const buildGenerationConfigFromOracle = (
     ...(oracle.growthRate !== undefined
       ? { growthRate: oracle.growthRate }
       : {}),
+    ...(oracle.statesGrowthRate !== undefined
+      ? { statesGrowthRate: oracle.statesGrowthRate }
+      : {}),
+    ...(oracle.provincesRatio !== undefined
+      ? { provincesRatio: oracle.provincesRatio }
+      : {}),
     ...(oracle.religionsNumber !== undefined
       ? { religionsNumber: oracle.religionsNumber }
       : {}),
