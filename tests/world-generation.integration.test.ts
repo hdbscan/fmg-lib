@@ -103,6 +103,38 @@ const collectHydrologyStats = (
   };
 };
 
+const countUnassignedWaterReligionBridges = (
+  world: ReturnType<typeof generateWorld>,
+): number => {
+  let bridges = 0;
+
+  for (let cellId = 0; cellId < world.cellCount; cellId += 1) {
+    if ((world.cellsFeature[cellId] ?? 0) !== 0) continue;
+    if ((world.cellsReligion[cellId] ?? 0) !== 0) continue;
+
+    const religionNeighborCounts = new Map<number, number>();
+    const neighbors = collectNeighbors(world, cellId);
+    for (const neighborId of neighbors) {
+      if ((world.cellsFeature[neighborId] ?? 0) !== 1) continue;
+      const religionId = world.cellsReligion[neighborId] ?? 0;
+      if (religionId <= 0) continue;
+      religionNeighborCounts.set(
+        religionId,
+        (religionNeighborCounts.get(religionId) ?? 0) + 1,
+      );
+    }
+
+    for (const count of religionNeighborCounts.values()) {
+      if (count >= 2) {
+        bridges += 1;
+        break;
+      }
+    }
+  }
+
+  return bridges;
+};
+
 describe("world generation integration", () => {
   test("builds a coherent physical world graph", () => {
     const world = generateWorld(baseConfig);
@@ -1489,6 +1521,9 @@ describe("world generation integration", () => {
     }
 
     expect(assignedWater).toBe(0);
+    expect(countUnassignedWaterReligionBridges(withReligionsA)).toBeGreaterThan(
+      0,
+    );
 
     for (
       let religionId = 1;
@@ -1560,16 +1595,16 @@ describe("world generation integration", () => {
 
     expect(world.religionCount).toBe(16);
     expect(createHash("sha256").update(world.cellsReligion).digest("hex")).toBe(
-      "b6d962e6ce50c69f1c7b1575862387dba5340fac9224ece907b426ecb96b4e6d",
+      "6e9de2cf21edd492c79714c0f31c4efdf39e672614203bf1bf998483d48be4fd",
     );
     expect(
       createHash("sha256").update(world.religionSeedCell).digest("hex"),
-    ).toBe("db546dbcb18a28dabce5f033d5761a09e401b6f358ddc7baa436b2cb5bd0a696");
+    ).toBe("f17f507dacb7e1e6901ad8a3ba3757200e26f5ec6e2eb99afc421b88eb4c1963");
     expect(createHash("sha256").update(world.religionType).digest("hex")).toBe(
       "321918b12ad8caa005eefc87c5566ca7885bcce909cb33ac59ce35c26b70e9fd",
     );
     expect(createHash("sha256").update(world.religionSize).digest("hex")).toBe(
-      "b6a9d90d4ca652caf842a1dbfc8c0ad35b2afd4417a41439909e642e85d3cac0",
+      "2730866cc8247e95f08b345920556cb92be00537c899d5466ea25f7c060f4c36",
     );
   });
 

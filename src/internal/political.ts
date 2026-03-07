@@ -56,6 +56,10 @@ type StateType =
 
 type ReligionExpansionMode = "culture" | "state" | "global";
 
+const RELIGION_BIOME_PASSAGE_COST = [
+  0, 20, 80, 70, 60, 40, 30, 20, 30,
+] as const;
+
 type QueueEntry = {
   cost: number;
   id: number;
@@ -711,6 +715,54 @@ const getTypeCost = (coast: number, type: StateType): number => {
   return 0;
 };
 
+const getReligionRouteKey = (stateA: number, stateB: number): number => {
+  const from = Math.min(stateA, stateB);
+  const to = Math.max(stateA, stateB);
+  return from * 65536 + to;
+};
+
+const buildReligionRouteStateSet = (
+  context: GenerationContext,
+): ReadonlySet<number> => {
+  const routeKeys = new Set<number>();
+  const { routeCount, routeFromState, routeToState } = context.world;
+  for (let routeId = 1; routeId <= routeCount; routeId += 1) {
+    const from = routeFromState[routeId] ?? 0;
+    const to = routeToState[routeId] ?? 0;
+    if (from <= 0 || to <= 0 || from === to) continue;
+    routeKeys.add(getReligionRouteKey(from, to));
+  }
+  return routeKeys;
+};
+
+const getReligionPassageCost = (
+  context: GenerationContext,
+  routeStateKeys: ReadonlySet<number>,
+  currentCellId: number,
+  nextCellId: number,
+): number => {
+  const { cellsFeature, cellsBiome, cellsBurg, cellsState } = context.world;
+
+  const currentIsWater = (cellsFeature[currentCellId] ?? 0) !== 1;
+  if (currentIsWater) {
+    return 500;
+  }
+
+  const biomePassageCost =
+    RELIGION_BIOME_PASSAGE_COST[cellsBiome[nextCellId] ?? 0] ?? 30;
+  const currentState = cellsState[currentCellId] ?? 0;
+  const nextState = cellsState[nextCellId] ?? 0;
+  const hasRouteProxy =
+    (cellsBurg[currentCellId] ?? 0) > 0 ||
+    (cellsBurg[nextCellId] ?? 0) > 0 ||
+    (currentState > 0 &&
+      nextState > 0 &&
+      routeStateKeys.has(getReligionRouteKey(currentState, nextState)));
+
+  if (!hasRouteProxy) return biomePassageCost;
+  return Math.max(1, biomePassageCost / 3);
+};
+
 export const runStatesStage = (context: GenerationContext): void => {
   const {
     cellsState,
@@ -1193,11 +1245,11 @@ export const runProvincesStage = (context: GenerationContext): void => {
 
 export const runReligionsStage = (context: GenerationContext): void => {
   const {
+    cellCount,
     cellsReligion,
     cellsCulture,
     cellsState,
     cellsFeature,
-    cellsBiome,
     burgCount,
     burgCell,
     burgPopulation,
@@ -1206,9 +1258,8 @@ export const runReligionsStage = (context: GenerationContext): void => {
     packCellCount,
     packToGrid,
     gridToPack,
-    packNeighborOffsets,
-    packNeighbors,
-    cellsH,
+    cellNeighborOffsets,
+    cellNeighbors,
   } = context.world;
   cellsReligion.fill(0);
   if (packCellCount <= 0 || cultureCount <= 0) {
@@ -1362,22 +1413,19 @@ export const runReligionsStage = (context: GenerationContext): void => {
   }
 
   const maxExpansionCost =
-    (Math.max(activePackCount, 1) / 20) *
-    context.config.hiddenControls.growthRate;
+    (Math.max(cellCount, 1) / 20) * context.config.hiddenControls.growthRate;
   const queue: QueueEntry[] = [];
-  const cost = new Float64Array(packCellCount);
+  const cost = new Float64Array(cellCount);
   cost.fill(Number.POSITIVE_INFINITY);
-  const biomePassageCost = [0, 20, 80, 70, 60, 40, 30, 20, 30];
+  const routeStateKeys = buildReligionRouteStateSet(context);
 
   for (let religionId = 1; religionId <= religionCount; religionId += 1) {
     if ((religionType[religionId] ?? 0) === 1) continue;
     const seedCell = religionSeedCell[religionId] ?? 0;
-    const seedPack = gridToPack[seedCell] ?? -1;
-    if (seedPack < 0) continue;
     cellsReligion[seedCell] = religionId;
-    cost[seedPack] = 1;
+    cost[seedCell] = 1;
     pushQueue(queue, {
-      id: seedPack,
+      id: seedCell,
       owner: religionId,
       extra: cellsState[seedCell] ?? 0,
       cost: 0,
@@ -1392,40 +1440,35 @@ export const runReligionsStage = (context: GenerationContext): void => {
     const mode = religionMode[religionId] ?? "global";
     const stateId = next.extra;
     const expansionism = religionExpansionism[religionId] ?? 1;
-    const currentCell = packToGrid[next.id] ?? 0;
-    forEachNeighbor(
-      next.id,
-      packNeighborOffsets,
-      packNeighbors,
-      (neighborPackId) => {
-        if (!isPoliticalPackCell(context, neighborPackId)) return;
-        const nextCell = packToGrid[neighborPackId] ?? 0;
-        if ((cellsH[nextCell] ?? 0) < 20) return;
-        if (mode === "culture" && (cellsCulture[nextCell] ?? 0) !== cultureId)
-          return;
-        if (mode === "state" && (cellsState[nextCell] ?? 0) !== stateId) return;
-        const cultureCost =
-          (cellsCulture[nextCell] ?? 0) !== cultureId ? 10 : 0;
-        const stateCost = stateId !== (cellsState[nextCell] ?? 0) ? 10 : 0;
-        const routeCost = biomePassageCost[cellsBiome[nextCell] ?? 0] ?? 30;
-        const totalCost =
-          next.cost +
-          10 +
-          (cultureCost + stateCost + routeCost) / Math.max(expansionism, 0.1);
-        if (totalCost > maxExpansionCost) return;
-        if (totalCost >= (cost[neighborPackId] ?? Number.POSITIVE_INFINITY))
-          return;
-        cost[neighborPackId] = totalCost;
+    forEachNeighbor(next.id, cellNeighborOffsets, cellNeighbors, (nextCell) => {
+      if (mode === "culture" && (cellsCulture[nextCell] ?? 0) !== cultureId)
+        return;
+      if (mode === "state" && (cellsState[nextCell] ?? 0) !== stateId) return;
+      const cultureCost = (cellsCulture[nextCell] ?? 0) !== cultureId ? 10 : 0;
+      const stateCost = stateId !== (cellsState[nextCell] ?? 0) ? 10 : 0;
+      const passageCost = getReligionPassageCost(
+        context,
+        routeStateKeys,
+        next.id,
+        nextCell,
+      );
+      const totalCost =
+        next.cost +
+        10 +
+        (cultureCost + stateCost + passageCost) / Math.max(expansionism, 0.1);
+      if (totalCost > maxExpansionCost) return;
+      if (totalCost >= (cost[nextCell] ?? Number.POSITIVE_INFINITY)) return;
+      cost[nextCell] = totalCost;
+      if ((cellsCulture[nextCell] ?? 0) > 0) {
         cellsReligion[nextCell] = religionId;
-        pushQueue(queue, {
-          id: neighborPackId,
-          owner: religionId,
-          extra: stateId,
-          cost: totalCost,
-        });
-      },
-    );
-    cellsReligion[currentCell] = religionId;
+      }
+      pushQueue(queue, {
+        id: nextCell,
+        owner: religionId,
+        extra: stateId,
+        cost: totalCost,
+      });
+    });
   }
 
   for (let cellId = 0; cellId < cellsReligion.length; cellId += 1) {
