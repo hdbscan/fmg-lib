@@ -60,6 +60,11 @@ const normalizeOracle = (payload: {
   statesNumber: number | null;
   townsNumber: number | null;
   lakeElevationLimit: number | null;
+  precipitation: number | null;
+  mapSize: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  winds: readonly [number, number, number, number, number, number] | null;
   sourceUrl: string;
 }): ParitySnapshot => ({
   kind: "upstream-oracle",
@@ -90,6 +95,13 @@ const normalizeOracle = (payload: {
   ...(payload.lakeElevationLimit !== null
     ? { lakeElevationLimit: payload.lakeElevationLimit }
     : {}),
+  ...(payload.precipitation !== null
+    ? { precipitation: payload.precipitation }
+    : {}),
+  ...(payload.mapSize !== null ? { mapSize: payload.mapSize } : {}),
+  ...(payload.latitude !== null ? { latitude: payload.latitude } : {}),
+  ...(payload.longitude !== null ? { longitude: payload.longitude } : {}),
+  ...(payload.winds !== null ? { winds: payload.winds } : {}),
   sourceUrl: payload.sourceUrl,
 });
 
@@ -244,6 +256,54 @@ export const fetchUpstreamOracle = async (
             ).document?.getElementById("lakeElevationLimitOutput")?.value ??
               "0",
           ) || null,
+        precipitation:
+          Number(
+            (
+              globalThis as {
+                document?: {
+                  getElementById: (id: string) => { value?: string } | null;
+                };
+              }
+            ).document?.getElementById("precInput")?.value ?? "0",
+          ) || null,
+        mapSize:
+          Number(
+            (
+              globalThis as {
+                document?: {
+                  getElementById: (id: string) => { value?: string } | null;
+                };
+              }
+            ).document?.getElementById("mapSizeOutput")?.value ?? "0",
+          ) || null,
+        latitude:
+          Number(
+            (
+              globalThis as {
+                document?: {
+                  getElementById: (id: string) => { value?: string } | null;
+                };
+              }
+            ).document?.getElementById("latitudeOutput")?.value ?? "0",
+          ) || null,
+        longitude:
+          Number(
+            (
+              globalThis as {
+                document?: {
+                  getElementById: (id: string) => { value?: string } | null;
+                };
+              }
+            ).document?.getElementById("longitudeOutput")?.value ?? "0",
+          ) || null,
+        winds: Array.isArray(
+          (globalData.options as { winds?: number[] } | undefined)?.winds,
+        )
+          ? (((globalData.options as { winds?: number[] }).winds ?? []).slice(
+              0,
+              6,
+            ) as [number, number, number, number, number, number])
+          : null,
         sourceUrl: String(
           (globalData.location as { href?: string } | undefined)?.href ?? "",
         ),

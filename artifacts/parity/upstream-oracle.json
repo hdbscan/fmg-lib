@@ -282443,5 +282443,9 @@
   "statesNumber": 23,
   "townsNumber": 1000,
   "lakeElevationLimit": 20,
+  "precipitation": 94,
+  "mapSize": 100,
+  "latitude": 50,
+  "longitude": 50,
   "sourceUrl": "https://azgaar.github.io/Fantasy-Map-Generator/?seed=42424242&options=default"
 }

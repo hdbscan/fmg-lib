@@ -95,6 +95,13 @@ export const normalizeConfig = (
   const temperatureSouthPole = config.climate?.temperatureSouthPole ?? -15;
   const elevationExponent = config.climate?.elevationExponent ?? 1;
   const lakeElevationLimit = config.climate?.lakeElevationLimit ?? 20;
+  const precipitation = config.climate?.precipitation ?? 100;
+  const mapSize = config.climate?.mapSize ?? 100;
+  const latitude = config.climate?.latitude ?? 50;
+  const longitude = config.climate?.longitude ?? 50;
+  const winds = (config.climate?.winds ?? [
+    225, 45, 225, 315, 135, 315,
+  ]) as readonly [number, number, number, number, number, number];
 
   if (!inRange(elevationExponent, 0.5, 3)) {
     throw new Error("climate.elevationExponent must be within [0.5, 3]");
@@ -107,6 +114,26 @@ export const normalizeConfig = (
     throw new Error(
       "climate.lakeElevationLimit must be an integer within [0, 80]",
     );
+  }
+
+  if (!inRange(precipitation, 5, 500)) {
+    throw new Error("climate.precipitation must be within [5, 500]");
+  }
+
+  if (!inRange(mapSize, 1, 100)) {
+    throw new Error("climate.mapSize must be within [1, 100]");
+  }
+
+  if (!inRange(latitude, 0, 100)) {
+    throw new Error("climate.latitude must be within [0, 100]");
+  }
+
+  if (!inRange(longitude, 0, 100)) {
+    throw new Error("climate.longitude must be within [0, 100]");
+  }
+
+  if (winds.length !== 6 || winds.some((value) => !inRange(value, 0, 360))) {
+    throw new Error("climate.winds must contain 6 values within [0, 360]");
   }
 
   const layers: LayerFlags = {
@@ -132,6 +159,11 @@ export const normalizeConfig = (
       temperatureSouthPole,
       elevationExponent,
       lakeElevationLimit,
+      precipitation,
+      mapSize,
+      latitude,
+      longitude,
+      winds,
     },
     layers,
   };

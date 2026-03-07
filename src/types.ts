@@ -15,6 +15,11 @@ export type ClimateConfig = Readonly<{
   temperatureSouthPole?: number;
   elevationExponent?: number;
   lakeElevationLimit?: number;
+  precipitation?: number;
+  mapSize?: number;
+  latitude?: number;
+  longitude?: number;
+  winds?: readonly [number, number, number, number, number, number];
 }>;
 
 export type HeightTemplate = "continents" | "archipelago" | "inland-sea";
@@ -53,6 +58,11 @@ export type NormalizedGenerationConfig = Readonly<{
     temperatureSouthPole: number;
     elevationExponent: number;
     lakeElevationLimit: number;
+    precipitation: number;
+    mapSize: number;
+    latitude: number;
+    longitude: number;
+    winds: readonly [number, number, number, number, number, number];
   }>;
   layers: LayerFlags;
 }>;

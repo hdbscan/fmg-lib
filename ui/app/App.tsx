@@ -40,6 +40,10 @@ type GenerationDraft = {
   culturesCount: number;
   statesCount: number | null;
   townsCount: number | null;
+  precipitation: number;
+  mapSize: number;
+  latitude: number;
+  longitude: number;
   heightTemplate: HeightTemplate;
 };
 
@@ -152,6 +156,10 @@ const toGenerationDraft = (config: GenerationConfig): GenerationDraft => ({
   culturesCount: config.culturesCount ?? 10,
   statesCount: config.statesCount ?? null,
   townsCount: config.townsCount ?? null,
+  precipitation: config.climate?.precipitation ?? 100,
+  mapSize: config.climate?.mapSize ?? 100,
+  latitude: config.climate?.latitude ?? 50,
+  longitude: config.climate?.longitude ?? 50,
   heightTemplate: config.heightTemplate ?? "continents",
 });
 
@@ -188,6 +196,18 @@ const readConfigOverride = (): Partial<GenerationDraft> => {
 
   const towns = params.get("townsCount");
   if (towns) next.townsCount = coerceInteger(towns, 0, 0);
+
+  const precipitation = params.get("precipitation");
+  if (precipitation) next.precipitation = coerceInteger(precipitation, 100, 1);
+
+  const mapSize = params.get("mapSize");
+  if (mapSize) next.mapSize = coerceInteger(mapSize, 100, 1);
+
+  const latitude = params.get("latitude");
+  if (latitude) next.latitude = coerceInteger(latitude, 50, 0);
+
+  const longitude = params.get("longitude");
+  if (longitude) next.longitude = coerceInteger(longitude, 50, 0);
 
   const template = params.get("heightTemplate");
   if (
@@ -615,6 +635,12 @@ export const App = () => {
       ...(current.townsCount !== null
         ? { townsCount: current.townsCount }
         : {}),
+      climate: {
+        precipitation: current.precipitation,
+        mapSize: current.mapSize,
+        latitude: current.latitude,
+        longitude: current.longitude,
+      },
       heightTemplate: current.heightTemplate,
     };
     postGenerateRequest(config);
@@ -867,6 +893,12 @@ export const App = () => {
             ...(mergedDraft.townsCount !== null
               ? { townsCount: mergedDraft.townsCount }
               : {}),
+            climate: {
+              precipitation: mergedDraft.precipitation,
+              mapSize: mergedDraft.mapSize,
+              latitude: mergedDraft.latitude,
+              longitude: mergedDraft.longitude,
+            },
             heightTemplate: mergedDraft.heightTemplate,
           };
           postGenerateRequest(config);

@@ -16,8 +16,13 @@
       "cells": 9996,
       "culturesCount": 9,
       "statesCount": 23,
+      "townsCount": 1000,
       "climate": {
-        "lakeElevationLimit": 20
+        "lakeElevationLimit": 20,
+        "precipitation": 94,
+        "mapSize": 100,
+        "latitude": 50,
+        "longitude": 50
       },
       "layers": {
         "physical": true,
@@ -33,40 +38,40 @@
     "height": 180
   },
   "terrain": {
-    "pixelIntersection": 10941,
-    "pixelUnion": 21382,
-    "iou": 0.511692077448321
+    "pixelIntersection": 12686,
+    "pixelUnion": 21652,
+    "iou": 0.5859043044522446
   },
   "politics": {
     "oracleRegionCount": 23,
     "localRegionCount": 23,
-    "matchedRegionPairs": 13,
-    "pixelIntersection": 4523,
-    "pixelUnion": 24363,
-    "iou": 0.18565037146492633
+    "matchedRegionPairs": 12,
+    "pixelIntersection": 6020,
+    "pixelUnion": 26182,
+    "iou": 0.22992895882667483
   },
   "religions": {
     "oracleRegionCount": 14,
-    "localRegionCount": 28,
+    "localRegionCount": 29,
     "matchedRegionPairs": 11,
-    "pixelIntersection": 3580,
-    "pixelUnion": 26438,
-    "iou": 0.1354111506165368
+    "pixelIntersection": 5061,
+    "pixelUnion": 26972,
+    "iou": 0.18763903307133323
   },
   "burgs": {
     "oracleCount": 796,
-    "localCount": 630,
-    "threshold": 10.735273561459707,
-    "oracleRecallWithinThreshold": 0.3203517587939699,
-    "localPrecisionWithinThreshold": 0.326984126984127,
-    "meanNearestDistance": 21.650504737591028,
-    "medianNearestDistance": 16.19849512469232
+    "localCount": 1023,
+    "threshold": 10.74,
+    "oracleRecallWithinThreshold": 0.4798994974874372,
+    "localPrecisionWithinThreshold": 0.3421309872922776,
+    "meanNearestDistance": 18.667633134307206,
+    "medianNearestDistance": 12.75545015636878
   },
   "counts": {
     "landmasses": {
       "oracle": 10,
-      "local": 18,
-      "delta": 8
+      "local": 7,
+      "delta": -3
     },
     "states": {
       "oracle": 23,
@@ -75,13 +80,13 @@
     },
     "religions": {
       "oracle": 16,
-      "local": 28,
-      "delta": 12
+      "local": 29,
+      "delta": 13
     },
     "burgs": {
       "oracle": 796,
-      "local": 630,
-      "delta": -166
+      "local": 1023,
+      "delta": 227
     }
   }
 }

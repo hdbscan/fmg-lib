@@ -671,11 +671,80 @@ const temperatureAtLatitude = (
   northPole: number,
   southPole: number,
 ): number => {
-  if (latitude >= 0) {
-    return equator - ((equator - northPole) * latitude) / 90;
+  const tropicsNorth = 16;
+  const tropicsSouth = -20;
+  const tropicalGradient = 0.15;
+  const tempNorthTropic = equator - tropicsNorth * tropicalGradient;
+  const northernGradient = (tempNorthTropic - northPole) / (90 - tropicsNorth);
+  const tempSouthTropic = equator + tropicsSouth * tropicalGradient;
+  const southernGradient = (tempSouthTropic - southPole) / (90 + tropicsSouth);
+
+  if (latitude <= tropicsNorth && latitude >= tropicsSouth) {
+    return equator - Math.abs(latitude) * tropicalGradient;
   }
 
-  return equator - ((equator - southPole) * Math.abs(latitude)) / 90;
+  return latitude > 0
+    ? tempNorthTropic - (latitude - tropicsNorth) * northernGradient
+    : tempSouthTropic + (latitude - tropicsSouth) * southernGradient;
+};
+
+const calculateMapCoordinates = (
+  width: number,
+  height: number,
+  mapSize: number,
+  latitude: number,
+  longitude: number,
+): Readonly<{
+  latT: number;
+  latN: number;
+  latS: number;
+  lonT: number;
+  lonW: number;
+  lonE: number;
+}> => {
+  const sizeFraction = mapSize / 100;
+  const latShift = latitude / 100;
+  const lonShift = longitude / 100;
+  const latT = rn(sizeFraction * 180, 1);
+  const latN = rn(90 - (180 - latT) * latShift, 1);
+  const latS = rn(latN - latT, 1);
+  const lonT = rn(Math.min((width / height) * latT, 360), 1);
+  const lonE = rn(180 - (360 - lonT) * lonShift, 1);
+  const lonW = rn(lonE - lonT, 1);
+  return { latT, latN, latS, lonT, lonW, lonE };
+};
+
+const mean = (values: readonly number[]): number => {
+  if (values.length === 0) {
+    return 0;
+  }
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
+};
+
+const getBoundaryPoints = (
+  width: number,
+  height: number,
+  spacing: number,
+): [number, number][] => {
+  const offset = rn(-1 * spacing);
+  const boundarySpacing = spacing * 2;
+  const adjustedWidth = width - offset * 2;
+  const adjustedHeight = height - offset * 2;
+  const numberX = Math.ceil(adjustedWidth / boundarySpacing) - 1;
+  const numberY = Math.ceil(adjustedHeight / boundarySpacing) - 1;
+  const points: [number, number][] = [];
+
+  for (let index = 0.5; index < numberX; index += 1) {
+    const x = Math.ceil((adjustedWidth * index) / numberX + offset);
+    points.push([x, offset], [x, adjustedHeight + offset]);
+  }
+
+  for (let index = 0.5; index < numberY; index += 1) {
+    const y = Math.ceil((adjustedHeight * index) / numberY + offset);
+    points.push([offset, y], [adjustedWidth + offset, y]);
+  }
+
+  return points;
 };
 
 const buildVoronoiAdjacency = (
@@ -683,6 +752,7 @@ const buildVoronoiAdjacency = (
   ys: Float32Array,
   width: number,
   height: number,
+  boundaryPoints: readonly [number, number][] = [],
 ): {
   offsets: Uint32Array;
   neighbors: Uint32Array;
@@ -696,12 +766,13 @@ const buildVoronoiAdjacency = (
   const offsets = new Uint32Array(cellCount + 1);
   const neighbors: number[] = [];
 
-  const points: [number, number][] = Array.from(
+  const corePoints: [number, number][] = Array.from(
     { length: cellCount },
     (_, index) => [xs[index] ?? 0, ys[index] ?? 0],
   );
+  const allPoints = corePoints.concat(boundaryPoints);
 
-  const delaunay = Delaunay.from(points);
+  const delaunay = Delaunay.from(allPoints);
   const voronoi = delaunay.voronoi([0, 0, width, height]);
   const border = new Uint8Array(cellCount);
   const vertexX: number[] = [];
@@ -917,7 +988,7 @@ const polygonArea = (
 export const runGridStage = (context: GenerationContext): void => {
   const { width, height, requestedCells, jitter } = context.config;
 
-  const spacing = Math.sqrt((width * height) / requestedCells);
+  const spacing = rn(Math.sqrt((width * height) / requestedCells), 2);
   const cellsX = Math.max(
     1,
     Math.floor((width + 0.5 * spacing - EPSILON) / spacing),
@@ -930,6 +1001,7 @@ export const runGridStage = (context: GenerationContext): void => {
   const radius = spacing / 2;
   const jittering = radius * jitter;
   const cellCount = cellsX * cellsY;
+  const boundaryPoints = getBoundaryPoints(width, height, spacing);
 
   context.grid.spacing = spacing;
   context.grid.cellsX = cellsX;
@@ -1056,6 +1128,7 @@ export const runGridStage = (context: GenerationContext): void => {
     context.world.cellsY,
     width,
     height,
+    boundaryPoints,
   );
   context.world.cellNeighborOffsets = adjacency.offsets;
   context.world.cellNeighbors = adjacency.neighbors;
@@ -2348,6 +2421,11 @@ export const runClimateStage = (context: GenerationContext): void => {
     seaLevel,
     climate: {
       elevationExponent,
+      precipitation,
+      mapSize,
+      latitude,
+      longitude,
+      winds,
       temperatureEquator,
       temperatureNorthPole,
       temperatureSouthPole,
@@ -2355,36 +2433,214 @@ export const runClimateStage = (context: GenerationContext): void => {
   } = context.config;
 
   const { cellCount, cellsY, cellsH, cellsTemp, cellsPrec } = context.world;
+  const { cellsX, cellsY: gridCellsY } = context.grid;
+  const mapCoordinates = calculateMapCoordinates(
+    context.config.width,
+    context.config.height,
+    mapSize,
+    latitude,
+    longitude,
+  );
+  const precipitationModifier = precipitation / 100;
+  const randomInt = (min: number, max: number): number =>
+    Math.floor(context.random() * (max - min + 1)) + min;
+  const latitudeModifier = [
+    4, 2, 2, 2, 1, 1, 2, 2, 2, 2, 3, 3, 2, 2, 1, 1, 1, 0.5,
+  ];
+  const maxPassableElevation = 85;
 
   for (let index = 0; index < cellCount; index += 1) {
     const y = cellsY[index] ?? 0;
     const h = cellsH[index] ?? 0;
 
-    const latitude = 90 - (y / height) * 180;
+    const rowLatitude =
+      mapCoordinates.latN - (y / height) * mapCoordinates.latT;
     const seaLevelTemperature = temperatureAtLatitude(
-      latitude,
+      rowLatitude,
       temperatureEquator,
       temperatureNorthPole,
       temperatureSouthPole,
     );
 
     const altitudePenalty =
-      h < seaLevel ? 0 : ((h - seaLevel) ** elevationExponent / 1000) * 6.5;
+      h < seaLevel ? 0 : ((h - 18) ** elevationExponent / 1000) * 6.5;
 
     const temperature = Math.round(seaLevelTemperature - altitudePenalty);
     cellsTemp[index] = clamp(temperature, -128, 127);
 
-    const latitudeMoisture = 1 - Math.abs(latitude) / 90;
-    const elevationDryness = h / 100;
-    const randomVariation = (context.random() - 0.5) * 0.2;
-    const precipitation = clamp01(
-      0.2 +
-        latitudeMoisture * 0.6 +
-        (1 - elevationDryness) * 0.25 +
-        randomVariation,
-    );
+    cellsPrec[index] = 0;
+  }
 
-    cellsPrec[index] = Math.round(precipitation * 255);
+  const cellsNumberModifier = (context.config.requestedCells / 10000) ** 0.25;
+  const modifier = cellsNumberModifier * precipitationModifier;
+  const westerly: Array<[number, number, number]> = [];
+  const easterly: Array<[number, number, number]> = [];
+  let southerly = 0;
+  let northerly = 0;
+
+  const getWindDirections = (tier: number) => {
+    const angle = winds[tier] ?? 0;
+    return {
+      isWest: angle > 40 && angle < 140,
+      isEast: angle > 220 && angle < 320,
+      isNorth: angle > 100 && angle < 260,
+      isSouth: angle > 280 || angle < 80,
+    };
+  };
+
+  for (
+    let rowStart = 0, rowIndex = 0;
+    rowStart < cellCount;
+    rowStart += cellsX, rowIndex += 1
+  ) {
+    const lat =
+      mapCoordinates.latN - (rowIndex / gridCellsY) * mapCoordinates.latT;
+    const latBand = Math.max(
+      0,
+      Math.min(latitudeModifier.length - 1, ((Math.abs(lat) - 1) / 5) | 0),
+    );
+    const latMod = latitudeModifier[latBand] ?? 1;
+    const windTier = Math.max(0, Math.min(5, (Math.abs(lat - 89) / 30) | 0));
+    const { isWest, isEast, isNorth, isSouth } = getWindDirections(windTier);
+
+    if (isWest) westerly.push([rowStart, latMod, windTier]);
+    if (isEast) easterly.push([rowStart + cellsX - 1, latMod, windTier]);
+    if (isNorth) northerly += 1;
+    if (isSouth) southerly += 1;
+  }
+
+  const passWind = (
+    source:
+      | readonly number[]
+      | ReadonlyArray<readonly [number, number, number]>,
+    maxPrecInit: number,
+    next: number,
+    steps: number,
+  ): void => {
+    for (const firstValue of source) {
+      let first = firstValue as number | readonly [number, number, number];
+      let maxPrec = maxPrecInit;
+      if (Array.isArray(first)) {
+        maxPrec = Math.min(maxPrecInit * first[1], 255);
+        first = first[0];
+      }
+
+      let humidity = maxPrec - (cellsH[first as number] ?? 0);
+      if (humidity <= 0) {
+        continue;
+      }
+
+      for (
+        let step = 0, current = first as number;
+        step < steps;
+        step += 1, current += next
+      ) {
+        if (current < 0 || current >= cellCount) {
+          break;
+        }
+        if ((cellsTemp[current] ?? 0) < -5) {
+          continue;
+        }
+
+        const nextCell = current + next;
+        if ((cellsH[current] ?? 0) < 20) {
+          if (
+            nextCell >= 0 &&
+            nextCell < cellCount &&
+            (cellsH[nextCell] ?? 0) >= 20
+          ) {
+            cellsPrec[nextCell] = clamp(
+              (cellsPrec[nextCell] ?? 0) +
+                Math.max(humidity / randomInt(10, 20), 1),
+              0,
+              255,
+            );
+          } else {
+            humidity = Math.min(humidity + 5 * modifier, maxPrec);
+            cellsPrec[current] = clamp(
+              (cellsPrec[current] ?? 0) + 5 * modifier,
+              0,
+              255,
+            );
+          }
+          continue;
+        }
+
+        if (nextCell < 0 || nextCell >= cellCount) {
+          break;
+        }
+
+        const isPassable = (cellsH[nextCell] ?? 0) <= maxPassableElevation;
+        const normalLoss = Math.max(humidity / (10 * modifier), 1);
+        const diff = Math.max(
+          (cellsH[nextCell] ?? 0) - (cellsH[current] ?? 0),
+          0,
+        );
+        const mod = ((cellsH[nextCell] ?? 0) / 70) ** 2;
+        const cellPrecipitation = isPassable
+          ? clamp(normalLoss + diff * mod, 1, humidity)
+          : humidity;
+        cellsPrec[current] = clamp(
+          (cellsPrec[current] ?? 0) + cellPrecipitation,
+          0,
+          255,
+        );
+        const evaporation = cellPrecipitation > 1.5 ? 1 : 0;
+        humidity = isPassable
+          ? clamp(humidity - cellPrecipitation + evaporation, 0, maxPrec)
+          : 0;
+      }
+    }
+  };
+
+  if (westerly.length > 0) {
+    passWind(westerly, 120 * modifier, 1, cellsX);
+  }
+  if (easterly.length > 0) {
+    passWind(easterly, 120 * modifier, -1, cellsX);
+  }
+
+  const verticalTotal = southerly + northerly;
+  if (northerly > 0 && verticalTotal > 0) {
+    const bandN = Math.max(
+      0,
+      Math.min(
+        latitudeModifier.length - 1,
+        ((Math.abs(mapCoordinates.latN) - 1) / 5) | 0,
+      ),
+    );
+    const latModN =
+      mapCoordinates.latT > 60
+        ? mean(latitudeModifier)
+        : (latitudeModifier[bandN] ?? 1);
+    const maxPrecN = (northerly / verticalTotal) * 60 * modifier * latModN;
+    passWind(
+      Array.from({ length: cellsX }, (_, index) => index),
+      maxPrecN,
+      cellsX,
+      gridCellsY,
+    );
+  }
+
+  if (southerly > 0 && verticalTotal > 0) {
+    const bandS = Math.max(
+      0,
+      Math.min(
+        latitudeModifier.length - 1,
+        ((Math.abs(mapCoordinates.latS) - 1) / 5) | 0,
+      ),
+    );
+    const latModS =
+      mapCoordinates.latT > 60
+        ? mean(latitudeModifier)
+        : (latitudeModifier[bandS] ?? 1);
+    const maxPrecS = (southerly / verticalTotal) * 60 * modifier * latModS;
+    passWind(
+      Array.from({ length: cellsX }, (_, index) => cellCount - cellsX + index),
+      maxPrecS,
+      -cellsX,
+      gridCellsY,
+    );
   }
 };
 

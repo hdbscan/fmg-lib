@@ -80,6 +80,19 @@ if (import.meta.main) {
     : ((await loadCachedOracle(oraclePath)) ??
       (await fetchUpstreamOracle(args.url)));
 
+  const climate = {
+    ...(oracle.lakeElevationLimit !== undefined
+      ? { lakeElevationLimit: oracle.lakeElevationLimit }
+      : {}),
+    ...(oracle.precipitation !== undefined
+      ? { precipitation: oracle.precipitation }
+      : {}),
+    ...(oracle.mapSize !== undefined ? { mapSize: oracle.mapSize } : {}),
+    ...(oracle.latitude !== undefined ? { latitude: oracle.latitude } : {}),
+    ...(oracle.longitude !== undefined ? { longitude: oracle.longitude } : {}),
+    ...(oracle.winds !== undefined ? { winds: oracle.winds } : {}),
+  };
+
   const config = {
     seed: oracle.seed,
     width: oracle.width,
@@ -89,12 +102,10 @@ if (import.meta.main) {
     ...(oracle.statesNumber !== undefined
       ? { statesCount: oracle.statesNumber }
       : {}),
-    ...(oracle.townsNumber !== undefined && oracle.townsNumber !== 1000
+    ...(oracle.townsNumber !== undefined
       ? { townsCount: oracle.townsNumber }
       : {}),
-    ...(oracle.lakeElevationLimit !== undefined
-      ? { climate: { lakeElevationLimit: oracle.lakeElevationLimit } }
-      : {}),
+    ...(Object.keys(climate).length > 0 ? { climate } : {}),
     layers: {
       physical: true,
       cultures: true,

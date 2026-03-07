@@ -46,6 +46,11 @@ export type ParitySnapshot = Readonly<{
   statesNumber?: number;
   townsNumber?: number;
   lakeElevationLimit?: number;
+  precipitation?: number;
+  mapSize?: number;
+  latitude?: number;
+  longitude?: number;
+  winds?: readonly [number, number, number, number, number, number];
   config?: GenerationConfig;
   sourceUrl?: string;
 }>;
