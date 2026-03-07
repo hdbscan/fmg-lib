@@ -26,6 +26,10 @@ import {
   runStatesStage,
   runWaterbodyStage,
 } from "./internal/stages";
+import {
+  buildTerrainDiagnosticsFromWorld,
+  captureTerrainDiagnosticStep,
+} from "./terrain-harness";
 export { deserializeWorld, serializeWorld } from "./serialization";
 export {
   buildLocalParitySnapshot,
@@ -37,6 +41,16 @@ export {
   type ParitySnapshot,
   type RegionParityMetric,
 } from "./parity";
+export {
+  buildTerrainDiagnosticsFromWorld,
+  captureTerrainDiagnosticStep,
+  compareTerrainDiagnostics,
+  type TerrainDiagnosticStep,
+  type TerrainDiagnostics,
+  type TerrainDiagnosticsComparison,
+  type TerrainStepComparison,
+} from "./terrain-harness";
+import type { TerrainDiagnostics } from "./terrain-harness";
 import type {
   GenerationConfig,
   GenerationContext,
@@ -399,4 +413,65 @@ export const generateWorld = (options: GenerateOptions): WorldGraphV1 => {
   }
 
   return toWorldGraph(context);
+};
+
+export const generateTerrainDiagnostics = (
+  options: GenerateOptions,
+): TerrainDiagnostics => {
+  const config = normalizeConfig(options);
+  const context = createContext(config);
+
+  runGridStage(context);
+
+  const steps = [
+    captureTerrainDiagnosticStep(
+      context.world,
+      "grid",
+      "Grid",
+      config.seaLevel,
+    ),
+  ];
+
+  runHeightmapStage(context, (key, label) => {
+    steps.push(
+      captureTerrainDiagnosticStep(context.world, key, label, config.seaLevel),
+    );
+  });
+
+  steps.push(
+    captureTerrainDiagnosticStep(
+      context.world,
+      "heightmap:complete",
+      "Heightmap complete",
+      config.seaLevel,
+    ),
+  );
+
+  if (runDeepDepressionLakeStage(context)) {
+    steps.push(
+      captureTerrainDiagnosticStep(
+        context.world,
+        "terrain:deep-depression-lakes",
+        "Deep depression lakes",
+        config.seaLevel,
+      ),
+    );
+  }
+
+  runFeatureStage(context);
+  steps.push(
+    captureTerrainDiagnosticStep(
+      context.world,
+      "terrain:feature-coast",
+      "Feature coast mask",
+      config.seaLevel,
+    ),
+  );
+
+  return buildTerrainDiagnosticsFromWorld(
+    toWorldGraph(context),
+    config.heightTemplate,
+    config.seaLevel,
+    steps,
+  );
 };
