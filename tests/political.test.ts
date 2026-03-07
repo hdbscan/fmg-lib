@@ -74,6 +74,8 @@ const createContext = (): GenerationContext => {
       packHavenPack: null,
       packCellsFlow: null,
       packCellsRiver: null,
+      packCellsBiome: null,
+      packCellsH: null,
     },
     world: {
       cellCount: 4,

@@ -389,6 +389,8 @@ export type GenerationContext = {
     packHavenPack: Int32Array | null;
     packCellsFlow: Uint32Array | null;
     packCellsRiver: Uint32Array | null;
+    packCellsBiome: Uint8Array | null;
+    packCellsH: Uint8Array | null;
   };
   world: {
     cellCount: number;

@@ -104,6 +104,8 @@ const createContext = (
       packHavenPack: null,
       packCellsFlow: null,
       packCellsRiver: null,
+      packCellsBiome: null,
+      packCellsH: null,
     },
     world: {
       cellCount: 0,
@@ -549,7 +551,22 @@ export const generatePhysicalDiagnostics = (
   runPackFeatureMetadataStage(context);
   runBiomeStage(context);
   steps.push(
-    capturePhysicalDiagnosticStep(context.world, "physical:biome", "Biome"),
+    capturePhysicalDiagnosticStep(
+      {
+        ...context.world,
+        ...(context.internal.packCellsFlow
+          ? { packFlow: context.internal.packCellsFlow }
+          : {}),
+        ...(context.internal.packCellsRiver
+          ? { packRiver: context.internal.packCellsRiver }
+          : {}),
+        ...(context.internal.packCellsBiome
+          ? { packBiome: context.internal.packCellsBiome }
+          : {}),
+      },
+      "physical:biome",
+      "Biome",
+    ),
   );
 
   return buildPhysicalDiagnosticsFromWorld(
