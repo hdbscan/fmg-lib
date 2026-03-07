@@ -3862,6 +3862,9 @@ const computePackHydrology = (
     packCellVertexOffsets,
   } = context.world;
   const packHavenPack = context.internal.packHavenPack;
+  const maxDepressionIterations = 250;
+  const checkLakeMaxIteration = maxDepressionIterations * 0.85;
+  const elevateLakeMaxIteration = maxDepressionIterations * 0.75;
 
   if (packCellCount <= 0 || packFeatureCount <= 0) {
     return {
@@ -3875,6 +3878,7 @@ const computePackHydrology = (
     type: "ocean" | "lake" | "island";
     cells: number;
     firstCell: number;
+    cellIds: number[];
     shoreline: number[];
     height: number;
     flux?: number;
@@ -3894,6 +3898,7 @@ const computePackHydrology = (
       type: "ocean",
       cells: 0,
       firstCell: 0,
+      cellIds: [],
       shoreline: [],
       height: 0,
     },
@@ -3907,6 +3912,12 @@ const computePackHydrology = (
     );
     const typeCode = packFeatureType[featureId] ?? 0;
     const type = typeCode === 1 ? "ocean" : typeCode === 2 ? "lake" : "island";
+    const cellIds: number[] = [];
+    for (let packId = 0; packId < packCellCount; packId += 1) {
+      if ((packCellsFeatureId[packId] ?? 0) === featureId) {
+        cellIds.push(packId);
+      }
+    }
     const height =
       type === "lake" && shoreline.length > 0
         ? rn(
@@ -3919,6 +3930,7 @@ const computePackHydrology = (
       type,
       cells: packFeatureSize[featureId] ?? 0,
       firstCell: packFeatureFirstCell[featureId] ?? 0,
+      cellIds,
       shoreline,
       height,
     };
@@ -3937,6 +3949,35 @@ const computePackHydrology = (
 
   const getPackNeighbors = (packId: number): number[] =>
     mutableNeighborsByPack[packId] ?? [];
+
+  for (let featureId = 1; featureId <= packFeatureCount; featureId += 1) {
+    const feature = features[featureId];
+    if (!feature || feature.type !== "lake") {
+      continue;
+    }
+
+    const shoreline: number[] = [];
+    for (const packId of feature.cellIds) {
+      for (const neighborId of getPackNeighbors(packId)) {
+        if (
+          (packCellsFeatureId[neighborId] ?? 0) === featureId ||
+          (packH[neighborId] ?? 0) < 20 ||
+          shoreline.includes(neighborId)
+        ) {
+          continue;
+        }
+        shoreline.push(neighborId);
+      }
+    }
+
+    if (shoreline.length > 0) {
+      feature.shoreline = shoreline;
+      feature.height = rn(
+        Math.min(...shoreline.map((packId) => packH[packId] ?? 20)) - 0.1,
+        2,
+      );
+    }
+  }
 
   const alteredHeights = Array.from(packH, (height, packId) => {
     if (height < 20 || (packCoast[packId] ?? 0) < 1) {
@@ -4029,7 +4070,11 @@ const computePackHydrology = (
   const progress: number[] = [];
   let depressions = Number.POSITIVE_INFINITY;
   let previousDepressions: number | null = null;
-  for (let iteration = 0; depressions && iteration < 100; iteration += 1) {
+  for (
+    let iteration = 0;
+    depressions && iteration < maxDepressionIterations;
+    iteration += 1
+  ) {
     if (
       progress.length > 5 &&
       progress.reduce((sum, value) => sum + value, 0) > 0
@@ -4052,7 +4097,7 @@ const computePackHydrology = (
     }
 
     depressions = 0;
-    if (iteration < 85) {
+    if (iteration < checkLakeMaxIteration) {
       for (const feature of features) {
         if (!feature || feature.type !== "lake" || feature.closed) {
           continue;
@@ -4069,7 +4114,7 @@ const computePackHydrology = (
           continue;
         }
 
-        if (iteration > 75) {
+        if (iteration > elevateLakeMaxIteration) {
           for (const packId of feature.shoreline) {
             alteredHeights[packId] = packH[packId] ?? 0;
           }
