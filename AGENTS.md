@@ -38,6 +38,7 @@ Build `fmg-lib` as a headless, deterministic, Bun-first TypeScript library with 
 ## Issue Tracking
 
 This project uses **bd (beads)** for issue tracking.
+Ensure `bd` is on PATH before using it, typically with `export PATH="$HOME/.local/bin:$HOME/.bun/bin:$PATH"` in subagent/worktree shells.
 Run `bd prime` for workflow context.
 
 Quick reference:
