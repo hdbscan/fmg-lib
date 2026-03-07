@@ -1507,34 +1507,34 @@ describe("world generation integration", () => {
 
     expect(world.burgCount).toBe(744);
     expect(createHash("sha256").update(world.cellsBurg).digest("hex")).toBe(
-      "d79152a801c44c3bffbce7cfaddf21203d5c00f0348517783d69478422247000",
+      "9317c0e795eec2a27e60486115dc15e6c144f034d1485e6efd6e2c0f75fda160",
     );
     expect(createHash("sha256").update(world.burgCell).digest("hex")).toBe(
-      "e02b056a8e5fb428bb460dc44fdf331a9d6a425d42df2392555da883c50bfede",
+      "21fae959b5fe7973d69e0334fc9750af9e5379c20bb28110c74a17a509334e1a",
     );
     expect(createHash("sha256").update(world.burgX).digest("hex")).toBe(
-      "ecca8e6729b61231a834d7970df097409034b529e76f28b25e9e5c180fe8a77e",
+      "98d2c12c890a7717b7d42c8e8c3b0f0fffcecbddea6d1dedba077146c3ea792c",
     );
     expect(createHash("sha256").update(world.burgY).digest("hex")).toBe(
-      "ae0bf5afa8892ee4d9486e0c747a0adcdb047079c2f30f371f170c57e2adbc15",
+      "d49d21e68f30e4fede1a47664944348924492d1dc468dad7516a49ccba99f2f2",
     );
     expect(createHash("sha256").update(world.burgCapital).digest("hex")).toBe(
       "ba01dc4ff19145a5dc6e254a094e8a38b432276d3ade0072920858a4ec49395c",
     );
     expect(createHash("sha256").update(world.burgPort).digest("hex")).toBe(
-      "d5436656d2d1ba6dcd7c32c5bdd5ac4d7c02554133b45584c36f639edb03ff13",
+      "8941dd33a52a60bb8a237d7511038e96c07cbbc9a0250abbd458d93201a15eb4",
     );
     expect(createHash("sha256").update(world.cellsState).digest("hex")).toBe(
-      "c6ac4bcab392f5405a69601cef11f94ef29c288f0d109c35a8ffc8141c5b9e3c",
+      "afd56e812c3f4a785e413db6882535fac2f947d67eb8b06a86735f9f316dd162",
     );
     expect(
       createHash("sha256").update(world.stateCenterBurg).digest("hex"),
     ).toBe("e88624bf274aff4f35798f4bc27027683e9c1d78f132211a3cc4ae5b3decd4e3");
     expect(createHash("sha256").update(world.stateCells).digest("hex")).toBe(
-      "382f0756bb0f03404bbcde3e50718dbf5e79dd50d619d598606dff9f04b5e908",
+      "11a976aa4dc7cf19dcc60f4a8c267593eb17a22849a7cae1113f6a50af841ff7",
     );
     expect(createHash("sha256").update(world.stateForm).digest("hex")).toBe(
-      "245b3ffc520fe16ab794176d89f045153551f882d7ee2fd1c1e6ebcddf6a6343",
+      "ea7b62c9719a3b26c594bc95244309f7552e878e51d460d182f074c4c52ae660",
     );
   });
 
@@ -1666,16 +1666,16 @@ describe("world generation integration", () => {
 
     expect(world.religionCount).toBe(16);
     expect(createHash("sha256").update(world.cellsReligion).digest("hex")).toBe(
-      "2f278d992d72ded02107b42a473495224807d9fa563e4000f3817d5e39bf8de3",
+      "77ad5b4583c28291bd9e9028f32688a8e54a034849285a3d163f8e6836260878",
     );
     expect(
       createHash("sha256").update(world.religionSeedCell).digest("hex"),
-    ).toBe("9cd37f97a2b4d851dfcc9223959519effe6f02e35bafeceb821065bdbfb04f8e");
+    ).toBe("ad288714e2350ba0954ab5a4649da295e4a77f94104c861e8f6d5a997d6b859a");
     expect(createHash("sha256").update(world.religionType).digest("hex")).toBe(
-      "4810b465dbe9fbae2267dbb981b276b7eb04e3e60cfab989cc442dad5a92128d",
+      "803647fa24074caa2924e2bac36dfd6facb1818516863a4c45517548b8847ca9",
     );
     expect(createHash("sha256").update(world.religionSize).digest("hex")).toBe(
-      "044cf953cf6db366ec1e200daf00b7d57b22ad19d1741f9a260b1d5f2117ca8c",
+      "9cd220b170272096a18dceba5a68db9c9cec62971682d8e6e21e737a670db5a2",
     );
   });
 
@@ -1704,16 +1704,16 @@ describe("world generation integration", () => {
 
     expect(world.religionCount).toBe(22);
     expect(createHash("sha256").update(world.cellsReligion).digest("hex")).toBe(
-      "4c64c4533c87bfe37b356847a49dfe3d18dcf12269679622f346b9732b3d4a8b",
+      "3e415378f276b2275f317c52d9d67ff34cf0dcbfe04270f3097e2f1f279d69b5",
     );
     expect(
       createHash("sha256").update(world.religionSeedCell).digest("hex"),
-    ).toBe("544c40241fb4dd94923e7b5de95f5d1a04527dbdfcf0bf2c86a7acea97e03a19");
+    ).toBe("2ac46c84e83030dc44c0c77932c872b91501f4b546f442bec4282708a207612d");
     expect(createHash("sha256").update(world.religionType).digest("hex")).toBe(
-      "59f1d84c0259b4278ff9007acf67d003e5f3863b51976917a4f90c2e87982ed4",
+      "7b67d81dc2718dcdf0d5ebe85d5ef814ea8defd0b2342c0762e994ca353a0fd3",
     );
     expect(createHash("sha256").update(world.religionSize).digest("hex")).toBe(
-      "c3311b8dc010924563f1b741880aa029e30f05b5bcceb12affdb3b5e37721f89",
+      "44c33e6ccdcecc91229883d90d3296591b2ca0fc7d760b21b02d528535b0358f",
     );
   });
 

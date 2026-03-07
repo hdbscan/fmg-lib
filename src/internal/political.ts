@@ -873,6 +873,34 @@ const isPrimaryPackCell = (
   );
 };
 
+const getPrimaryPackId = (
+  context: GenerationContext,
+  packId: number,
+): number => {
+  const gridCellId = context.world.packToGrid[packId] ?? 0;
+  return context.world.gridToPack[gridCellId] ?? -1;
+};
+
+const isLandPackCell = (
+  context: GenerationContext,
+  packId: number,
+): boolean => {
+  const gridCellId = context.world.packToGrid[packId] ?? 0;
+  return (context.world.cellsFeature[gridCellId] ?? 0) === 1;
+};
+
+const getPrimaryPackSuitability = (
+  context: GenerationContext,
+  suitability: ArrayLike<number>,
+  packId: number,
+): number => {
+  const primaryPackId = getPrimaryPackId(context, packId);
+  if (primaryPackId >= 0) {
+    return suitability[primaryPackId] ?? 0;
+  }
+  return suitability[packId] ?? 0;
+};
+
 export const isPoliticalPackCell = (
   context: GenerationContext,
   packId: number,
@@ -1340,7 +1368,8 @@ export const runStatesStage = (context: GenerationContext): void => {
 
   const suitability = computePoliticalSuitability(context);
   const activePackCount = suitability.reduce(
-    (sum, value) => sum + (value > 0 ? 1 : 0),
+    (sum, _, packId) =>
+      sum + Number(getPrimaryPackSuitability(context, suitability, packId) > 0),
     0,
   );
   const stateCount = capitalBurgIds.length;
@@ -1410,17 +1439,22 @@ export const runStatesStage = (context: GenerationContext): void => {
       packNeighborOffsets,
       packNeighbors,
       (neighborPackId) => {
-        if (!isPoliticalPackCell(context, neighborPackId)) return;
+        if (!isInhabitedPackCell(context, neighborPackId)) return;
         const neighborCell = packToGrid[neighborPackId] ?? 0;
         const existing = packState[neighborPackId] ?? 0;
         const neighborHeight = cellsH[neighborCell] ?? 0;
+        const packSuitability = getPrimaryPackSuitability(
+          context,
+          suitability,
+          neighborPackId,
+        );
         const cultureCost =
           cultureId === (cellsCulture[neighborCell] ?? 0) ? -9 : 100;
         const populationCost =
           neighborHeight < 20
             ? 0
-            : (suitability[neighborPackId] ?? 0) > 0
-              ? Math.max(20 - (suitability[neighborPackId] ?? 0), 0)
+            : packSuitability > 0
+              ? Math.max(20 - packSuitability, 0)
               : 5000;
         const biomeCost = getBiomeCost(
           nativeBiome,
@@ -1690,7 +1724,7 @@ export const runProvincesStage = (context: GenerationContext): void => {
       packNeighborOffsets,
       packNeighbors,
       (neighborPackId) => {
-        if (!isPoliticalPackCell(context, neighborPackId)) return;
+        if (!isLandPackCell(context, neighborPackId)) return;
         const cellId = packToGrid[neighborPackId] ?? 0;
         if ((cellsH[cellId] ?? 0) < 20) return;
         if ((cellsState[cellId] ?? 0) !== stateId) return;
@@ -1842,7 +1876,7 @@ export const runReligionsStage = (context: GenerationContext): void => {
   const activePackCount = Array.from(
     { length: packCellCount },
     (_, packId) => packId,
-  ).filter((packId) => isPoliticalPackCell(context, packId)).length;
+  ).filter((packId) => isInhabitedPackCell(context, packId)).length;
   const desiredReligionNumber = clamp(
     context.config.hiddenControls.religionsNumber ??
       Math.round(Math.sqrt(Math.max(activePackCount, 1)) / 2),
@@ -1870,15 +1904,17 @@ export const runReligionsStage = (context: GenerationContext): void => {
         : Array.from({ length: packCellCount }, (_, packId) => packId)
             .filter(
               (packId) =>
-                isPoliticalPackCell(context, packId) &&
-                (suitability[packId] ?? 0) > 2,
+                isInhabitedPackCell(context, packId) &&
+                getPrimaryPackSuitability(context, suitability, packId) > 2,
             )
             .sort(
               (left, right) =>
-                (suitability[right] ?? 0) - (suitability[left] ?? 0) ||
+                getPrimaryPackSuitability(context, suitability, right) -
+                  getPrimaryPackSuitability(context, suitability, left) ||
                 left - right,
             )
-            .map((packId) => packToGrid[packId] ?? 0);
+            .map((packId) => packToGrid[packId] ?? 0)
+            .filter((cellId, index, list) => list.indexOf(cellId) === index);
   const selectedSeeds: number[] = [];
   const spacing =
     (context.config.width + context.config.height) /
