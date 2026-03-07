@@ -1964,7 +1964,6 @@ export const runPackStage = (context: GenerationContext): void => {
     cellsX,
     cellsY,
     cellsH,
-    cellsArea,
     cellsCoast,
     cellsWaterbody,
     waterbodyType,
@@ -1980,7 +1979,6 @@ export const runPackStage = (context: GenerationContext): void => {
   const pointX: number[] = [];
   const pointY: number[] = [];
   const pointH: number[] = [];
-  const pointArea: number[] = [];
   const pointCoast: number[] = [];
 
   const includeGridCell = (cellId: number): boolean => {
@@ -2009,7 +2007,6 @@ export const runPackStage = (context: GenerationContext): void => {
     pointX.push(x);
     pointY.push(y);
     pointH.push(cellsH[cellId] ?? 0);
-    pointArea.push(cellsArea[cellId] ?? 0);
     pointCoast.push(cellsCoast[cellId] ?? 0);
   };
 
@@ -2065,7 +2062,7 @@ export const runPackStage = (context: GenerationContext): void => {
   const packX = Float32Array.from(pointX);
   const packY = Float32Array.from(pointY);
   const packH = Uint8Array.from(pointH);
-  const packArea = Float32Array.from(pointArea);
+  const packArea = new Float32Array(packCellCount);
   const packCoast = Int8Array.from(pointCoast);
   const packHaven = new Int32Array(packCellCount);
   const packHarbor = new Uint8Array(packCellCount);
@@ -2084,12 +2081,22 @@ export const runPackStage = (context: GenerationContext): void => {
 
   for (let packId = 0; packId < packCellCount; packId += 1) {
     const gridCellId = packToGrid[packId] ?? 0;
+    const vertexFrom = packAdjacency.cellVertexOffsets[packId] ?? 0;
+    const vertexTo = packAdjacency.cellVertexOffsets[packId + 1] ?? vertexFrom;
     const isPrimaryPackCell =
       Math.abs((packX[packId] ?? 0) - (cellsX[gridCellId] ?? 0)) < 1e-6 &&
       Math.abs((packY[packId] ?? 0) - (cellsY[gridCellId] ?? 0)) < 1e-6;
     if (isPrimaryPackCell && (gridToPack[gridCellId] ?? -1) === -1) {
       gridToPack[gridCellId] = packId;
     }
+
+    packArea[packId] = polygonArea(
+      packAdjacency.cellVertices,
+      vertexFrom,
+      vertexTo,
+      packAdjacency.vertexX,
+      packAdjacency.vertexY,
+    );
 
     if ((cellsH[gridCellId] ?? 0) < 20) {
       continue;
