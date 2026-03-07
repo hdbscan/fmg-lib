@@ -57,11 +57,11 @@
   },
   "religions": {
     "oracleRegionCount": 14,
-    "localRegionCount": 16,
-    "matchedRegionPairs": 9,
-    "pixelIntersection": 4772,
-    "pixelUnion": 26179,
-    "iou": 0.18228350968333398
+    "localRegionCount": 14,
+    "matchedRegionPairs": 7,
+    "pixelIntersection": 5595,
+    "pixelUnion": 25356,
+    "iou": 0.2206578324656886
   },
   "burgs": {
     "oracleCount": 796,

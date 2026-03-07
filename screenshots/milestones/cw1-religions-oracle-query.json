@@ -1,0 +1,15 @@
+{
+  "slug": "cw1-religions-oracle-query",
+  "capturedAt": "2026-03-07T16:39:08.610Z",
+  "url": "http://127.0.0.1:37113/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "900x600",
+  "fullPage": false,
+  "delayMs": 2000,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "cw1-religions-oracle-query.png",
+  "sha256": "55ba54aeb0ee725566e6775ba7668df3c69be06681a1c0071a3d7430d723577a"
+}
