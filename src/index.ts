@@ -1,3 +1,7 @@
+import {
+  buildDownstreamDiagnosticsFromWorld,
+  captureDownstreamDiagnosticStep,
+} from "./downstream-harness";
 import { normalizeConfig } from "./internal/config";
 import { createAlea } from "./internal/random";
 import {
@@ -46,6 +50,15 @@ export {
   type RegionParityMetric,
 } from "./parity";
 export {
+  buildDownstreamDiagnosticsFromWorld,
+  captureDownstreamDiagnosticStep,
+  compareDownstreamDiagnostics,
+  type DownstreamDiagnosticStep,
+  type DownstreamDiagnostics,
+  type DownstreamDiagnosticsComparison,
+  type DownstreamStepComparison,
+} from "./downstream-harness";
+export {
   buildPhysicalDiagnosticsFromWorld,
   capturePhysicalDiagnosticStep,
   comparePhysicalDiagnostics,
@@ -63,6 +76,7 @@ export {
   type TerrainDiagnosticsComparison,
   type TerrainStepComparison,
 } from "./terrain-harness";
+import type { DownstreamDiagnostics } from "./downstream-harness";
 import type { PhysicalDiagnostics } from "./physical-harness";
 import type { TerrainDiagnostics } from "./terrain-harness";
 import type {
@@ -573,6 +587,118 @@ export const generatePhysicalDiagnostics = (
     toWorldGraph(context),
     config.heightTemplate,
     config.seaLevel,
+    steps,
+  );
+};
+
+export const generateDownstreamDiagnostics = (
+  options: GenerateOptions,
+): DownstreamDiagnostics => {
+  const config = normalizeConfig(options);
+  const context = createContext(config);
+  const downstreamWorld = () => ({
+    seed: config.seed,
+    width: config.width,
+    height: config.height,
+    ...context.world,
+  });
+
+  runGridStage(context);
+  runHeightmapStage(context);
+  runDeepDepressionLakeStage(context);
+  runFeatureStage(context);
+  runLandmassStage(context);
+  runWaterbodyStage(context);
+  if (runOpenNearSeaLakesStage(context)) {
+    runFeatureStage(context);
+    runLandmassStage(context);
+    runWaterbodyStage(context);
+  }
+  runPackStage(context);
+  runPackFeatureStage(context);
+  runGridFeatureMarkupStage(context);
+  runClimateStage(context);
+  runHydrologyStage(context);
+  runPackFeatureMetadataStage(context);
+  runBiomeStage(context);
+
+  const steps = [];
+
+  runCulturesStage(context);
+  steps.push(
+    captureDownstreamDiagnosticStep(
+      downstreamWorld(),
+      "downstream:cultures",
+      "Cultures",
+    ),
+  );
+
+  runBurgGenerationStage(context);
+  steps.push(
+    captureDownstreamDiagnosticStep(
+      downstreamWorld(),
+      "downstream:burgs-generation",
+      "Burg generation",
+    ),
+  );
+
+  runStatesStage(context);
+  steps.push(
+    captureDownstreamDiagnosticStep(
+      downstreamWorld(),
+      "downstream:states",
+      "States",
+    ),
+  );
+
+  runRoutesStage(context);
+  steps.push(
+    captureDownstreamDiagnosticStep(
+      downstreamWorld(),
+      "downstream:routes",
+      "Routes",
+    ),
+  );
+
+  runReligionsStage(context);
+  steps.push(
+    captureDownstreamDiagnosticStep(
+      downstreamWorld(),
+      "downstream:religions",
+      "Religions",
+    ),
+  );
+
+  runBurgSpecificationStage(context);
+  steps.push(
+    captureDownstreamDiagnosticStep(
+      downstreamWorld(),
+      "downstream:burgs-specification",
+      "Burg specification",
+    ),
+  );
+
+  runStateFormsStage(context);
+  steps.push(
+    captureDownstreamDiagnosticStep(
+      downstreamWorld(),
+      "downstream:state-forms",
+      "State forms",
+    ),
+  );
+
+  runProvincesStage(context);
+  steps.push(
+    captureDownstreamDiagnosticStep(
+      downstreamWorld(),
+      "downstream:provinces",
+      "Provinces",
+    ),
+  );
+
+  return buildDownstreamDiagnosticsFromWorld(
+    toWorldGraph(context),
+    config.heightTemplate,
     steps,
   );
 };
