@@ -4,6 +4,7 @@ import {
   runProvincesStage as runPoliticalProvincesStage,
   runReligionsStage as runPoliticalReligionsStage,
   runSettlementsStage as runPoliticalSettlementsStage,
+  runStateFormsStage as runPoliticalStateFormsStage,
   runStatesStage as runPoliticalStatesStage,
 } from "./political";
 import { createAlea, hashSeed } from "./random";
@@ -2974,6 +2975,9 @@ export const runSettlementsStage = (context: GenerationContext): void =>
 
 export const runStatesStage = (context: GenerationContext): void =>
   runPoliticalStatesStage(context);
+
+export const runStateFormsStage = (context: GenerationContext): void =>
+  runPoliticalStateFormsStage(context);
 
 export const runRoutesStage = (context: GenerationContext): void => {
   const {

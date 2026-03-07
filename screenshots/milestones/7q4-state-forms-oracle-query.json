@@ -1,0 +1,15 @@
+{
+  "slug": "7q4-state-forms-oracle-query",
+  "capturedAt": "2026-03-07T10:30:50.175Z",
+  "url": "http://127.0.0.1:36495/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&heightTemplate=continents&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "1280x900",
+  "fullPage": false,
+  "delayMs": 1500,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&heightTemplate=continents&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "7q4-state-forms-oracle-query.png",
+  "sha256": "7990510ad8ed44f5a0d13ec209b968064e5c55c23c89059d524c3797f26c88c2"
+}

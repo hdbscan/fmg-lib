@@ -20,6 +20,7 @@ import {
   runReligionsStage,
   runRoutesStage,
   runSettlementsStage,
+  runStateFormsStage,
   runStatesStage,
   runWaterbodyStage,
 } from "./internal/stages";
@@ -330,11 +331,15 @@ export const generateWorld = (options: GenerateOptions): WorldGraphV1 => {
   if (context.config.layers.politics) {
     runStatesStage(context);
     runRoutesStage(context);
-    runProvincesStage(context);
   }
 
   if (context.config.layers.religions) {
     runReligionsStage(context);
+  }
+
+  if (context.config.layers.politics) {
+    runStateFormsStage(context);
+    runProvincesStage(context);
   }
 
   if (context.config.layers.military) {

@@ -764,8 +764,29 @@ export const runStatesStage = (context: GenerationContext): void => {
       stateCells[stateId] = (stateCells[stateId] ?? 0) + 1;
   }
 
-  const averageStateCells =
-    Math.max(activePackCount, 1) / Math.max(stateCount, 1);
+  context.world.stateCount = stateCount;
+  context.world.stateCenterBurg = stateCenterBurg;
+  context.world.stateCulture = stateCulture;
+  context.world.stateForm = stateForm;
+  context.world.stateCells = stateCells;
+};
+
+export const runStateFormsStage = (context: GenerationContext): void => {
+  const { stateCount, stateCenterBurg, burgCell, burgPort, stateCells } =
+    context.world;
+
+  if (stateCount <= 0) {
+    context.world.stateForm = new Uint8Array(1);
+    return;
+  }
+
+  const stateForm = new Uint8Array(stateCount + 1);
+  let totalStateCells = 0;
+  for (let stateId = 1; stateId <= stateCount; stateId += 1) {
+    totalStateCells += stateCells[stateId] ?? 0;
+  }
+
+  const averageStateCells = totalStateCells / Math.max(stateCount, 1);
   for (let stateId = 1; stateId <= stateCount; stateId += 1) {
     const capital = stateCenterBurg[stateId] ?? 0;
     const capitalCell = burgCell[capital] ?? 0;
@@ -782,11 +803,7 @@ export const runStatesStage = (context: GenerationContext): void => {
     }
   }
 
-  context.world.stateCount = stateCount;
-  context.world.stateCenterBurg = stateCenterBurg;
-  context.world.stateCulture = stateCulture;
   context.world.stateForm = stateForm;
-  context.world.stateCells = stateCells;
 };
 
 export const runProvincesStage = (context: GenerationContext): void => {
