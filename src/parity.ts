@@ -45,6 +45,9 @@ export type ParitySnapshot = Readonly<{
   cultureCount?: number;
   statesNumber?: number;
   townsNumber?: number;
+  sizeVariety?: number;
+  growthRate?: number;
+  religionsNumber?: number;
   lakeElevationLimit?: number;
   precipitation?: number;
   mapSize?: number;

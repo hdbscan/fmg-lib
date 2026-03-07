@@ -609,7 +609,9 @@ export const runStatesStage = (context: GenerationContext): void => {
   const cost = new Float64Array(packCellCount);
   cost.fill(Number.POSITIVE_INFINITY);
   const queue: QueueEntry[] = [];
-  const growthRate = (Math.max(activePackCount, 1) / 2) * 1 * 1;
+  const growthRate =
+    (Math.max(activePackCount, 1) / 2) *
+    context.config.hiddenControls.growthRate;
 
   for (let index = 0; index < capitalBurgIds.length; index += 1) {
     const stateId = index + 1;
@@ -620,7 +622,10 @@ export const runStatesStage = (context: GenerationContext): void => {
     const cultureCenter = cultureSeedCell[cultureId] ?? centerCell;
     stateCenterBurg[stateId] = burgId;
     stateCulture[stateId] = cultureId;
-    stateExpansionism[stateId] = rn(context.random() * 2 + 1, 1);
+    stateExpansionism[stateId] = rn(
+      context.random() * context.config.hiddenControls.sizeVariety + 1,
+      1,
+    );
     stateType[stateId] = getBurgType(
       context,
       centerCell,
@@ -1053,9 +1058,10 @@ export const runReligionsStage = (context: GenerationContext): void => {
     (_, packId) => packId,
   ).filter((packId) => isPoliticalPackCell(context, packId)).length;
   const desiredReligionNumber = clamp(
-    Math.round(Math.sqrt(Math.max(activePackCount, 1)) / 2),
-    1,
-    32,
+    context.config.hiddenControls.religionsNumber ??
+      Math.round(Math.sqrt(Math.max(activePackCount, 1)) / 2),
+    0,
+    50,
   );
   const candidateBurgs = Array.from(
     { length: burgCount },
@@ -1144,7 +1150,9 @@ export const runReligionsStage = (context: GenerationContext): void => {
     cellsReligion[cellId] = assigned;
   }
 
-  const maxExpansionCost = (Math.max(activePackCount, 1) / 20) * 1;
+  const maxExpansionCost =
+    (Math.max(activePackCount, 1) / 20) *
+    context.config.hiddenControls.growthRate;
   const queue: QueueEntry[] = [];
   const cost = new Float64Array(packCellCount);
   cost.fill(Number.POSITIVE_INFINITY);

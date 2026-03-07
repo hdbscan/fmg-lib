@@ -90,6 +90,26 @@ export const normalizeConfig = (
     throw new Error("seaLevel must be an integer within [1, 99]");
   }
 
+  const sizeVariety = config.hiddenControls?.sizeVariety ?? 2;
+  if (!inRange(sizeVariety, 0, 10)) {
+    throw new Error("hiddenControls.sizeVariety must be within [0, 10]");
+  }
+
+  const growthRate = config.hiddenControls?.growthRate ?? 1;
+  if (!inRange(growthRate, 0.1, 2)) {
+    throw new Error("hiddenControls.growthRate must be within [0.1, 2]");
+  }
+
+  const religionsNumber = config.hiddenControls?.religionsNumber ?? null;
+  if (
+    religionsNumber !== null &&
+    (!Number.isInteger(religionsNumber) || !inRange(religionsNumber, 0, 50))
+  ) {
+    throw new Error(
+      "hiddenControls.religionsNumber must be an integer within [0, 50]",
+    );
+  }
+
   const temperatureEquator = config.climate?.temperatureEquator ?? 27;
   const temperatureNorthPole = config.climate?.temperatureNorthPole ?? -30;
   const temperatureSouthPole = config.climate?.temperatureSouthPole ?? -15;
@@ -153,6 +173,11 @@ export const normalizeConfig = (
     heightNoise,
     heightTemplate,
     seaLevel,
+    hiddenControls: {
+      sizeVariety,
+      growthRate,
+      religionsNumber,
+    },
     climate: {
       temperatureEquator,
       temperatureNorthPole,

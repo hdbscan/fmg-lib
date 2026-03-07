@@ -24,6 +24,12 @@ export type ClimateConfig = Readonly<{
 
 export type HeightTemplate = "continents" | "archipelago" | "inland-sea";
 
+export type HiddenGenerationControls = Readonly<{
+  sizeVariety?: number;
+  growthRate?: number;
+  religionsNumber?: number;
+}>;
+
 export type GenerationConfig = Readonly<{
   seed: string;
   width: number;
@@ -36,6 +42,7 @@ export type GenerationConfig = Readonly<{
   heightNoise?: number;
   heightTemplate?: HeightTemplate;
   seaLevel?: number;
+  hiddenControls?: HiddenGenerationControls;
   climate?: ClimateConfig;
   layers?: Partial<LayerFlags>;
 }>;
@@ -52,6 +59,11 @@ export type NormalizedGenerationConfig = Readonly<{
   heightNoise: number;
   heightTemplate: HeightTemplate;
   seaLevel: number;
+  hiddenControls: Readonly<{
+    sizeVariety: number;
+    growthRate: number;
+    religionsNumber: number | null;
+  }>;
   climate: Readonly<{
     temperatureEquator: number;
     temperatureNorthPole: number;
