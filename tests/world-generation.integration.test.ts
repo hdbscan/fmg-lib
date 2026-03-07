@@ -1158,7 +1158,7 @@ describe("world generation integration", () => {
     });
     const inlandSea = generateWorld({
       ...baseConfig,
-      heightTemplate: "inland-sea",
+      heightTemplate: "mediterranean",
     });
 
     expect(Array.from(lowNoise.cellsH)).not.toEqual(
@@ -2957,7 +2957,7 @@ describe("world generation integration", () => {
         heightTemplate: "volcanic",
       }),
     ).toThrow(
-      "heightTemplate must be one of: continents, archipelago, inland-sea",
+      "heightTemplate must be one of: volcano, highIsland, lowIsland, continents, archipelago, atoll, mediterranean, peninsula, pangea, isthmus, shattered, taklamakan, oldWorld, fractious",
     );
     const withSettlements = generateWorld({
       ...baseConfig,

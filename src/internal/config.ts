@@ -6,9 +6,20 @@ import type {
 } from "../types";
 
 const HEIGHT_TEMPLATES: HeightTemplate[] = [
+  "volcano",
+  "highIsland",
+  "lowIsland",
   "continents",
   "archipelago",
-  "inland-sea",
+  "atoll",
+  "mediterranean",
+  "peninsula",
+  "pangea",
+  "isthmus",
+  "shattered",
+  "taklamakan",
+  "oldWorld",
+  "fractious",
 ];
 
 const DEFAULT_LAYERS: LayerFlags = {
@@ -81,7 +92,7 @@ export const normalizeConfig = (
   const heightTemplate = config.heightTemplate ?? "continents";
   if (!HEIGHT_TEMPLATES.includes(heightTemplate)) {
     throw new Error(
-      "heightTemplate must be one of: continents, archipelago, inland-sea",
+      "heightTemplate must be one of: volcano, highIsland, lowIsland, continents, archipelago, atoll, mediterranean, peninsula, pangea, isthmus, shattered, taklamakan, oldWorld, fractious",
     );
   }
 

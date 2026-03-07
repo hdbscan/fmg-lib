@@ -22,7 +22,21 @@ export type ClimateConfig = Readonly<{
   winds?: readonly [number, number, number, number, number, number];
 }>;
 
-export type HeightTemplate = "continents" | "archipelago" | "inland-sea";
+export type HeightTemplate =
+  | "volcano"
+  | "highIsland"
+  | "lowIsland"
+  | "continents"
+  | "archipelago"
+  | "atoll"
+  | "mediterranean"
+  | "peninsula"
+  | "pangea"
+  | "isthmus"
+  | "shattered"
+  | "taklamakan"
+  | "oldWorld"
+  | "fractious";
 
 export type HiddenGenerationControls = Readonly<{
   sizeVariety?: number;
