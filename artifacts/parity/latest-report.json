@@ -15,6 +15,7 @@
       "height": 900,
       "cells": 9996,
       "culturesCount": 9,
+      "heightTemplate": "continents",
       "statesCount": 23,
       "townsCount": 1000,
       "hiddenControls": {
@@ -23,11 +24,23 @@
         "religionsNumber": 7
       },
       "climate": {
+        "temperatureEquator": 27,
+        "temperatureNorthPole": -31,
+        "temperatureSouthPole": -14,
+        "elevationExponent": 2,
         "lakeElevationLimit": 20,
         "precipitation": 94,
         "mapSize": 100,
         "latitude": 50,
-        "longitude": 50
+        "longitude": 50,
+        "winds": [
+          225,
+          45,
+          225,
+          315,
+          135,
+          315
+        ]
       },
       "layers": {
         "physical": true,
@@ -50,27 +63,27 @@
   "politics": {
     "oracleRegionCount": 23,
     "localRegionCount": 23,
-    "matchedRegionPairs": 12,
-    "pixelIntersection": 5197,
-    "pixelUnion": 26823,
-    "iou": 0.19375163106289378
+    "matchedRegionPairs": 14,
+    "pixelIntersection": 5192,
+    "pixelUnion": 27343,
+    "iou": 0.18988406539150787
   },
   "religions": {
     "oracleRegionCount": 14,
-    "localRegionCount": 10,
-    "matchedRegionPairs": 6,
-    "pixelIntersection": 5550,
-    "pixelUnion": 25367,
-    "iou": 0.21878818937990302
+    "localRegionCount": 14,
+    "matchedRegionPairs": 9,
+    "pixelIntersection": 5188,
+    "pixelUnion": 25729,
+    "iou": 0.20164017256791947
   },
   "burgs": {
     "oracleCount": 796,
-    "localCount": 744,
+    "localCount": 750,
     "threshold": 10.74,
-    "oracleRecallWithinThreshold": 0.38944723618090454,
-    "localPrecisionWithinThreshold": 0.34946236559139787,
-    "meanNearestDistance": 18.59390440472334,
-    "medianNearestDistance": 13.885040595161087
+    "oracleRecallWithinThreshold": 0.39824120603015073,
+    "localPrecisionWithinThreshold": 0.3333333333333333,
+    "meanNearestDistance": 18.78410294420801,
+    "medianNearestDistance": 13.533832973548993
   },
   "counts": {
     "landmasses": {
@@ -90,8 +103,8 @@
     },
     "burgs": {
       "oracle": 796,
-      "local": 744,
-      "delta": -52
+      "local": 750,
+      "delta": -46
     }
   }
 }
