@@ -1,14 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { runOpenNearSeaLakesStage, runPackStage } from "../src/internal/stages";
+import { runFeatureStage } from "../src/internal/stages";
 import type {
   GenerationContext,
   NormalizedGenerationConfig,
 } from "../src/types";
 
 const config: NormalizedGenerationConfig = {
-  seed: "pack-retention-test",
+  seed: "feature-markup-test",
   width: 100,
-  height: 100,
+  height: 25,
   requestedCells: 4,
   culturesCount: 1,
   statesCount: null,
@@ -38,24 +38,26 @@ const config: NormalizedGenerationConfig = {
   },
   layers: {
     physical: true,
-    cultures: true,
-    settlements: true,
-    politics: true,
-    religions: true,
+    cultures: false,
+    settlements: false,
+    politics: false,
+    religions: false,
     military: false,
     markers: false,
     zones: false,
   },
 };
 
-const createContext = (): GenerationContext => {
+const createContext = (heights: readonly number[]): GenerationContext => {
+  const cellCount = heights.length;
+
   return {
     config,
     random: () => 0.5,
     grid: {
-      spacing: 30,
-      cellsX: 2,
-      cellsY: 2,
+      spacing: 25,
+      cellsX: cellCount,
+      cellsY: 1,
     },
     internal: {
       cultureTypes: ["Generic"],
@@ -63,17 +65,19 @@ const createContext = (): GenerationContext => {
       packRetentionCoast: null,
     },
     world: {
-      cellCount: 4,
-      cellsX: new Float32Array([20, 50, 80, 50]),
-      cellsY: new Float32Array([20, 20, 20, 60]),
-      cellsBorder: new Uint8Array(4),
-      cellsArea: new Float32Array(4),
-      cellsH: new Uint8Array([19, 20, 19, 30]),
-      cellsCulture: new Uint16Array(4),
+      cellCount,
+      cellsX: new Float32Array(
+        Array.from({ length: cellCount }, (_, index) => 12.5 + index * 25),
+      ),
+      cellsY: new Float32Array(cellCount),
+      cellsBorder: new Uint8Array(cellCount),
+      cellsArea: new Float32Array(cellCount),
+      cellsH: Uint8Array.from(heights),
+      cellsCulture: new Uint16Array(cellCount),
       cultureCount: 0,
       cultureSeedCell: new Uint32Array(1),
       cultureSize: new Uint32Array(1),
-      cellsBurg: new Uint16Array(4),
+      cellsBurg: new Uint16Array(cellCount),
       burgCount: 0,
       burgCell: new Uint32Array(1),
       burgX: new Float32Array(1),
@@ -82,7 +86,7 @@ const createContext = (): GenerationContext => {
       burgCapital: new Uint8Array(1),
       burgPort: new Uint8Array(1),
       burgCulture: new Uint16Array(1),
-      cellsState: new Uint16Array(4),
+      cellsState: new Uint16Array(cellCount),
       stateCount: 0,
       stateCenterBurg: new Uint16Array(1),
       stateCulture: new Uint16Array(1),
@@ -93,20 +97,20 @@ const createContext = (): GenerationContext => {
       routeToState: new Uint16Array(1),
       routeKind: new Uint8Array(1),
       routeWeight: new Uint16Array(1),
-      cellRouteOffsets: new Uint32Array(5),
+      cellRouteOffsets: new Uint32Array(cellCount + 1),
       cellRouteNeighbors: new Uint32Array(0),
       cellRouteKinds: new Uint8Array(0),
-      cellsProvince: new Uint16Array(4),
+      cellsProvince: new Uint16Array(cellCount),
       provinceCount: 0,
       provinceState: new Uint16Array(1),
       provinceCenterCell: new Uint32Array(1),
       provinceCells: new Uint32Array(1),
-      cellsReligion: new Uint16Array(4),
+      cellsReligion: new Uint16Array(cellCount),
       religionCount: 0,
       religionSeedCell: new Uint32Array(1),
       religionType: new Uint8Array(1),
       religionSize: new Uint32Array(1),
-      cellsMilitary: new Uint16Array(4),
+      cellsMilitary: new Uint16Array(cellCount),
       militaryCount: 0,
       militaryCell: new Uint32Array(1),
       militaryState: new Uint16Array(1),
@@ -116,36 +120,36 @@ const createContext = (): GenerationContext => {
       markerCell: new Uint32Array(1),
       markerType: new Uint8Array(1),
       markerStrength: new Uint8Array(1),
-      cellsZone: new Uint16Array(4),
+      cellsZone: new Uint16Array(cellCount),
       zoneCount: 0,
       zoneSeedCell: new Uint32Array(1),
       zoneType: new Uint8Array(1),
       zoneCells: new Uint32Array(1),
-      cellsFeature: new Uint8Array([0, 1, 0, 1]),
-      cellsFeatureId: new Uint32Array(4),
+      cellsFeature: new Uint8Array(cellCount),
+      cellsFeatureId: new Uint32Array(cellCount),
       featureCount: 0,
       featureType: new Uint8Array(1),
       featureLand: new Uint8Array(1),
       featureBorder: new Uint8Array(1),
       featureSize: new Uint32Array(1),
       featureFirstCell: new Uint32Array(1),
-      cellsCoast: new Int8Array([-1, 1, -1, 2]),
-      cellsLandmass: new Uint32Array(4),
+      cellsCoast: new Int8Array(cellCount),
+      cellsLandmass: new Uint32Array(cellCount),
       landmassCount: 0,
       landmassKind: new Uint8Array(1),
       landmassSize: new Uint32Array(1),
       landmassBorder: new Uint8Array(1),
-      cellsTemp: new Int8Array(4),
-      cellsPrec: new Uint8Array(4),
-      cellsFlow: new Uint32Array(4),
-      cellsRiver: new Uint32Array(4),
-      cellsBiome: new Uint8Array(4),
-      cellsWaterbody: new Uint32Array([1, 0, 2, 0]),
-      waterbodyCount: 2,
-      waterbodyType: new Uint8Array([0, 2, 1]),
-      waterbodySize: new Uint32Array([0, 1, 1]),
+      cellsTemp: new Int8Array(cellCount),
+      cellsPrec: new Uint8Array(cellCount),
+      cellsFlow: new Uint32Array(cellCount),
+      cellsRiver: new Uint32Array(cellCount),
+      cellsBiome: new Uint8Array(cellCount),
+      cellsWaterbody: new Uint32Array(cellCount),
+      waterbodyCount: 0,
+      waterbodyType: new Uint8Array(1),
+      waterbodySize: new Uint32Array(1),
       packCellCount: 0,
-      gridToPack: new Int32Array(4),
+      gridToPack: new Int32Array(cellCount),
       packToGrid: new Uint32Array(0),
       packX: new Float32Array(0),
       packY: new Float32Array(0),
@@ -168,25 +172,21 @@ const createContext = (): GenerationContext => {
       packCellVertices: new Uint32Array(0),
       vertexX: new Float32Array(0),
       vertexY: new Float32Array(0),
-      cellVertexOffsets: new Uint32Array(5),
+      cellVertexOffsets: new Uint32Array(cellCount + 1),
       cellVertices: new Uint32Array(0),
-      cellNeighborOffsets: new Uint32Array([0, 2, 5, 7, 10]),
-      cellNeighbors: new Uint32Array([1, 3, 0, 2, 3, 1, 3, 0, 1, 2]),
+      cellNeighborOffsets: Uint32Array.from([0, 1, 3, 5, 6]),
+      cellNeighbors: Uint32Array.from([1, 0, 2, 1, 3, 2]),
     },
   };
 };
 
-describe("packed retention", () => {
-  test("keeps pre-regraph coastal retention after opening near-sea lakes", () => {
-    const context = createContext();
+describe("grid feature markup", () => {
+  test("marks land coast and deep water bands like upstream grid features", () => {
+    const context = createContext([35, 28, 19, 5]);
 
-    expect(runOpenNearSeaLakesStage(context)).toBe(true);
-    expect(context.internal.packRetentionCoast?.[1]).toBe(-1);
+    runFeatureStage(context);
 
-    context.world.cellsCoast[1] = -3;
-    runPackStage(context);
-
-    expect(context.world.gridToPack[1]).toBeGreaterThanOrEqual(0);
-    expect(Array.from(context.world.packToGrid)).toContain(1);
+    expect(Array.from(context.world.cellsFeature)).toEqual([1, 1, 0, 0]);
+    expect(Array.from(context.world.cellsCoast)).toEqual([2, 1, -1, -2]);
   });
 });
