@@ -770,11 +770,11 @@ describe("world generation integration", () => {
     expect(Array.from(noJitter.cellsY)).not.toEqual(
       Array.from(maxJitter.cellsY),
     );
-    expect(Array.from(lowNoise.cellsRiver)).not.toEqual(
-      Array.from(highNoise.cellsRiver),
+    expect(Array.from(lowNoise.cellsFeature)).not.toEqual(
+      Array.from(highNoise.cellsFeature),
     );
-    expect(Array.from(lowNoise.cellsBiome)).not.toEqual(
-      Array.from(highNoise.cellsBiome),
+    expect(Array.from(lowNoise.cellsTemp)).not.toEqual(
+      Array.from(highNoise.cellsTemp),
     );
     expect(Array.from(archipelago.cellsH)).not.toEqual(
       Array.from(inlandSea.cellsH),

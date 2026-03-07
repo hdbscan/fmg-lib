@@ -999,6 +999,7 @@ const polygonArea = (
 
 export const runGridStage = (context: GenerationContext): void => {
   const { width, height, requestedCells, jitter } = context.config;
+  const gridRandom = createAlea(context.config.seed);
 
   const spacing = rn(Math.sqrt((width * height) / requestedCells), 2);
   const cellsX = Math.max(
@@ -1126,8 +1127,8 @@ export const runGridStage = (context: GenerationContext): void => {
 
     for (let column = 0; column < cellsX; column += 1) {
       const x = radius + column * spacing;
-      const xJitter = (context.random() * 2 - 1) * jittering;
-      const yJitter = (context.random() * 2 - 1) * jittering;
+      const xJitter = (gridRandom() * 2 - 1) * jittering;
+      const yJitter = (gridRandom() * 2 - 1) * jittering;
 
       context.world.cellsX[index] = clamp(x + xJitter, 0, width);
       context.world.cellsY[index] = clamp(y + yJitter, 0, height);
@@ -1169,7 +1170,8 @@ export const runHeightmapStage = (context: GenerationContext): void => {
     context.config;
   const { cellCount, cellsH } = context.world;
   const heights = new Uint8Array(cellCount);
-  const heightmapRandom = createAlea(context.config.seed);
+  context.random = createAlea(context.config.seed);
+  const heightmapRandom = context.random;
   const blobPower = getBlobPower(requestedCells);
   const linePower = getLinePower(requestedCells);
   const steps = HEIGHTMAP_STEPS[heightTemplate] ?? [];

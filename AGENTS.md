@@ -32,6 +32,7 @@ Build `fmg-lib` as a headless, deterministic, Bun-first TypeScript library with 
 - Prefer high-level parity and invariants tests over arbitrary thresholds and clone-style fixture guessing.
 - Every meaningful code change must include tests or update existing tests.
 - For world-gen parity, upstream FMG is the oracle.
+- Upstream reference code lives under `tmp/fmg-upstream/` and should be treated as the primary source for faithful logic ports.
 - Screenshot automation is not enough: inspect the resulting images and use them to guide fixes.
 
 ## Issue Tracking

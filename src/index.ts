@@ -1,5 +1,5 @@
 import { normalizeConfig } from "./internal/config";
-import { createPrng } from "./internal/random";
+import { createAlea } from "./internal/random";
 import {
   runBiomeStage,
   runClimateStage,
@@ -59,7 +59,7 @@ const createContext = (
 ): GenerationContext => {
   return {
     config,
-    random: createPrng(config.seed),
+    random: createAlea(config.seed),
     grid: {
       spacing: 0,
       cellsX: 0,
