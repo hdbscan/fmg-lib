@@ -1,0 +1,15 @@
+{
+  "slug": "tu1-rankcells-inputs-oracle-query",
+  "capturedAt": "2026-03-07T16:43:30.031Z",
+  "url": "http://127.0.0.1:41347/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "1440x960",
+  "fullPage": false,
+  "delayMs": 1000,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "tu1-rankcells-inputs-oracle-query.png",
+  "sha256": "444034579da6a3426ef44f96209f9df9c8b717035df72fb8644e6d7ff5ed2e9c"
+}

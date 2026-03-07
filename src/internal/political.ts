@@ -189,6 +189,192 @@ const normalize = (value: number, min: number, max: number): number => {
 
 const biomeHabitability = [0, 4, 10, 22, 30, 100, 80, 10, 22] as const;
 
+const rankScoreMap = {
+  estuary: 15,
+  oceanCoast: 5,
+  safeHarbor: 20,
+  freshwater: 30,
+  salt: 10,
+  frozen: 1,
+  dry: -5,
+} as const;
+
+const computeDownhill = (context: GenerationContext): Int32Array => {
+  const {
+    cellCount,
+    cellsFeature,
+    cellsH,
+    cellNeighborOffsets,
+    cellNeighbors,
+  } = context.world;
+  const downhill = new Int32Array(cellCount);
+  downhill.fill(-1);
+
+  for (let cellId = 0; cellId < cellCount; cellId += 1) {
+    if ((cellsFeature[cellId] ?? 0) !== 1) continue;
+
+    const currentHeight = cellsH[cellId] ?? 0;
+    let target = -1;
+    let targetHeight = currentHeight;
+    let waterTarget = -1;
+    let waterTargetHeight = Number.POSITIVE_INFINITY;
+
+    forEachNeighbor(
+      cellId,
+      cellNeighborOffsets,
+      cellNeighbors,
+      (neighborId) => {
+        const neighborHeight = cellsH[neighborId] ?? 0;
+        const neighborIsWater = (cellsFeature[neighborId] ?? 0) === 0;
+
+        if (neighborIsWater && neighborHeight < waterTargetHeight) {
+          waterTarget = neighborId;
+          waterTargetHeight = neighborHeight;
+        }
+
+        if (neighborHeight < targetHeight) {
+          target = neighborId;
+          targetHeight = neighborHeight;
+        }
+      },
+    );
+
+    downhill[cellId] = target < 0 && waterTarget >= 0 ? waterTarget : target;
+  }
+
+  return downhill;
+};
+
+const computeConfluenceStrength = (
+  context: GenerationContext,
+  downhill: Int32Array,
+): Uint32Array => {
+  const { cellCount, cellsFeature, cellsFlow } = context.world;
+  const dominantIncoming = new Uint32Array(cellCount);
+  const totalIncoming = new Uint32Array(cellCount);
+
+  for (let cellId = 0; cellId < cellCount; cellId += 1) {
+    if ((cellsFeature[cellId] ?? 0) !== 1) continue;
+
+    const target = downhill[cellId] ?? -1;
+    if (target < 0 || (cellsFeature[target] ?? 0) !== 1) continue;
+
+    const flow = cellsFlow[cellId] ?? 0;
+    totalIncoming[target] = (totalIncoming[target] ?? 0) + flow;
+    if (flow > (dominantIncoming[target] ?? 0)) {
+      dominantIncoming[target] = flow;
+    }
+  }
+
+  const confluence = new Uint32Array(cellCount);
+  for (let cellId = 0; cellId < cellCount; cellId += 1) {
+    const incoming = totalIncoming[cellId] ?? 0;
+    const dominant = dominantIncoming[cellId] ?? 0;
+    confluence[cellId] = incoming > dominant ? incoming - dominant : 0;
+  }
+
+  return confluence;
+};
+
+const getLakeSuitabilityBonus = (
+  temperature: number,
+  precipitation: number,
+  flow: number,
+): number => {
+  if (temperature <= 0) return rankScoreMap.frozen;
+  if (precipitation <= 10 && flow === 0) return rankScoreMap.dry;
+  if (precipitation < 20 && flow < 100) return rankScoreMap.salt;
+  return rankScoreMap.freshwater;
+};
+
+const computeRankedSuitability = (context: GenerationContext): Float64Array => {
+  const {
+    packCellCount,
+    packToGrid,
+    cellsFlow,
+    cellsPrec,
+    cellsTemp,
+    cellsBiome,
+    cellsH,
+    cellsRiver,
+    packCoast,
+    packHarbor,
+    packHaven,
+    cellsWaterbody,
+    waterbodyType,
+  } = context.world;
+  const suitability = new Float64Array(packCellCount);
+  const downhill = computeDownhill(context);
+  const confluence = computeConfluenceStrength(context, downhill);
+  const positiveFlux: number[] = [];
+  let maxFlux = 0;
+
+  for (let packId = 0; packId < packCellCount; packId += 1) {
+    if (!isPoliticalPackCell(context, packId)) continue;
+    const cellId = packToGrid[packId] ?? 0;
+    const flux = (cellsFlow[cellId] ?? 0) + (confluence[cellId] ?? 0);
+    if (flux > 0) positiveFlux.push(flux);
+    if (flux > maxFlux) maxFlux = flux;
+  }
+
+  positiveFlux.sort((left, right) => left - right);
+  const midpoint = Math.floor(positiveFlux.length / 2);
+  const meanFlux =
+    positiveFlux.length === 0
+      ? 0
+      : positiveFlux.length % 2 === 0
+        ? ((positiveFlux[midpoint - 1] ?? 0) + (positiveFlux[midpoint] ?? 0)) /
+          2
+        : (positiveFlux[midpoint] ?? 0);
+
+  for (let packId = 0; packId < packCellCount; packId += 1) {
+    if (!isPoliticalPackCell(context, packId)) {
+      suitability[packId] = 0;
+      continue;
+    }
+
+    const cellId = packToGrid[packId] ?? 0;
+    const biome = cellsBiome[cellId] ?? 0;
+    let score = biomeHabitability[biome] ?? 0;
+    if (score <= 0) {
+      suitability[packId] = 0;
+      continue;
+    }
+
+    const temperature = cellsTemp[cellId] ?? 0;
+    const precipitation = cellsPrec[cellId] ?? 0;
+    const flow = cellsFlow[cellId] ?? 0;
+    const flux = flow + (confluence[cellId] ?? 0);
+    const height = cellsH[cellId] ?? 0;
+    const coast = packCoast[packId] ?? 0;
+    const harbor = packHarbor[packId] ?? 0;
+    const haven = packHaven[packId] ?? -1;
+
+    if (meanFlux > 0 && maxFlux > 0) {
+      score += normalize(flux, meanFlux, maxFlux) * 250;
+    }
+
+    score -= (height - 50) / 5;
+
+    if (coast === 1 && haven >= 0) {
+      if ((cellsRiver[cellId] ?? 0) > 0) score += rankScoreMap.estuary;
+
+      const waterbodyId = cellsWaterbody[haven] ?? 0;
+      const adjacentWaterType = waterbodyType[waterbodyId] ?? 0;
+      if (adjacentWaterType === 2) {
+        score += getLakeSuitabilityBonus(temperature, precipitation, flow);
+      } else if (adjacentWaterType === 1) {
+        score += rankScoreMap.oceanCoast;
+        if (harbor === 1) score += rankScoreMap.safeHarbor;
+      }
+    }
+
+    suitability[packId] = Math.max(Math.trunc(score / 5), 0);
+  }
+
+  return suitability;
+};
+
 export const computePoliticalSuitability = (
   context: GenerationContext,
 ): Int16Array => {
@@ -196,8 +382,6 @@ export const computePoliticalSuitability = (
   const {
     packCellCount,
     packToGrid,
-    packArea,
-    packCoast,
     packHarbor,
     cellsFlow,
     cellsPrec,
@@ -209,28 +393,32 @@ export const computePoliticalSuitability = (
     waterbodyType,
   } = context.world;
   const suitability = new Int16Array(packCellCount);
-  const positiveFlows: number[] = [];
+  const downhill = computeDownhill(context);
+  const confluence = computeConfluenceStrength(context, downhill);
+  const positiveFlux: number[] = [];
+
   for (let packId = 0; packId < packCellCount; packId += 1) {
     if (!isPoliticalPackCell(context, packId)) continue;
     const cellId = packToGrid[packId] ?? 0;
-    const flow = cellsFlow[cellId] ?? 0;
-    if (flow > 0) positiveFlows.push(flow);
+    const flux = (cellsFlow[cellId] ?? 0) + (confluence[cellId] ?? 0);
+    if (flux > 0) positiveFlux.push(flux);
   }
 
-  positiveFlows.sort((left, right) => left - right);
-  const flowMidpoint = Math.floor(positiveFlows.length / 2);
-  const meanFlow =
-    positiveFlows.length === 0
+  positiveFlux.sort((left, right) => left - right);
+  const flowMidpoint = Math.floor(positiveFlux.length / 2);
+  const meanFlux =
+    positiveFlux.length === 0
       ? 0
-      : positiveFlows.length % 2 === 0
-        ? ((positiveFlows[flowMidpoint - 1] ?? 0) +
-            (positiveFlows[flowMidpoint] ?? 0)) /
+      : positiveFlux.length % 2 === 0
+        ? ((positiveFlux[flowMidpoint - 1] ?? 0) +
+            (positiveFlux[flowMidpoint] ?? 0)) /
           2
-        : (positiveFlows[flowMidpoint] ?? 0);
-  let maxFlow = 0;
-  for (const flow of positiveFlows) {
-    if (flow > maxFlow) maxFlow = flow;
+        : (positiveFlux[flowMidpoint] ?? 0);
+  let maxFlux = 0;
+  for (const flux of positiveFlux) {
+    if (flux > maxFlux) maxFlux = flux;
   }
+
   for (let packId = 0; packId < packCellCount; packId += 1) {
     if (!isPoliticalPackCell(context, packId)) {
       suitability[packId] = 0;
@@ -242,12 +430,12 @@ export const computePoliticalSuitability = (
     const precipitation = cellsPrec[cellId] ?? 0;
     const temperature = cellsTemp[cellId] ?? 0;
     const height = cellsH[cellId] ?? 0;
-    const coast = packCoast[packId] ?? 0;
     const harbor = packHarbor[packId] ?? 0;
     const haven = context.world.packHaven[packId] ?? -1;
     const biome = cellsBiome[cellId] ?? 0;
     const waterbodyId = haven >= 0 ? (cellsWaterbody[haven] ?? 0) : 0;
     const adjacentWaterType = waterbodyType[waterbodyId] ?? 0;
+    const flux = flow + (confluence[cellId] ?? 0);
 
     let score = biomeHabitability[biome] ?? 0;
     if (score <= 0) {
@@ -255,29 +443,23 @@ export const computePoliticalSuitability = (
       continue;
     }
 
-    if (meanFlow > 0 && maxFlow > meanFlow) {
-      score += normalize(flow, meanFlow, maxFlow) * 250;
+    if (meanFlux > 0 && maxFlux > meanFlux) {
+      score += normalize(flux, meanFlux, maxFlux) * 250;
     }
 
     score -= (height - 50) / 5;
 
-    if (coast === 1 && haven >= 0) {
-      if ((cellsRiver[cellId] ?? 0) > 0) score += 15;
+    if ((context.world.packCoast[packId] ?? 0) === 1 && haven >= 0) {
+      if ((cellsRiver[cellId] ?? 0) > 0) score += rankScoreMap.estuary;
       if (adjacentWaterType === 2) {
-        score += (cellsTemp[haven] ?? temperature) <= 0 ? 1 : 30;
+        score += getLakeSuitabilityBonus(temperature, precipitation, flow);
       } else if (adjacentWaterType === 1) {
-        score += 5;
-        if (harbor === 1) score += 20;
+        score += rankScoreMap.oceanCoast;
+        if (harbor === 1) score += rankScoreMap.safeHarbor;
       }
     }
 
-    const aridityPenalty = precipitation < 20 ? 2 : 0;
-    const coldPenalty = temperature <= -10 ? 2 : 0;
-
-    const rankedScore = Math.max(
-      Math.trunc((score - aridityPenalty - coldPenalty) / 5),
-      0,
-    );
+    const rankedScore = Math.max(Math.trunc(score / 5), 0);
     suitability[packId] = Math.max(
       Math.trunc((legacySuitability[packId] ?? 0) * 0.75 + rankedScore * 0.25),
       0,
@@ -487,7 +669,7 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
     return;
   }
 
-  const suitability = computePoliticalSuitability(context);
+  const suitability = computeRankedSuitability(context);
   const populatedPackIds = Array.from(
     { length: packCellCount },
     (_, packId) => packId,
@@ -638,7 +820,7 @@ export const runBurgSpecificationStage = (context: GenerationContext): void => {
     return;
   }
 
-  const suitability = computePoliticalSuitability(context);
+  const suitability = computeRankedSuitability(context);
   const burgPopulation = new Uint16Array(burgCount + 1);
 
   for (let burgId = 1; burgId <= burgCount; burgId += 1) {
