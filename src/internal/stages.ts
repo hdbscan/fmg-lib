@@ -7,7 +7,6 @@ import {
   runBurgSpecificationStage as runPoliticalBurgSpecificationStage,
   runProvincesStage as runPoliticalProvincesStage,
   runReligionsStage as runPoliticalReligionsStage,
-  runSettlementsStage as runPoliticalSettlementsStage,
   runStateFormsStage as runPoliticalStateFormsStage,
   runStatesStage as runPoliticalStatesStage,
 } from "./political";

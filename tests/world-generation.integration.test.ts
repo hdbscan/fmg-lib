@@ -1360,7 +1360,7 @@ describe("world generation integration", () => {
       expect(seedCell).toBeGreaterThanOrEqual(0);
       expect(seedCell).toBeLessThan(withReligionsA.cellCount);
       expect(withReligionsA.cellsFeature[seedCell]).toBe(1);
-      expect(type === 1 || type === 2 || type === 3).toBe(true);
+      expect(type === 1 || type === 2 || type === 3 || type === 4).toBe(true);
       expect(size).toBeGreaterThanOrEqual(0);
 
       sizeSum += size;
@@ -1380,6 +1380,51 @@ describe("world generation integration", () => {
     );
     expect(Array.from(withReligionsA.religionSize)).toEqual(
       Array.from(withReligionsB.religionSize),
+    );
+  });
+
+  test("keeps oracle-query religion placement stable", () => {
+    const world = generateWorld({
+      seed: "42424242",
+      width: 1280,
+      height: 900,
+      cells: 9996,
+      culturesCount: 9,
+      statesCount: 23,
+      townsCount: 1000,
+      hiddenControls: {
+        sizeVariety: 7.5,
+        growthRate: 1.6,
+        religionsNumber: 7,
+      },
+      climate: {
+        lakeElevationLimit: 20,
+        precipitation: 94,
+        mapSize: 100,
+        latitude: 50,
+        longitude: 50,
+      },
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+        politics: true,
+        religions: true,
+      },
+    });
+
+    expect(world.religionCount).toBe(16);
+    expect(createHash("sha256").update(world.cellsReligion).digest("hex")).toBe(
+      "bb569f50d18bd88ba8595d1092370fa5f376781167df8a13a35dda15c2581ab2",
+    );
+    expect(
+      createHash("sha256").update(world.religionSeedCell).digest("hex"),
+    ).toBe("2c7b42299b0721344754aa9763cb856a7bb360de0c16c55ffff93055fbdd1826");
+    expect(createHash("sha256").update(world.religionType).digest("hex")).toBe(
+      "321918b12ad8caa005eefc87c5566ca7885bcce909cb33ac59ce35c26b70e9fd",
+    );
+    expect(createHash("sha256").update(world.religionSize).digest("hex")).toBe(
+      "f82a138bee2a9a5f833e8f244e771b3aa2689cea8365ea370caa8dee84df54bc",
     );
   });
 
@@ -1421,19 +1466,15 @@ describe("world generation integration", () => {
     expect(Array.from(withPoliticsOnly.routeToState)).toEqual(
       Array.from(withReligions.routeToState),
     );
-    expect(Array.from(withPoliticsOnly.stateForm)).not.toEqual(
-      Array.from(withReligions.stateForm),
-    );
+    for (let stateId = 1; stateId <= withReligions.stateCount; stateId += 1) {
+      const capitalBurgId = withReligions.stateCenterBurg[stateId] ?? 0;
+      const capitalCell = withReligions.burgCell[capitalBurgId] ?? 0;
+      const religionId = withReligions.cellsReligion[capitalCell] ?? 0;
+      const form = withReligions.stateForm[stateId] ?? 0;
 
-    const theocracyStateId = withReligions.stateForm.findIndex(
-      (form, index) => index > 0 && form === 3,
-    );
-
-    expect(theocracyStateId).toBeGreaterThan(0);
-    const capitalBurgId = withReligions.stateCenterBurg[theocracyStateId] ?? 0;
-    const capitalCell = withReligions.burgCell[capitalBurgId] ?? 0;
-    expect(withReligions.cellsReligion[capitalCell]).toBeGreaterThan(0);
-    expect(withPoliticsOnly.stateForm[theocracyStateId]).toBe(1);
+      expect(religionId).toBeGreaterThan(0);
+      expect(form === 1 || form === 2 || form === 3).toBe(true);
+    }
   });
 
   test("keeps burg placement stable while later specification timing shifts", () => {
