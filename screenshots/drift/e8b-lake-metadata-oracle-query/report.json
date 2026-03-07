@@ -1,0 +1,33 @@
+{
+  "slug": "e8b-lake-metadata-oracle-query",
+  "capturedAt": "2026-03-07T17:03:20.299Z",
+  "viewport": "1280x900",
+  "fullPage": false,
+  "status": "different",
+  "note": "Oracle query screenshot for lake metadata review.",
+  "local": {
+    "label": "local-oracle-query",
+    "url": "http://127.0.0.1:37025/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+    "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+    "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+    "browser": "firefox",
+    "delayMs": 1000,
+    "staticRoot": "ui/dist",
+    "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+    "artifact": "local.png",
+    "sha256": "897bf017ebdc05e5f4f966500d50a5d34005e95ee50553fc891363f7de60a920"
+  },
+  "reference": {
+    "type": "upstream",
+    "label": "upstream-oracle-query",
+    "url": "https://azgaar.github.io/Fantasy-Map-Generator/?seed=42424242&options=default",
+    "browser": "firefox",
+    "selector": "#map",
+    "readySelector": "#map",
+    "delayMs": 12000,
+    "staticRoot": null,
+    "staticPath": null,
+    "artifact": "upstream.png",
+    "sha256": "855809c24d33f7995e9a4a4e08a8d251919a8d1d5ef54d5e66324655fccb4efb"
+  }
+}

@@ -120,13 +120,17 @@ export const computeSuitability = (
     packArea,
     packCoast,
     packHarbor,
+    packHaven,
     cellsFlow,
     cellsPrec,
     cellsTemp,
     cellsBiome,
     cellsH,
+    cellsWaterbody,
+    waterbodyType,
   } = context.world;
   const suitability = new Float64Array(packCellCount);
+  const lakeMetadata = computeLakeFeatureMetadata(context);
   let totalArea = 0;
   for (const area of packArea) totalArea += area;
   const averageArea = totalArea / Math.max(packCellCount, 1);
@@ -145,13 +149,21 @@ export const computeSuitability = (
     const area = packArea[packId] ?? 0;
     const coast = packCoast[packId] ?? 0;
     const harbor = packHarbor[packId] ?? 0;
+    const haven = packHaven[packId] ?? -1;
     const biome = cellsBiome[cellId] ?? 0;
+    const waterbodyId = haven >= 0 ? (cellsWaterbody[haven] ?? 0) : 0;
+    const adjacentWaterType = waterbodyType[waterbodyId] ?? 0;
 
     const tempScore =
       temperature <= -10 ? 0 : temperature <= 0 ? 6 : 12 + temperature * 0.9;
     const moistureScore = precipitation / 5;
     const riverScore = Math.min(flow / 18, 65);
-    const coastScore = coast > 0 ? 10 : 0;
+    const coastScore =
+      coast > 0
+        ? adjacentWaterType === 2
+          ? getLakeGroupSuitabilityBonus(lakeMetadata.group[waterbodyId] ?? 0)
+          : 10
+        : 0;
     const harborScore = harbor > 0 ? 16 + harbor * 6 : 0;
     const areaScore =
       averageArea > 0 ? Math.min((area / averageArea) * 9, 16) : 0;
@@ -198,6 +210,29 @@ const rankScoreMap = {
   frozen: 1,
   dry: -5,
 } as const;
+
+const lakeGroupCode = {
+  none: 0,
+  freshwater: 1,
+  salt: 2,
+  frozen: 3,
+  dry: 4,
+} as const;
+
+type LakeFeatureMetadata = Readonly<{
+  flux: Uint32Array;
+  evaporation: Uint32Array;
+  outlet: Uint8Array;
+  group: Uint8Array;
+}>;
+
+const getLakeGroupSuitabilityBonus = (group: number): number => {
+  if (group === lakeGroupCode.freshwater) return rankScoreMap.freshwater;
+  if (group === lakeGroupCode.salt) return rankScoreMap.salt;
+  if (group === lakeGroupCode.frozen) return rankScoreMap.frozen;
+  if (group === lakeGroupCode.dry) return rankScoreMap.dry;
+  return 0;
+};
 
 const computeDownhill = (context: GenerationContext): Int32Array => {
   const {
@@ -276,15 +311,110 @@ const computeConfluenceStrength = (
   return confluence;
 };
 
-const getLakeSuitabilityBonus = (
-  temperature: number,
-  precipitation: number,
-  flow: number,
-): number => {
-  if (temperature <= 0) return rankScoreMap.frozen;
-  if (precipitation <= 10 && flow === 0) return rankScoreMap.dry;
-  if (precipitation < 20 && flow < 100) return rankScoreMap.salt;
-  return rankScoreMap.freshwater;
+export const computeLakeFeatureMetadata = (
+  context: GenerationContext,
+  downhill: Int32Array = computeDownhill(context),
+): LakeFeatureMetadata => {
+  const {
+    cellCount,
+    cellsFeature,
+    cellsFlow,
+    cellsH,
+    cellsTemp,
+    cellsWaterbody,
+    waterbodyCount,
+    waterbodyType,
+    waterbodySize,
+    featureFirstCell,
+    cellNeighborOffsets,
+    cellNeighbors,
+  } = context.world;
+  const flux = new Uint32Array(waterbodyCount + 1);
+  const evaporation = new Uint32Array(waterbodyCount + 1);
+  const outlet = new Uint8Array(waterbodyCount + 1);
+  const group = new Uint8Array(waterbodyCount + 1);
+  const shoreHeight = new Uint8Array(waterbodyCount + 1);
+
+  shoreHeight.fill(255);
+
+  for (let cellId = 0; cellId < cellCount; cellId += 1) {
+    if ((cellsFeature[cellId] ?? 0) !== 1) {
+      continue;
+    }
+
+    const target = downhill[cellId] ?? -1;
+    if (target >= 0 && (cellsFeature[target] ?? 0) === 0) {
+      const waterbodyId = cellsWaterbody[target] ?? 0;
+      if (waterbodyId > 0 && (waterbodyType[waterbodyId] ?? 0) === 2) {
+        flux[waterbodyId] = (flux[waterbodyId] ?? 0) + (cellsFlow[cellId] ?? 0);
+      }
+    }
+
+    const height = cellsH[cellId] ?? 0;
+    forEachNeighbor(
+      cellId,
+      cellNeighborOffsets,
+      cellNeighbors,
+      (neighborId) => {
+        if ((cellsFeature[neighborId] ?? 0) !== 0) {
+          return;
+        }
+
+        const waterbodyId = cellsWaterbody[neighborId] ?? 0;
+        if (waterbodyId <= 0 || (waterbodyType[waterbodyId] ?? 0) !== 2) {
+          return;
+        }
+
+        if (height < (shoreHeight[waterbodyId] ?? 255)) {
+          shoreHeight[waterbodyId] = height;
+        }
+      },
+    );
+  }
+
+  for (let waterbodyId = 1; waterbodyId <= waterbodyCount; waterbodyId += 1) {
+    if ((waterbodyType[waterbodyId] ?? 0) !== 2) {
+      continue;
+    }
+
+    const lakeCellCount = Math.max(waterbodySize[waterbodyId] ?? 0, 1);
+    const firstCell = featureFirstCell[waterbodyId] ?? 0;
+    const lakeTemp = cellsTemp[firstCell] ?? 0;
+    const rimHeight =
+      (shoreHeight[waterbodyId] ?? 255) === 255
+        ? 20
+        : (shoreHeight[waterbodyId] ?? 20);
+    const inflow = Math.max(flux[waterbodyId] ?? 0, lakeCellCount * 3);
+    const heightAboveSea = Math.max(rimHeight - 18, 0);
+    const elevatedHeight =
+      heightAboveSea ** context.config.climate.elevationExponent;
+    const evaporationRate =
+      ((700 * (lakeTemp + 0.006 * elevatedHeight)) / 50 + 75) /
+      Math.max(80 - lakeTemp, 1);
+    const lakeEvaporation = Math.max(
+      Math.round(Math.max(evaporationRate, 0) * lakeCellCount),
+      0,
+    );
+
+    flux[waterbodyId] = inflow;
+    evaporation[waterbodyId] = lakeEvaporation;
+    outlet[waterbodyId] = inflow > lakeEvaporation * 1.2 ? 1 : 0;
+
+    if (lakeTemp <= 0) {
+      group[waterbodyId] = lakeGroupCode.frozen;
+      continue;
+    }
+
+    if ((outlet[waterbodyId] ?? 0) === 0) {
+      group[waterbodyId] =
+        lakeEvaporation > inflow * 4 ? lakeGroupCode.dry : lakeGroupCode.salt;
+      continue;
+    }
+
+    group[waterbodyId] = lakeGroupCode.freshwater;
+  }
+
+  return { flux, evaporation, outlet, group };
 };
 
 const computeRankedSuitability = (context: GenerationContext): Float64Array => {
@@ -306,6 +436,7 @@ const computeRankedSuitability = (context: GenerationContext): Float64Array => {
   const suitability = new Float64Array(packCellCount);
   const downhill = computeDownhill(context);
   const confluence = computeConfluenceStrength(context, downhill);
+  const lakeMetadata = computeLakeFeatureMetadata(context, downhill);
   const positiveFlux: number[] = [];
   let maxFlux = 0;
 
@@ -342,7 +473,6 @@ const computeRankedSuitability = (context: GenerationContext): Float64Array => {
     }
 
     const temperature = cellsTemp[cellId] ?? 0;
-    const precipitation = cellsPrec[cellId] ?? 0;
     const flow = cellsFlow[cellId] ?? 0;
     const flux = flow + (confluence[cellId] ?? 0);
     const height = cellsH[cellId] ?? 0;
@@ -362,7 +492,9 @@ const computeRankedSuitability = (context: GenerationContext): Float64Array => {
       const waterbodyId = cellsWaterbody[haven] ?? 0;
       const adjacentWaterType = waterbodyType[waterbodyId] ?? 0;
       if (adjacentWaterType === 2) {
-        score += getLakeSuitabilityBonus(temperature, precipitation, flow);
+        score += getLakeGroupSuitabilityBonus(
+          lakeMetadata.group[waterbodyId] ?? 0,
+        );
       } else if (adjacentWaterType === 1) {
         score += rankScoreMap.oceanCoast;
         if (harbor === 1) score += rankScoreMap.safeHarbor;
@@ -384,7 +516,6 @@ export const computePoliticalSuitability = (
     packToGrid,
     packHarbor,
     cellsFlow,
-    cellsPrec,
     cellsTemp,
     cellsBiome,
     cellsH,
@@ -395,6 +526,7 @@ export const computePoliticalSuitability = (
   const suitability = new Int16Array(packCellCount);
   const downhill = computeDownhill(context);
   const confluence = computeConfluenceStrength(context, downhill);
+  const lakeMetadata = computeLakeFeatureMetadata(context, downhill);
   const positiveFlux: number[] = [];
 
   for (let packId = 0; packId < packCellCount; packId += 1) {
@@ -427,7 +559,6 @@ export const computePoliticalSuitability = (
 
     const cellId = packToGrid[packId] ?? 0;
     const flow = cellsFlow[cellId] ?? 0;
-    const precipitation = cellsPrec[cellId] ?? 0;
     const temperature = cellsTemp[cellId] ?? 0;
     const height = cellsH[cellId] ?? 0;
     const harbor = packHarbor[packId] ?? 0;
@@ -452,7 +583,9 @@ export const computePoliticalSuitability = (
     if ((context.world.packCoast[packId] ?? 0) === 1 && haven >= 0) {
       if ((cellsRiver[cellId] ?? 0) > 0) score += rankScoreMap.estuary;
       if (adjacentWaterType === 2) {
-        score += getLakeSuitabilityBonus(temperature, precipitation, flow);
+        score += getLakeGroupSuitabilityBonus(
+          lakeMetadata.group[waterbodyId] ?? 0,
+        );
       } else if (adjacentWaterType === 1) {
         score += rankScoreMap.oceanCoast;
         if (harbor === 1) score += rankScoreMap.safeHarbor;
