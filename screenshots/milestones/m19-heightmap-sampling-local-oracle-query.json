@@ -1,0 +1,15 @@
+{
+  "slug": "m19-heightmap-sampling-local-oracle-query",
+  "capturedAt": "2026-03-07T10:22:00.281Z",
+  "url": "http://127.0.0.1:33141/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&heightTemplate=continents&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "1440x960",
+  "fullPage": false,
+  "delayMs": 1500,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&heightTemplate=continents&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "m19-heightmap-sampling-local-oracle-query.png",
+  "sha256": "35d9d9a6f35c46932ed41a6cba007836b73f59c1aa075d70edaf802e3f2e5e7c"
+}
