@@ -206,6 +206,12 @@ describe("world generation integration", () => {
     expect(world.packCoast.length).toBe(world.packCellCount);
     expect(world.packHaven.length).toBe(world.packCellCount);
     expect(world.packHarbor.length).toBe(world.packCellCount);
+    expect(world.packVertexX.length).toBeGreaterThan(world.packCellCount);
+    expect(world.packVertexX.length).toBe(world.packVertexY.length);
+    expect(world.packCellVertexOffsets.length).toBe(world.packCellCount + 1);
+    expect(world.packCellVertices.length).toBeGreaterThan(
+      world.packCellCount * 2,
+    );
     expect(world.waterbodyCount).toBeGreaterThan(0);
     expect(world.waterbodyType.length).toBe(world.waterbodyCount + 1);
     expect(world.waterbodySize.length).toBe(world.waterbodyCount + 1);
@@ -471,6 +477,8 @@ describe("world generation integration", () => {
       const packCoast = world.packCoast[packId];
       const packHaven = world.packHaven[packId];
       const packHarbor = world.packHarbor[packId];
+      const packVertexFrom = world.packCellVertexOffsets[packId];
+      const packVertexTo = world.packCellVertexOffsets[packId + 1];
 
       if (
         gridCellId === undefined ||
@@ -481,7 +489,9 @@ describe("world generation integration", () => {
         packFeatureId === undefined ||
         packCoast === undefined ||
         packHaven === undefined ||
-        packHarbor === undefined
+        packHarbor === undefined ||
+        packVertexFrom === undefined ||
+        packVertexTo === undefined
       ) {
         throw new Error("expected packed cell attributes to exist");
       }
@@ -515,6 +525,18 @@ describe("world generation integration", () => {
       }
       expect(h).toBe(gridH);
       expect(area).toBeGreaterThan(0);
+      expect(packVertexTo).toBeGreaterThan(packVertexFrom);
+      expect(packVertexTo - packVertexFrom).toBeGreaterThanOrEqual(3);
+
+      for (let i = packVertexFrom; i < packVertexTo; i += 1) {
+        const vertexId = world.packCellVertices[i];
+        if (vertexId === undefined) {
+          throw new Error("missing packed cell vertex id");
+        }
+
+        expect(vertexId).toBeGreaterThanOrEqual(0);
+        expect(vertexId).toBeLessThan(world.packVertexX.length);
+      }
 
       summedPackArea += area;
       if (isPrimaryPackCell && (world.cellsFeature[gridCellId] ?? 0) === 1) {
@@ -790,6 +812,18 @@ describe("world generation integration", () => {
     expect(Array.from(worldA.packHaven)).toEqual(Array.from(worldB.packHaven));
     expect(Array.from(worldA.packHarbor)).toEqual(
       Array.from(worldB.packHarbor),
+    );
+    expect(Array.from(worldA.packVertexX)).toEqual(
+      Array.from(worldB.packVertexX),
+    );
+    expect(Array.from(worldA.packVertexY)).toEqual(
+      Array.from(worldB.packVertexY),
+    );
+    expect(Array.from(worldA.packCellVertexOffsets)).toEqual(
+      Array.from(worldB.packCellVertexOffsets),
+    );
+    expect(Array.from(worldA.packCellVertices)).toEqual(
+      Array.from(worldB.packCellVertices),
     );
     expect(Array.from(worldA.vertexX)).toEqual(Array.from(worldB.vertexX));
     expect(Array.from(worldA.vertexY)).toEqual(Array.from(worldB.vertexY));
@@ -2372,6 +2406,18 @@ describe("world generation integration", () => {
     );
     expect(Array.from(decoded.packHarbor)).toEqual(
       Array.from(original.packHarbor),
+    );
+    expect(Array.from(decoded.packVertexX)).toEqual(
+      Array.from(original.packVertexX),
+    );
+    expect(Array.from(decoded.packVertexY)).toEqual(
+      Array.from(original.packVertexY),
+    );
+    expect(Array.from(decoded.packCellVertexOffsets)).toEqual(
+      Array.from(original.packCellVertexOffsets),
+    );
+    expect(Array.from(decoded.packCellVertices)).toEqual(
+      Array.from(original.packCellVertices),
     );
     expect(Array.from(decoded.vertexX)).toEqual(Array.from(original.vertexX));
     expect(Array.from(decoded.vertexY)).toEqual(Array.from(original.vertexY));

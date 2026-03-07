@@ -184,6 +184,10 @@ export type WorldGraphV1 = Readonly<{
   packCoast: Int8Array;
   packHaven: Int32Array;
   packHarbor: Uint8Array;
+  packVertexX: Float32Array;
+  packVertexY: Float32Array;
+  packCellVertexOffsets: Uint32Array;
+  packCellVertices: Uint32Array;
   vertexX: Float32Array;
   vertexY: Float32Array;
   cellVertexOffsets: Uint32Array;
@@ -289,6 +293,10 @@ export type SerializedWorldV1 = Readonly<{
     packCoast: SerializedTypedArray;
     packHaven: SerializedTypedArray;
     packHarbor: SerializedTypedArray;
+    packVertexX: SerializedTypedArray;
+    packVertexY: SerializedTypedArray;
+    packCellVertexOffsets: SerializedTypedArray;
+    packCellVertices: SerializedTypedArray;
     vertexX: SerializedTypedArray;
     vertexY: SerializedTypedArray;
     cellVertexOffsets: SerializedTypedArray;
@@ -417,6 +425,10 @@ export type GenerationContext = {
     packCoast: Int8Array;
     packHaven: Int32Array;
     packHarbor: Uint8Array;
+    packVertexX: Float32Array;
+    packVertexY: Float32Array;
+    packCellVertexOffsets: Uint32Array;
+    packCellVertices: Uint32Array;
     vertexX: Float32Array;
     vertexY: Float32Array;
     cellVertexOffsets: Uint32Array;

@@ -143,6 +143,12 @@ const copyNumbers = (
   values: Uint8Array | Uint16Array | Uint32Array,
 ): number[] => Array.from(values);
 
+const copyPackLandLabels = (world: WorldGraphV1): number[] =>
+  Array.from({ length: world.packCellCount }, (_, packId) => {
+    const featureId = world.packCellsFeatureId[packId] ?? 0;
+    return (world.packFeatureType[featureId] ?? 0) === 3 ? 1 : 0;
+  });
+
 const pointInPolygon = (
   x: number,
   y: number,
@@ -536,16 +542,12 @@ export const buildLocalParitySnapshot = (
       count + ((world.packFeatureType[featureId] ?? 0) === 3 ? 1 : 0),
     0,
   );
-  const vertices = toPoints(world.vertexX, world.vertexY);
+  const terrainVertices = toPoints(world.packVertexX, world.packVertexY);
   const terrainPolygons = collectCellPolygons(
-    world.cellVertexOffsets,
-    world.cellVertices,
+    world.packCellVertexOffsets,
+    world.packCellVertices,
   );
-  const regionPolygons = Array.from(world.packToGrid, (gridCellId) => {
-    const from = world.cellVertexOffsets[gridCellId] ?? 0;
-    const to = world.cellVertexOffsets[gridCellId + 1] ?? from;
-    return Array.from(world.cellVertices.slice(from, to));
-  });
+  const regionPolygons = terrainPolygons;
 
   const snapshot: ParitySnapshot = {
     kind: "local-world",
@@ -555,13 +557,13 @@ export const buildLocalParitySnapshot = (
     gridSpacing: world.gridSpacing,
     terrain: {
       mesh: {
-        vertices,
+        vertices: terrainVertices,
         polygons: terrainPolygons,
       },
-      land: copyNumbers(world.cellsFeature),
+      land: copyPackLandLabels(world),
     },
     regions: {
-      vertices,
+      vertices: terrainVertices,
       polygons: regionPolygons,
       states: Array.from(
         world.packToGrid,

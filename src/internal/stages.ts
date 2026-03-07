@@ -1150,6 +1150,10 @@ export const runGridStage = (context: GenerationContext): void => {
   context.world.packCoast = new Int8Array(0);
   context.world.packHaven = new Int32Array(0);
   context.world.packHarbor = new Uint8Array(0);
+  context.world.packVertexX = new Float32Array(0);
+  context.world.packVertexY = new Float32Array(0);
+  context.world.packCellVertexOffsets = new Uint32Array(1);
+  context.world.packCellVertices = new Uint32Array(0);
   context.world.vertexX = new Float32Array(0);
   context.world.vertexY = new Float32Array(0);
   context.world.cellVertexOffsets = new Uint32Array(cellCount + 1);
@@ -2077,6 +2081,10 @@ export const runPackStage = (context: GenerationContext): void => {
   context.world.packCoast = packCoast;
   context.world.packHaven = packHaven;
   context.world.packHarbor = packHarbor;
+  context.world.packVertexX = packAdjacency.vertexX;
+  context.world.packVertexY = packAdjacency.vertexY;
+  context.world.packCellVertexOffsets = packAdjacency.cellVertexOffsets;
+  context.world.packCellVertices = packAdjacency.cellVertices;
 };
 
 export const runPackFeatureStage = (context: GenerationContext): void => {

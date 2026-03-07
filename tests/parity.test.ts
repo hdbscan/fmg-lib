@@ -77,11 +77,38 @@ describe("parity report", () => {
     });
     const snapshot = buildLocalParitySnapshot(world);
 
-    expect(snapshot.terrain.mesh.polygons).toHaveLength(world.cellCount);
+    expect(snapshot.terrain.mesh.polygons).toHaveLength(world.packCellCount);
     expect(snapshot.regions.polygons).toHaveLength(world.packCellCount);
     expect(snapshot.regions.states).toHaveLength(world.packCellCount);
     expect(snapshot.regions.religions).toHaveLength(world.packCellCount);
     expect(snapshot.burgs).toHaveLength(world.burgCount);
+    expect(snapshot.terrain.land).toHaveLength(world.packCellCount);
+  });
+
+  test("uses packed voronoi geometry for local parity polygons", () => {
+    const world = generateWorld({
+      seed: "parity-packed-geometry",
+      width: 320,
+      height: 200,
+      cells: 400,
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+        politics: true,
+        religions: true,
+      },
+    });
+    const snapshot = buildLocalParitySnapshot(world);
+
+    expect(snapshot.terrain.mesh.vertices).toHaveLength(
+      world.packVertexX.length,
+    );
+    expect(snapshot.terrain.mesh.polygons).toHaveLength(world.packCellCount);
+    expect(snapshot.terrain.mesh.vertices).not.toHaveLength(
+      world.vertexX.length,
+    );
+    expect(snapshot.regions.vertices).toEqual(snapshot.terrain.mesh.vertices);
   });
 
   test("uses explicit burg coordinates in local parity snapshots", () => {
