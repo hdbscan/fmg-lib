@@ -1,4 +1,4 @@
-import type { GenerationContext } from "../types";
+import type { GenerationContext, PoliticalType } from "../types";
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
@@ -43,15 +43,6 @@ const forEachNeighbor = (
     if (neighborId !== undefined) callback(neighborId);
   }
 };
-
-type StateType =
-  | "Generic"
-  | "Naval"
-  | "Lake"
-  | "Highland"
-  | "River"
-  | "Nomadic"
-  | "Hunting";
 
 type ReligionExpansionMode = "culture" | "state" | "global";
 
@@ -728,11 +719,11 @@ const getSharedEdgePoint = (
   return [rn(x0 + 0.95 * (xEdge - x0), 2), rn(y0 + 0.95 * (yEdge - y0), 2)];
 };
 
-const getBurgType = (
+const getCapitalCellType = (
   context: GenerationContext,
   cellId: number,
   port: number,
-): StateType => {
+): PoliticalType => {
   const {
     packToGrid,
     gridToPack,
@@ -764,6 +755,17 @@ const getBurgType = (
   if ([1, 2, 3, 4].includes(biome)) return "Nomadic";
   if (biome > 4 && biome < 10) return "Hunting";
   return "Generic";
+};
+
+const getStateType = (
+  context: GenerationContext,
+  cultureId: number,
+  capitalCellId: number,
+  capitalPort: number,
+): PoliticalType => {
+  const cultureType = context.internal.cultureTypes[cultureId];
+  if (cultureType) return cultureType;
+  return getCapitalCellType(context, capitalCellId, capitalPort);
 };
 
 const resetBurgs = (context: GenerationContext): void => {
@@ -981,7 +983,7 @@ export const runBurgSpecificationStage = (context: GenerationContext): void => {
 const getBiomeCost = (
   nativeBiome: number,
   biome: number,
-  type: StateType,
+  type: PoliticalType,
 ): number => {
   if (nativeBiome === biome) return 10;
   if (type === "Hunting")
@@ -998,7 +1000,7 @@ const getBiomeCost = (
 const getHeightCost = (
   waterbodyType: number,
   height: number,
-  type: StateType,
+  type: PoliticalType,
 ): number => {
   if (type === "Lake" && waterbodyType === 2) return 10;
   if (type === "Naval" && height < 20) return 300;
@@ -1011,13 +1013,17 @@ const getHeightCost = (
   return 0;
 };
 
-const getRiverCost = (river: number, flux: number, type: StateType): number => {
+const getRiverCost = (
+  river: number,
+  flux: number,
+  type: PoliticalType,
+): number => {
   if (type === "River") return river ? 0 : 100;
   if (!river) return 0;
   return clamp(flux / 10, 20, 100);
 };
 
-const getTypeCost = (coast: number, type: StateType): number => {
+const getTypeCost = (coast: number, type: PoliticalType): number => {
   if (coast === 1)
     return type === "Naval" || type === "Lake"
       ? 0
@@ -1125,7 +1131,7 @@ export const runStatesStage = (context: GenerationContext): void => {
   const stateForm = new Uint8Array(stateCount + 1);
   const stateCells = new Uint32Array(stateCount + 1);
   const stateExpansionism = new Float64Array(stateCount + 1);
-  const stateType: StateType[] = ["Generic"];
+  const stateType: PoliticalType[] = ["Generic"];
   const stateNativeBiome = new Uint8Array(stateCount + 1);
   const packState = new Uint16Array(packCellCount);
   const cost = new Float64Array(packCellCount);
@@ -1148,8 +1154,9 @@ export const runStatesStage = (context: GenerationContext): void => {
       context.random() * context.config.hiddenControls.sizeVariety + 1,
       1,
     );
-    stateType[stateId] = getBurgType(
+    stateType[stateId] = getStateType(
       context,
+      cultureId,
       centerCell,
       burgPort[burgId] ?? 0,
     );
@@ -1308,8 +1315,14 @@ export const runStatesStage = (context: GenerationContext): void => {
 };
 
 export const runStateFormsStage = (context: GenerationContext): void => {
-  const { stateCount, stateCenterBurg, burgCell, burgPort, stateCells } =
-    context.world;
+  const {
+    stateCount,
+    stateCenterBurg,
+    burgCell,
+    burgPort,
+    stateCells,
+    stateCulture,
+  } = context.world;
 
   if (stateCount <= 0) {
     context.world.stateForm = new Uint8Array(1);
@@ -1327,8 +1340,14 @@ export const runStateFormsStage = (context: GenerationContext): void => {
     const capital = stateCenterBurg[stateId] ?? 0;
     const capitalCell = burgCell[capital] ?? 0;
     const religion = context.world.cellsReligion[capitalCell] ?? 0;
+    const type = getStateType(
+      context,
+      stateCulture[stateId] ?? 0,
+      capitalCell,
+      burgPort[capital] ?? 0,
+    );
     if (
-      (burgPort[capital] ?? 0) === 1 &&
+      type === "Naval" &&
       (stateCells[stateId] ?? 0) < averageStateCells * 1.25
     ) {
       stateForm[stateId] = 2;

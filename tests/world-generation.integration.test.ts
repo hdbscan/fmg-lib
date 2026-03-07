@@ -1525,13 +1525,16 @@ describe("world generation integration", () => {
       "1bc7161d8e4d2c587e50017c94aebc33cc3391f8979777fcbe2e327ebd848890",
     );
     expect(createHash("sha256").update(world.cellsState).digest("hex")).toBe(
-      "535c77050f0a9431978efa8c8509200bb4b902c901adb3458a20b4a3b3e8263d",
+      "7089ce6d87f934f6e8a264e912c6273a2554413c77a33afa254f02e356864311",
     );
     expect(
       createHash("sha256").update(world.stateCenterBurg).digest("hex"),
     ).toBe("e88624bf274aff4f35798f4bc27027683e9c1d78f132211a3cc4ae5b3decd4e3");
     expect(createHash("sha256").update(world.stateCells).digest("hex")).toBe(
-      "7054f5bdc06f3f91376fbe51c92ce806bf4430e85d0f6b4a07feddc5b72e185c",
+      "972dc4ac737e20900c6e23896ba7f607f6f56381efafeac5e5d3902c8c7208e2",
+    );
+    expect(createHash("sha256").update(world.stateForm).digest("hex")).toBe(
+      "62e6afec3318524b8828539d5c21eb9538a3abcf135b3b7916e7e153ca8d8f6c",
     );
   });
 
@@ -1663,16 +1666,16 @@ describe("world generation integration", () => {
 
     expect(world.religionCount).toBe(16);
     expect(createHash("sha256").update(world.cellsReligion).digest("hex")).toBe(
-      "6748587d952e600dd37c64b349e3a386b828d05af6d963431ae61daba4f30be9",
+      "3a53114fd0efd20e76cba62369bbafa4d728e32584fd39e9b6b7bcb41776032e",
     );
     expect(
       createHash("sha256").update(world.religionSeedCell).digest("hex"),
-    ).toBe("f18c20c1e1e1d1391f7cb55c9cea1e3c3f7d8fc7b1b740158541ce26378f44ae");
+    ).toBe("f2bb304d20f9d4ca3e6dcdc363812e16abdf48367c76ded7b51d2635619df300");
     expect(createHash("sha256").update(world.religionType).digest("hex")).toBe(
-      "803647fa24074caa2924e2bac36dfd6facb1818516863a4c45517548b8847ca9",
+      "4810b465dbe9fbae2267dbb981b276b7eb04e3e60cfab989cc442dad5a92128d",
     );
     expect(createHash("sha256").update(world.religionSize).digest("hex")).toBe(
-      "e5b1f1c24bf4d33cbc63d4856a32ad1a746d11f2d8ac8eebec62ad1b75b5af54",
+      "d85e5c12b6e5cdfb3119d4922cd67ceffa18c0f137e1d15cec686a5d1267abb5",
     );
   });
 

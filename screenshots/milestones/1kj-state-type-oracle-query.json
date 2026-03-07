@@ -1,0 +1,15 @@
+{
+  "slug": "1kj-state-type-oracle-query",
+  "capturedAt": "2026-03-07T17:39:18.124Z",
+  "url": "http://127.0.0.1:33977/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+  "browser": "firefox",
+  "viewport": "900x600",
+  "fullPage": false,
+  "delayMs": 1000,
+  "staticRoot": "ui/dist",
+  "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&sizeVariety=7.5&growthRate=1.6&religionsNumber=7&precipitation=94&mapSize=100&latitude=50&longitude=50",
+  "artifact": "1kj-state-type-oracle-query.png",
+  "sha256": "2a2e1914561dbdb81227811e9699c7278def297ed1312c2a4adfda685195ec64"
+}

@@ -320,6 +320,15 @@ export type SerializedWorldV1 = Readonly<{
   packFeatureCount: number;
 }>;
 
+export type PoliticalType =
+  | "Generic"
+  | "Naval"
+  | "Lake"
+  | "Highland"
+  | "River"
+  | "Nomadic"
+  | "Hunting";
+
 export type GenerationContext = {
   config: NormalizedGenerationConfig;
   random: () => number;
@@ -327,6 +336,9 @@ export type GenerationContext = {
     spacing: number;
     cellsX: number;
     cellsY: number;
+  };
+  internal: {
+    cultureTypes: PoliticalType[];
   };
   world: {
     cellCount: number;
