@@ -1,5 +1,4 @@
 import type { GenerationContext } from "../types";
-import { createAlea } from "./random";
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
@@ -1457,7 +1456,7 @@ export const runReligionsStage = (context: GenerationContext): void => {
   const religionCultureList: number[] = [0];
   const religionExpansionism: number[] = [0];
   const religionMode: ReligionExpansionMode[] = ["global"];
-  const religionRandom = createAlea(`${context.config.seed}:religions`);
+  const religionRandom = context.random;
 
   for (let cultureId = 1; cultureId <= cultureCount; cultureId += 1) {
     const centerCell = cultureSeedCell[cultureId] ?? 0;
