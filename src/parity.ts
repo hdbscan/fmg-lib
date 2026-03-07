@@ -149,6 +149,9 @@ const copyPackLandLabels = (world: WorldGraphV1): number[] =>
     return (world.packFeatureType[featureId] ?? 0) === 3 ? 1 : 0;
   });
 
+const copyGridLandLabels = (world: WorldGraphV1): number[] =>
+  Array.from(world.cellsH, (height) => (height >= 20 ? 1 : 0));
+
 const pointInPolygon = (
   x: number,
   y: number,
@@ -542,12 +545,16 @@ export const buildLocalParitySnapshot = (
       count + ((world.packFeatureType[featureId] ?? 0) === 3 ? 1 : 0),
     0,
   );
-  const terrainVertices = toPoints(world.packVertexX, world.packVertexY);
+  const terrainVertices = toPoints(world.vertexX, world.vertexY);
   const terrainPolygons = collectCellPolygons(
+    world.cellVertexOffsets,
+    world.cellVertices,
+  );
+  const regionVertices = toPoints(world.packVertexX, world.packVertexY);
+  const regionPolygons = collectCellPolygons(
     world.packCellVertexOffsets,
     world.packCellVertices,
   );
-  const regionPolygons = terrainPolygons;
 
   const snapshot: ParitySnapshot = {
     kind: "local-world",
@@ -560,10 +567,10 @@ export const buildLocalParitySnapshot = (
         vertices: terrainVertices,
         polygons: terrainPolygons,
       },
-      land: copyPackLandLabels(world),
+      land: copyGridLandLabels(world),
     },
     regions: {
-      vertices: terrainVertices,
+      vertices: regionVertices,
       polygons: regionPolygons,
       states: Array.from(
         world.packToGrid,

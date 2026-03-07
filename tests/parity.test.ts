@@ -77,15 +77,15 @@ describe("parity report", () => {
     });
     const snapshot = buildLocalParitySnapshot(world);
 
-    expect(snapshot.terrain.mesh.polygons).toHaveLength(world.packCellCount);
+    expect(snapshot.terrain.mesh.polygons).toHaveLength(world.cellCount);
     expect(snapshot.regions.polygons).toHaveLength(world.packCellCount);
     expect(snapshot.regions.states).toHaveLength(world.packCellCount);
     expect(snapshot.regions.religions).toHaveLength(world.packCellCount);
     expect(snapshot.burgs).toHaveLength(world.burgCount);
-    expect(snapshot.terrain.land).toHaveLength(world.packCellCount);
+    expect(snapshot.terrain.land).toHaveLength(world.cellCount);
   });
 
-  test("uses packed voronoi geometry for local parity polygons", () => {
+  test("uses grid terrain geometry and packed region geometry", () => {
     const world = generateWorld({
       seed: "parity-packed-geometry",
       width: 320,
@@ -101,14 +101,13 @@ describe("parity report", () => {
     });
     const snapshot = buildLocalParitySnapshot(world);
 
-    expect(snapshot.terrain.mesh.vertices).toHaveLength(
-      world.packVertexX.length,
+    expect(snapshot.terrain.mesh.vertices).toHaveLength(world.vertexX.length);
+    expect(snapshot.terrain.mesh.polygons).toHaveLength(world.cellCount);
+    expect(snapshot.regions.vertices).toHaveLength(world.packVertexX.length);
+    expect(snapshot.regions.polygons).toHaveLength(world.packCellCount);
+    expect(snapshot.regions.vertices).not.toEqual(
+      snapshot.terrain.mesh.vertices,
     );
-    expect(snapshot.terrain.mesh.polygons).toHaveLength(world.packCellCount);
-    expect(snapshot.terrain.mesh.vertices).not.toHaveLength(
-      world.vertexX.length,
-    );
-    expect(snapshot.regions.vertices).toEqual(snapshot.terrain.mesh.vertices);
   });
 
   test("uses explicit burg coordinates in local parity snapshots", () => {
