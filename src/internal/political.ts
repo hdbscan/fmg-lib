@@ -1,4 +1,5 @@
 import type { GenerationContext, PoliticalType } from "../types";
+import { createAlea } from "./random";
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
@@ -1151,14 +1152,16 @@ export const runBurgSpecificationStage = (context: GenerationContext): void => {
     const cellId = burgCell[burgId] ?? 0;
     const packId =
       context.internal.burgPackIds[burgId] ?? gridToPack[cellId] ?? -1;
+    const burgRandom = createAlea(`${context.config.seed}:burg-pop:${burgId}`);
     const suitabilityScore = packId >= 0 ? (suitability[packId] ?? 0) : 0;
     const capital = burgCapital[burgId] ?? 0;
     const port = burgPort[burgId] ?? 0;
     const basePopulation = suitabilityScore / 5;
     let population = basePopulation * (capital ? 1.5 : 1);
+    population *= getCellRouteConnectivityRate(context, cellId);
     if (port > 0) population *= 1.2;
     if ((cellsRiver[cellId] ?? 0) > 0) population *= 1.1;
-    population *= gauss(context.random, 1, 1, 0.25, 4, 5);
+    population *= gauss(burgRandom, 1, 1, 0.25, 4, 5);
     population += (burgId % 100) / 1000;
 
     burgPopulation[burgId] = clamp(
@@ -1226,51 +1229,59 @@ const getTypeCost = (coast: number, type: PoliticalType): number => {
   return 0;
 };
 
-const getReligionRouteKey = (stateA: number, stateB: number): number => {
-  const from = Math.min(stateA, stateB);
-  const to = Math.max(stateA, stateB);
-  return from * 65536 + to;
+const getCellRouteKind = (
+  context: GenerationContext,
+  fromCellId: number,
+  toCellId: number,
+): number => {
+  const { cellRouteOffsets, cellRouteNeighbors, cellRouteKinds } =
+    context.world;
+  const from = cellRouteOffsets[fromCellId] ?? 0;
+  const to = cellRouteOffsets[fromCellId + 1] ?? from;
+
+  for (let index = from; index < to; index += 1) {
+    if ((cellRouteNeighbors[index] ?? -1) === toCellId) {
+      return cellRouteKinds[index] ?? 0;
+    }
+  }
+
+  return 0;
 };
 
-const buildReligionRouteStateSet = (
+const getCellRouteConnectivityRate = (
   context: GenerationContext,
-): ReadonlySet<number> => {
-  const routeKeys = new Set<number>();
-  const { routeCount, routeFromState, routeToState } = context.world;
-  for (let routeId = 1; routeId <= routeCount; routeId += 1) {
-    const from = routeFromState[routeId] ?? 0;
-    const to = routeToState[routeId] ?? 0;
-    if (from <= 0 || to <= 0 || from === to) continue;
-    routeKeys.add(getReligionRouteKey(from, to));
+  cellId: number,
+): number => {
+  const { cellRouteOffsets, cellRouteKinds } = context.world;
+  const from = cellRouteOffsets[cellId] ?? 0;
+  const to = cellRouteOffsets[cellId + 1] ?? from;
+  let connectivity = 0.8;
+
+  for (let index = from; index < to; index += 1) {
+    const kind = cellRouteKinds[index] ?? 0;
+    connectivity += kind === 1 ? 0.2 : kind === 3 ? 0.2 : 0.1;
   }
-  return routeKeys;
+
+  return connectivity;
 };
 
 const getReligionPassageCost = (
   context: GenerationContext,
-  routeStateKeys: ReadonlySet<number>,
   currentCellId: number,
   nextCellId: number,
 ): number => {
-  const { cellsFeature, cellsBiome, cellsBurg, cellsState } = context.world;
+  const { cellsFeature, cellsBiome } = context.world;
+  const routeKind = getCellRouteKind(context, currentCellId, nextCellId);
   const currentIsWater = (cellsFeature[currentCellId] ?? 0) !== 1;
   if (currentIsWater) {
-    return 500;
+    return routeKind > 0 ? 50 : 500;
   }
 
   const biomePassageCost =
     RELIGION_BIOME_PASSAGE_COST[cellsBiome[nextCellId] ?? 0] ?? 30;
-  const currentState = cellsState[currentCellId] ?? 0;
-  const nextState = cellsState[nextCellId] ?? 0;
-  const hasRouteProxy =
-    (cellsBurg[currentCellId] ?? 0) > 0 ||
-    (cellsBurg[nextCellId] ?? 0) > 0 ||
-    (currentState > 0 &&
-      nextState > 0 &&
-      routeStateKeys.has(getReligionRouteKey(currentState, nextState)));
-
-  if (!hasRouteProxy) return biomePassageCost;
-  return Math.max(1, biomePassageCost / 3);
+  if (routeKind === 1) return 1;
+  if (routeKind > 1) return Math.max(1, biomePassageCost / 3);
+  return biomePassageCost;
 };
 
 export const runStatesStage = (context: GenerationContext): void => {
@@ -1953,8 +1964,6 @@ export const runReligionsStage = (context: GenerationContext): void => {
   const queue = createCostQueue();
   const cost = new Float64Array(cellCount);
   cost.fill(Number.POSITIVE_INFINITY);
-  const routeStateKeys = buildReligionRouteStateSet(context);
-
   for (let religionId = 1; religionId <= religionCount; religionId += 1) {
     if ((religionType[religionId] ?? 0) === 1) continue;
     const seedCell = religionSeedCell[religionId] ?? 0;
@@ -1986,12 +1995,7 @@ export const runReligionsStage = (context: GenerationContext): void => {
       if (mode === "state" && (cellsState[nextCell] ?? 0) !== stateId) return;
       const cultureCost = (cellsCulture[nextCell] ?? 0) !== cultureId ? 10 : 0;
       const stateCost = stateId !== (cellsState[nextCell] ?? 0) ? 10 : 0;
-      const passageCost = getReligionPassageCost(
-        context,
-        routeStateKeys,
-        next.id,
-        nextCell,
-      );
+      const passageCost = getReligionPassageCost(context, next.id, nextCell);
       const totalCost =
         next.cost +
         10 +

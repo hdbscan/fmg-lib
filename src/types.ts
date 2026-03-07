@@ -118,6 +118,9 @@ export type WorldGraphV1 = Readonly<{
   routeToState: Uint16Array;
   routeKind: Uint8Array;
   routeWeight: Uint16Array;
+  cellRouteOffsets: Uint32Array;
+  cellRouteNeighbors: Uint32Array;
+  cellRouteKinds: Uint8Array;
   cellsProvince: Uint16Array;
   provinceCount: number;
   provinceState: Uint16Array;
@@ -237,6 +240,9 @@ export type SerializedWorldV1 = Readonly<{
     routeToState: SerializedTypedArray;
     routeKind: SerializedTypedArray;
     routeWeight: SerializedTypedArray;
+    cellRouteOffsets: SerializedTypedArray;
+    cellRouteNeighbors: SerializedTypedArray;
+    cellRouteKinds: SerializedTypedArray;
     cellsProvince: SerializedTypedArray;
     provinceState: SerializedTypedArray;
     provinceCenterCell: SerializedTypedArray;
@@ -373,6 +379,9 @@ export type GenerationContext = {
     routeToState: Uint16Array;
     routeKind: Uint8Array;
     routeWeight: Uint16Array;
+    cellRouteOffsets: Uint32Array;
+    cellRouteNeighbors: Uint32Array;
+    cellRouteKinds: Uint8Array;
     cellsProvince: Uint16Array;
     provinceCount: number;
     provinceState: Uint16Array;

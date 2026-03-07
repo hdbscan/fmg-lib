@@ -1140,6 +1140,9 @@ export const runGridStage = (context: GenerationContext): void => {
   context.world.routeToState = new Uint16Array(1);
   context.world.routeKind = new Uint8Array(1);
   context.world.routeWeight = new Uint16Array(1);
+  context.world.cellRouteOffsets = new Uint32Array(cellCount + 1);
+  context.world.cellRouteNeighbors = new Uint32Array(0);
+  context.world.cellRouteKinds = new Uint8Array(0);
   context.world.cellsProvince = new Uint16Array(cellCount);
   context.world.provinceCount = 0;
   context.world.provinceState = new Uint16Array(1);
@@ -4212,93 +4215,621 @@ export const runStatesStage = (context: GenerationContext): void =>
 export const runStateFormsStage = (context: GenerationContext): void =>
   runPoliticalStateFormsStage(context);
 
-export const runRoutesStage = (context: GenerationContext): void => {
+const ROUTE_KIND_ROAD = 1;
+const ROUTE_KIND_TRAIL = 2;
+const ROUTE_KIND_SEA = 3;
+
+const LAND_ROUTE_HABITABILITY = [0, 4, 10, 22, 30, 100, 80, 10, 22] as const;
+
+type RouteNode = readonly [number, number];
+
+type RoutedBurg = Readonly<{
+  burgId: number;
+  cellId: number;
+  x: number;
+  y: number;
+  stateId: number;
+  portCellId: number;
+}>;
+
+type GeneratedRoute = Readonly<{
+  fromState: number;
+  toState: number;
+  kind: number;
+  weight: number;
+  cells: readonly number[];
+}>;
+
+type PathEntry = Readonly<{
+  cellId: number;
+  cost: number;
+}>;
+
+const comparePathEntries = (left: PathEntry, right: PathEntry): number => {
+  if (left.cost !== right.cost) {
+    return left.cost - right.cost;
+  }
+
+  return left.cellId - right.cellId;
+};
+
+const pushPathEntry = (heap: PathEntry[], entry: PathEntry): void => {
+  heap.push(entry);
+  let index = heap.length - 1;
+
+  while (index > 0) {
+    const parentIndex = Math.floor((index - 1) / 2);
+    const parent = heap[parentIndex];
+    if (!parent || comparePathEntries(parent, entry) <= 0) {
+      break;
+    }
+
+    heap[index] = parent;
+    index = parentIndex;
+  }
+
+  heap[index] = entry;
+};
+
+const popPathEntry = (heap: PathEntry[]): PathEntry | undefined => {
+  const first = heap[0];
+  const last = heap.pop();
+
+  if (!first) {
+    return undefined;
+  }
+
+  if (!last || heap.length === 0) {
+    return first;
+  }
+
+  let index = 0;
+
+  while (true) {
+    const leftIndex = index * 2 + 1;
+    const rightIndex = leftIndex + 1;
+    let smallestIndex = index;
+
+    const left = heap[leftIndex];
+    const right = heap[rightIndex];
+    const current =
+      smallestIndex === index ? last : (heap[smallestIndex] ?? last);
+
+    if (left && comparePathEntries(left, current) < 0) {
+      smallestIndex = leftIndex;
+    }
+
+    const smallest =
+      smallestIndex === index ? last : (heap[smallestIndex] ?? last);
+    if (right && comparePathEntries(right, smallest) < 0) {
+      smallestIndex = rightIndex;
+    }
+
+    if (smallestIndex === index) {
+      break;
+    }
+
+    heap[index] = heap[smallestIndex] as PathEntry;
+    index = smallestIndex;
+  }
+
+  heap[index] = last;
+  return first;
+};
+
+const routeEdgeKey = (from: number, to: number): string => `${from}:${to}`;
+
+const addRouteConnections = (
+  cells: readonly number[],
+  kind: number,
+  connections: Map<string, number>,
+): void => {
+  for (let index = 0; index < cells.length - 1; index += 1) {
+    const cellId = cells[index] ?? -1;
+    const nextCellId = cells[index + 1] ?? -1;
+    if (cellId < 0 || nextCellId < 0 || cellId === nextCellId) {
+      continue;
+    }
+
+    connections.set(routeEdgeKey(cellId, nextCellId), kind);
+    connections.set(routeEdgeKey(nextCellId, cellId), kind);
+  }
+};
+
+const getRouteSegments = (
+  pathCells: readonly number[],
+  connections: ReadonlyMap<string, number>,
+): number[][] => {
+  const segments: number[][] = [];
+  let segment: number[] = [];
+
+  for (let index = 0; index < pathCells.length; index += 1) {
+    const cellId = pathCells[index] ?? -1;
+    const nextCellId = pathCells[index + 1] ?? -1;
+    const isConnected =
+      nextCellId >= 0 &&
+      (connections.has(routeEdgeKey(cellId, nextCellId)) ||
+        connections.has(routeEdgeKey(nextCellId, cellId)));
+
+    if (isConnected) {
+      if (segment.length > 0) {
+        segment.push(cellId);
+        if (segment.length > 1) {
+          segments.push(segment);
+        }
+        segment = [];
+      }
+      continue;
+    }
+
+    segment.push(cellId);
+  }
+
+  if (segment.length > 1) {
+    segments.push(segment);
+  }
+
+  return segments;
+};
+
+const mergeRouteSegments = (segments: readonly number[][]): number[][] => {
+  const merged = segments.map((segment) => segment.slice());
+  let mergedCount = 0;
+
+  for (let leftIndex = 0; leftIndex < merged.length; leftIndex += 1) {
+    const left = merged[leftIndex];
+    if (!left || left.length === 0) {
+      continue;
+    }
+
+    for (
+      let rightIndex = leftIndex + 1;
+      rightIndex < merged.length;
+      rightIndex += 1
+    ) {
+      const right = merged[rightIndex];
+      if (!right || right.length === 0) {
+        continue;
+      }
+
+      const leftEnd = left[left.length - 1];
+      const rightStart = right[0];
+      if (leftEnd !== rightStart) {
+        continue;
+      }
+
+      merged[leftIndex] = left.concat(right.slice(1));
+      merged[rightIndex] = [];
+      mergedCount += 1;
+    }
+  }
+
+  const filtered = merged.filter((segment) => segment.length > 1);
+  return mergedCount > 1 ? mergeRouteSegments(filtered) : filtered;
+};
+
+const calculateUrquhartEdges = (points: readonly RouteNode[]): number[][] => {
+  if (points.length < 2) {
+    return [];
+  }
+
+  if (points.length === 2) {
+    return [[0, 1]];
+  }
+
+  const delaunay = Delaunay.from(points.map(([x, y]) => [x, y]));
+  const { halfedges, triangles } = delaunay;
+  const removed = new Uint8Array(triangles.length);
+  const score = (pointA: number, pointB: number): number => {
+    const a = points[pointA] ?? [0, 0];
+    const b = points[pointB] ?? [0, 0];
+    const dx = (a[0] ?? 0) - (b[0] ?? 0);
+    const dy = (a[1] ?? 0) - (b[1] ?? 0);
+    return dx * dx + dy * dy;
+  };
+
+  for (let edge = 0; edge < triangles.length; edge += 3) {
+    const pointA = triangles[edge] ?? 0;
+    const pointB = triangles[edge + 1] ?? 0;
+    const pointC = triangles[edge + 2] ?? 0;
+    const scoreAB = score(pointA, pointB);
+    const scoreBC = score(pointB, pointC);
+    const scoreCA = score(pointC, pointA);
+
+    const removedEdge =
+      scoreCA > scoreAB && scoreCA > scoreBC
+        ? Math.max(edge + 2, halfedges[edge + 2] ?? -1)
+        : scoreBC > scoreAB && scoreBC > scoreCA
+          ? Math.max(edge + 1, halfedges[edge + 1] ?? -1)
+          : Math.max(edge, halfedges[edge] ?? -1);
+    if (removedEdge >= 0) {
+      removed[removedEdge] = 1;
+    }
+  }
+
+  const edges: number[][] = [];
+  for (let edge = 0; edge < triangles.length; edge += 1) {
+    const opposite = halfedges[edge] ?? -1;
+    if (edge <= opposite || removed[edge] === 1) {
+      continue;
+    }
+
+    const from = triangles[edge] ?? -1;
+    const to = triangles[edge % 3 === 2 ? edge - 2 : edge + 1] ?? -1;
+    if (from >= 0 && to >= 0 && from !== to) {
+      edges.push([from, to]);
+    }
+  }
+
+  return edges;
+};
+
+const getSeaRouteTypeModifier = (coast: number): number => {
+  if (coast === -1) {
+    return 1;
+  }
+  if (coast === -2) {
+    return 1.8;
+  }
+  if (coast === -3) {
+    return 4;
+  }
+  if (coast === -4) {
+    return 6;
+  }
+  return 8;
+};
+
+const buildCellRouteLinks = (
+  cellCount: number,
+  connections: ReadonlyMap<string, number>,
+): Readonly<{
+  offsets: Uint32Array;
+  neighbors: Uint32Array;
+  kinds: Uint8Array;
+}> => {
+  const byCell: number[][] = Array.from({ length: cellCount }, () => []);
+  const byCellKinds: number[][] = Array.from({ length: cellCount }, () => []);
+
+  for (const [key, kind] of connections.entries()) {
+    const [fromText, toText] = key.split(":");
+    const from = Number.parseInt(fromText ?? "-1", 10);
+    const to = Number.parseInt(toText ?? "-1", 10);
+    if (from < 0 || to < 0 || from >= cellCount || to >= cellCount) {
+      continue;
+    }
+
+    byCell[from]?.push(to);
+    byCellKinds[from]?.push(kind);
+  }
+
+  const offsets = new Uint32Array(cellCount + 1);
+  const neighbors: number[] = [];
+  const kinds: number[] = [];
+
+  for (let cellId = 0; cellId < cellCount; cellId += 1) {
+    offsets[cellId] = neighbors.length;
+    const cellNeighbors = byCell[cellId] ?? [];
+    const cellKinds = byCellKinds[cellId] ?? [];
+    for (let index = 0; index < cellNeighbors.length; index += 1) {
+      neighbors.push(cellNeighbors[index] ?? 0);
+      kinds.push(cellKinds[index] ?? 0);
+    }
+  }
+
+  offsets[cellCount] = neighbors.length;
+  return {
+    offsets,
+    neighbors: Uint32Array.from(neighbors),
+    kinds: Uint8Array.from(kinds),
+  };
+};
+
+const getRouteLength = (
+  context: GenerationContext,
+  cells: readonly number[],
+): number => {
+  let total = 0;
+
+  for (let index = 0; index < cells.length - 1; index += 1) {
+    const current = cells[index] ?? -1;
+    const next = cells[index + 1] ?? -1;
+    if (current < 0 || next < 0) {
+      continue;
+    }
+
+    const dx =
+      (context.world.cellsX[current] ?? 0) - (context.world.cellsX[next] ?? 0);
+    const dy =
+      (context.world.cellsY[current] ?? 0) - (context.world.cellsY[next] ?? 0);
+    total += Math.sqrt(dx * dx + dy * dy);
+  }
+
+  return clamp(Math.round(total), 1, 65535);
+};
+
+const findRoutePath = (
+  context: GenerationContext,
+  startCellId: number,
+  endCellId: number,
+  isWater: boolean,
+  connections: ReadonlyMap<string, number>,
+): number[] | null => {
+  if (startCellId === endCellId) {
+    return [startCellId];
+  }
+
   const {
     cellCount,
     cellsFeature,
-    cellsState,
+    cellsBiome,
+    cellsH,
+    cellsTemp,
+    cellsCoast,
+    cellsBurg,
     cellsX,
     cellsY,
     cellNeighborOffsets,
     cellNeighbors,
+  } = context.world;
+  const distance = new Float64Array(cellCount);
+  distance.fill(Number.POSITIVE_INFINITY);
+  const previous = new Int32Array(cellCount);
+  previous.fill(-1);
+  const frontier: PathEntry[] = [];
+
+  distance[startCellId] = 0;
+  pushPathEntry(frontier, { cellId: startCellId, cost: 0 });
+
+  while (frontier.length > 0) {
+    const next = popPathEntry(frontier);
+    if (!next) {
+      break;
+    }
+
+    const currentCellId = next.cellId;
+    const currentCost = next.cost;
+    if (currentCost > (distance[currentCellId] ?? Number.POSITIVE_INFINITY)) {
+      continue;
+    }
+
+    if (currentCellId === endCellId) {
+      const path: number[] = [];
+      let cursor = endCellId;
+      while (cursor >= 0) {
+        path.push(cursor);
+        if (cursor === startCellId) {
+          break;
+        }
+        cursor = previous[cursor] ?? -1;
+      }
+      path.reverse();
+      return path.length > 1 ? path : null;
+    }
+
+    forEachNeighbor(
+      currentCellId,
+      cellNeighborOffsets,
+      cellNeighbors,
+      (neighborId) => {
+        const nextIsWater = (cellsFeature[neighborId] ?? 0) !== 1;
+        if (isWater !== nextIsWater) {
+          return;
+        }
+
+        if (isWater && (cellsTemp[neighborId] ?? 0) < -4) {
+          return;
+        }
+
+        if (!isWater) {
+          const biome = cellsBiome[neighborId] ?? 0;
+          const habitability = LAND_ROUTE_HABITABILITY[biome] ?? 0;
+          if (habitability <= 0) {
+            return;
+          }
+        }
+
+        const dx = (cellsX[currentCellId] ?? 0) - (cellsX[neighborId] ?? 0);
+        const dy = (cellsY[currentCellId] ?? 0) - (cellsY[neighborId] ?? 0);
+        const distanceCost = dx * dx + dy * dy;
+        const connectionModifier = connections.has(
+          routeEdgeKey(currentCellId, neighborId),
+        )
+          ? 0.5
+          : 1;
+        const stepCost = isWater
+          ? distanceCost *
+            getSeaRouteTypeModifier(cellsCoast[neighborId] ?? 0) *
+            connectionModifier
+          : distanceCost *
+            (1 +
+              Math.max(
+                100 -
+                  (LAND_ROUTE_HABITABILITY[cellsBiome[neighborId] ?? 0] ?? 0),
+                0,
+              ) /
+                1000) *
+            (1 + Math.max((cellsH[neighborId] ?? 0) - 25, 25) / 25) *
+            connectionModifier *
+            ((cellsBurg[neighborId] ?? 0) > 0 ? 1 : 3);
+        const totalCost = currentCost + stepCost;
+
+        if (totalCost >= (distance[neighborId] ?? Number.POSITIVE_INFINITY)) {
+          return;
+        }
+
+        distance[neighborId] = totalCost;
+        previous[neighborId] = currentCellId;
+        pushPathEntry(frontier, { cellId: neighborId, cost: totalCost });
+      },
+    );
+  }
+
+  return null;
+};
+
+const generateRouteSegments = (
+  context: GenerationContext,
+  burgGroups: Readonly<Record<number, readonly RoutedBurg[]>>,
+  connections: Map<string, number>,
+  kind: number,
+): GeneratedRoute[] => {
+  const routes: GeneratedRoute[] = [];
+
+  for (const burgs of Object.values(burgGroups)) {
+    if (burgs.length < 2) {
+      continue;
+    }
+
+    const points = burgs.map(({ x, y }) => [x, y] as RouteNode);
+    const urquhartEdges = calculateUrquhartEdges(points);
+
+    for (const edge of urquhartEdges) {
+      const fromIndex = edge[0] ?? -1;
+      const toIndex = edge[1] ?? -1;
+      const fromBurg = fromIndex >= 0 ? burgs[fromIndex] : undefined;
+      const toBurg = toIndex >= 0 ? burgs[toIndex] : undefined;
+      if (!fromBurg || !toBurg) {
+        continue;
+      }
+
+      const startCellId =
+        kind === ROUTE_KIND_SEA ? fromBurg.portCellId : fromBurg.cellId;
+      const endCellId =
+        kind === ROUTE_KIND_SEA ? toBurg.portCellId : toBurg.cellId;
+      if (startCellId < 0 || endCellId < 0) {
+        continue;
+      }
+
+      const corePath = findRoutePath(
+        context,
+        startCellId,
+        endCellId,
+        kind === ROUTE_KIND_SEA,
+        connections,
+      );
+      if (!corePath || corePath.length < 2) {
+        continue;
+      }
+
+      const fullPath =
+        kind === ROUTE_KIND_SEA
+          ? [fromBurg.cellId].concat(corePath, [toBurg.cellId])
+          : corePath;
+      const segments = mergeRouteSegments(
+        getRouteSegments(fullPath, connections),
+      );
+
+      for (const segment of segments) {
+        addRouteConnections(segment, kind, connections);
+        routes.push({
+          fromState: fromBurg.stateId,
+          toState: toBurg.stateId,
+          kind,
+          weight: getRouteLength(context, segment),
+          cells: segment,
+        });
+      }
+    }
+  }
+
+  return routes;
+};
+
+export const runRoutesStage = (context: GenerationContext): void => {
+  const {
+    cellCount,
     stateCount,
+    burgCount,
+    burgCell,
+    burgX,
+    burgY,
+    burgCapital,
+    burgPort,
+    cellsState,
+    cellsFeatureId,
+    gridToPack,
+    packHaven,
   } = context.world;
 
-  if (stateCount <= 0) {
+  if (stateCount <= 0 || burgCount <= 0) {
     context.world.routeCount = 0;
     context.world.routeFromState = new Uint16Array(1);
     context.world.routeToState = new Uint16Array(1);
     context.world.routeKind = new Uint8Array(1);
     context.world.routeWeight = new Uint16Array(1);
+    context.world.cellRouteOffsets = new Uint32Array(cellCount + 1);
+    context.world.cellRouteNeighbors = new Uint32Array(0);
+    context.world.cellRouteKinds = new Uint8Array(0);
     return;
   }
 
-  const edgeMinDistanceSq = new Map<string, number>();
+  const landBurgsByFeature: Record<number, RoutedBurg[]> = {};
+  const capitalsByFeature: Record<number, RoutedBurg[]> = {};
+  const portsByWaterbody: Record<number, RoutedBurg[]> = {};
 
-  for (let cellId = 0; cellId < cellCount; cellId += 1) {
-    if ((cellsFeature[cellId] ?? 0) !== 1) {
+  for (let burgId = 1; burgId <= burgCount; burgId += 1) {
+    const cellId = burgCell[burgId] ?? -1;
+    if (cellId < 0) {
       continue;
     }
 
-    const stateA = cellsState[cellId] ?? 0;
-    if (stateA <= 0) {
-      continue;
-    }
-
-    const x = cellsX[cellId] ?? 0;
-    const y = cellsY[cellId] ?? 0;
-
-    forEachNeighbor(
+    const featureId = cellsFeatureId[cellId] ?? 0;
+    const stateId = cellsState[cellId] ?? 0;
+    const port = burgPort[burgId] ?? 0;
+    const packId =
+      context.internal.burgPackIds[burgId] ?? gridToPack[cellId] ?? -1;
+    const portCellId = packId >= 0 ? (packHaven[packId] ?? -1) : -1;
+    const routedBurg: RoutedBurg = {
+      burgId,
       cellId,
-      cellNeighborOffsets,
-      cellNeighbors,
-      (neighborId) => {
-        if ((cellsFeature[neighborId] ?? 0) !== 1) {
-          return;
-        }
+      x: burgX[burgId] ?? 0,
+      y: burgY[burgId] ?? 0,
+      stateId,
+      portCellId,
+    };
 
-        const stateB = cellsState[neighborId] ?? 0;
-        if (stateB <= 0 || stateA === stateB) {
-          return;
-        }
+    if (featureId > 0) {
+      landBurgsByFeature[featureId] ??= [];
+      landBurgsByFeature[featureId]!.push(routedBurg);
 
-        const from = Math.min(stateA, stateB);
-        const to = Math.max(stateA, stateB);
-        const key = `${from}:${to}`;
+      if ((burgCapital[burgId] ?? 0) === 1) {
+        capitalsByFeature[featureId] ??= [];
+        capitalsByFeature[featureId]!.push(routedBurg);
+      }
+    }
 
-        const dx = (cellsX[neighborId] ?? 0) - x;
-        const dy = (cellsY[neighborId] ?? 0) - y;
-        const distanceSq = dx * dx + dy * dy;
-        const currentMin = edgeMinDistanceSq.get(key);
-
-        if (currentMin === undefined || distanceSq < currentMin) {
-          edgeMinDistanceSq.set(key, distanceSq);
-        }
-      },
-    );
+    if (port > 0 && portCellId >= 0) {
+      portsByWaterbody[port] ??= [];
+      portsByWaterbody[port]!.push(routedBurg);
+    }
   }
 
-  const edges = Array.from(edgeMinDistanceSq.entries())
-    .map(([key, distanceSq]) => {
-      const [fromText, toText] = key.split(":");
-      return {
-        from: Number(fromText),
-        to: Number(toText),
-        distanceSq,
-      };
-    })
-    .filter(
-      ({ from, to }) =>
-        from > 0 && to > 0 && from <= stateCount && to <= stateCount,
+  const connections = new Map<string, number>();
+  const routes = generateRouteSegments(
+    context,
+    capitalsByFeature,
+    connections,
+    ROUTE_KIND_ROAD,
+  )
+    .concat(
+      generateRouteSegments(
+        context,
+        landBurgsByFeature,
+        connections,
+        ROUTE_KIND_TRAIL,
+      ),
     )
-    .sort((a, b) => {
-      if (a.from !== b.from) {
-        return a.from - b.from;
-      }
-      return a.to - b.to;
-    });
+    .concat(
+      generateRouteSegments(
+        context,
+        portsByWaterbody,
+        connections,
+        ROUTE_KIND_SEA,
+      ),
+    );
 
-  const routeCount = edges.length;
+  const routeCount = routes.length;
   const routeFromState = new Uint16Array(routeCount + 1);
   const routeToState = new Uint16Array(routeCount + 1);
   const routeKind = new Uint8Array(routeCount + 1);
@@ -4306,26 +4837,27 @@ export const runRoutesStage = (context: GenerationContext): void => {
 
   for (let routeIndex = 0; routeIndex < routeCount; routeIndex += 1) {
     const routeId = routeIndex + 1;
-    const edge = edges[routeIndex];
-    if (!edge) {
+    const route = routes[routeIndex];
+    if (!route) {
       continue;
     }
 
-    routeFromState[routeId] = edge.from;
-    routeToState[routeId] = edge.to;
-    routeKind[routeId] = 1;
-    routeWeight[routeId] = clamp(
-      Math.round(Math.sqrt(edge.distanceSq)),
-      1,
-      65535,
-    );
+    routeFromState[routeId] = clamp(route.fromState, 0, 65535);
+    routeToState[routeId] = clamp(route.toState, 0, 65535);
+    routeKind[routeId] = route.kind;
+    routeWeight[routeId] = route.weight;
   }
+
+  const cellRouteLinks = buildCellRouteLinks(cellCount, connections);
 
   context.world.routeCount = routeCount;
   context.world.routeFromState = routeFromState;
   context.world.routeToState = routeToState;
   context.world.routeKind = routeKind;
   context.world.routeWeight = routeWeight;
+  context.world.cellRouteOffsets = cellRouteLinks.offsets;
+  context.world.cellRouteNeighbors = cellRouteLinks.neighbors;
+  context.world.cellRouteKinds = cellRouteLinks.kinds;
 };
 
 export const runProvincesStage = (context: GenerationContext): void =>
