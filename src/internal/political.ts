@@ -203,6 +203,12 @@ const getTargetTowns = (
   populatedCount: number,
 ): number => {
   if (context.config.townsCount !== null) {
+    if (context.config.townsCount === 1000) {
+      const raw = rn(
+        populatedCount / 5 / (context.world.cellCount / 10000) ** 0.8,
+      );
+      return clamp(raw, 0, populatedCount);
+    }
     return clamp(context.config.townsCount, 0, populatedCount);
   }
 
@@ -353,6 +359,7 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
     cellsCulture,
     packCellCount,
     packToGrid,
+    gridToPack,
     packX,
     packY,
     packHaven,
@@ -439,6 +446,7 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
   const burgCapital = new Uint8Array(burgCount + 1);
   const burgPort = new Uint8Array(burgCount + 1);
   const burgCulture = new Uint16Array(burgCount + 1);
+  const portCandidates = new Map<number, number[]>();
 
   cellsBurg.fill(0);
   for (let index = 0; index < burgCount; index += 1) {
@@ -452,28 +460,27 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
     const isFrozen = haven >= 0 ? (cellsTemp[haven] ?? 0) <= 0 : false;
     const isMulticell = (waterbodySize[waterbodyId] ?? 0) > 1;
     const isHarbor = (harbor > 0 && capital === 1) || harbor === 1;
-    const port =
+    const isPortCandidate =
       waterbodyId > 0 &&
       (waterbodyType[waterbodyId] ?? 0) > 0 &&
       isMulticell &&
       isHarbor &&
-      !isFrozen
-        ? waterbodyId
-        : 0;
+      !isFrozen;
 
     cellsBurg[cellId] = burgId;
     burgCell[burgId] = cellId;
     burgX[burgId] = rn(packX[packId] ?? 0, 2);
     burgY[burgId] = rn(packY[packId] ?? 0, 2);
     burgCapital[burgId] = capital;
-    burgPort[burgId] = port > 0 ? 1 : 0;
+    burgPort[burgId] = 0;
     burgCulture[burgId] = cellsCulture[cellId] ?? 0;
 
-    if (port > 0 && haven >= 0) {
-      const edgePoint = getSharedEdgePoint(context, cellId, haven);
-      if (edgePoint) {
-        burgX[burgId] = edgePoint[0];
-        burgY[burgId] = edgePoint[1];
+    if (isPortCandidate) {
+      const candidates = portCandidates.get(waterbodyId);
+      if (candidates) {
+        candidates.push(burgId);
+      } else {
+        portCandidates.set(waterbodyId, [burgId]);
       }
     } else if ((cellsRiver[cellId] ?? 0) > 0) {
       const shift = Math.min((cellsFlow[cellId] ?? 0) / 150, 1);
@@ -482,6 +489,23 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
         burgY[burgId] + ((cellsRiver[cellId] ?? 0) % 2 ? shift : -shift),
         2,
       );
+    }
+  }
+
+  for (const burgIds of portCandidates.values()) {
+    if (burgIds.length < 2) continue;
+
+    for (const burgId of burgIds) {
+      const cellId = burgCell[burgId] ?? 0;
+      const packId = gridToPack[cellId] ?? -1;
+      const haven = packId >= 0 ? (packHaven[packId] ?? -1) : -1;
+      if (haven < 0) continue;
+
+      burgPort[burgId] = 1;
+      const edgePoint = getSharedEdgePoint(context, cellId, haven);
+      if (!edgePoint) continue;
+      burgX[burgId] = edgePoint[0];
+      burgY[burgId] = edgePoint[1];
     }
   }
 
@@ -757,6 +781,7 @@ export const runStatesStage = (context: GenerationContext): void => {
       continue;
     const currentState = cellsState[cellId] ?? 0;
     if (currentState <= 0) continue;
+    let touchesCapital = false;
     let buddies = 0;
     const adversaries = new Map<number, number>();
     forEachNeighbor(
@@ -765,6 +790,14 @@ export const runStatesStage = (context: GenerationContext): void => {
       context.world.cellNeighbors,
       (neighborId) => {
         if ((cellsH[neighborId] ?? 0) < 20) return;
+        const neighborBurgId = context.world.cellsBurg[neighborId] ?? 0;
+        if (
+          neighborBurgId > 0 &&
+          (context.world.burgCapital[neighborBurgId] ?? 0) === 1
+        ) {
+          touchesCapital = true;
+          return;
+        }
         const neighborState = cellsState[neighborId] ?? 0;
         if (neighborState === currentState) {
           buddies += 1;
@@ -777,7 +810,7 @@ export const runStatesStage = (context: GenerationContext): void => {
           );
       },
     );
-    if (adversaries.size < 2 || buddies > 2) continue;
+    if (touchesCapital || adversaries.size < 2 || buddies > 2) continue;
     let bestState = 0;
     let bestCount = 0;
     for (const [stateId, countValue] of adversaries) {

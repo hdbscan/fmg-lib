@@ -51,26 +51,26 @@
     "oracleRegionCount": 23,
     "localRegionCount": 23,
     "matchedRegionPairs": 14,
-    "pixelIntersection": 5706,
-    "pixelUnion": 26096,
-    "iou": 0.21865419987737583
+    "pixelIntersection": 6289,
+    "pixelUnion": 25366,
+    "iou": 0.24793030040211306
   },
   "religions": {
     "oracleRegionCount": 14,
     "localRegionCount": 16,
     "matchedRegionPairs": 10,
-    "pixelIntersection": 6560,
-    "pixelUnion": 24398,
-    "iou": 0.2688744979096647
+    "pixelIntersection": 6671,
+    "pixelUnion": 24287,
+    "iou": 0.2746736937456252
   },
   "burgs": {
     "oracleCount": 796,
-    "localCount": 1023,
+    "localCount": 659,
     "threshold": 10.74,
-    "oracleRecallWithinThreshold": 0.5188442211055276,
-    "localPrecisionWithinThreshold": 0.36070381231671556,
-    "meanNearestDistance": 16.784048575144748,
-    "medianNearestDistance": 12.46764472411684
+    "oracleRecallWithinThreshold": 0.40326633165829145,
+    "localPrecisionWithinThreshold": 0.3520485584218513,
+    "meanNearestDistance": 17.480988615913837,
+    "medianNearestDistance": 13.5118500833886
   },
   "counts": {
     "landmasses": {
@@ -90,8 +90,8 @@
     },
     "burgs": {
       "oracle": 796,
-      "local": 1023,
-      "delta": 227
+      "local": 659,
+      "delta": -137
     }
   }
 }

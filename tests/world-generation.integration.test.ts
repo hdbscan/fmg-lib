@@ -1097,6 +1097,41 @@ describe("world generation integration", () => {
     );
   });
 
+  test("treats townsCount 1000 as upstream auto mode", () => {
+    const autoSettlements = generateWorld({
+      ...baseConfig,
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+      },
+    });
+
+    const sentinelSettlements = generateWorld({
+      ...baseConfig,
+      townsCount: 1000,
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+      },
+    });
+
+    expect(sentinelSettlements.burgCount).toBe(autoSettlements.burgCount);
+    expect(Array.from(sentinelSettlements.cellsBurg)).toEqual(
+      Array.from(autoSettlements.cellsBurg),
+    );
+    expect(Array.from(sentinelSettlements.burgCell)).toEqual(
+      Array.from(autoSettlements.burgCell),
+    );
+    expect(Array.from(sentinelSettlements.burgX)).toEqual(
+      Array.from(autoSettlements.burgX),
+    );
+    expect(Array.from(sentinelSettlements.burgY)).toEqual(
+      Array.from(autoSettlements.burgY),
+    );
+  });
+
   test("generates deterministic states when politics layer is enabled", () => {
     const withPoliticsA = generateWorld({
       ...baseConfig,
