@@ -177,6 +177,112 @@ export const computeSuitability = (
   return suitability;
 };
 
+const normalize = (value: number, min: number, max: number): number => {
+  if (!Number.isFinite(value)) return 0;
+  if (max <= min) return value >= max ? 1 : 0;
+  return clamp((value - min) / (max - min), 0, 1);
+};
+
+const biomeHabitability = [0, 4, 10, 22, 30, 100, 80, 10, 22] as const;
+
+export const computePoliticalSuitability = (
+  context: GenerationContext,
+): Int16Array => {
+  const legacySuitability = computeSuitability(context);
+  const {
+    packCellCount,
+    packToGrid,
+    packArea,
+    packCoast,
+    packHarbor,
+    cellsFlow,
+    cellsPrec,
+    cellsTemp,
+    cellsBiome,
+    cellsH,
+    cellsRiver,
+    cellsWaterbody,
+    waterbodyType,
+  } = context.world;
+  const suitability = new Int16Array(packCellCount);
+  const positiveFlows: number[] = [];
+  for (let packId = 0; packId < packCellCount; packId += 1) {
+    if (!isPoliticalPackCell(context, packId)) continue;
+    const cellId = packToGrid[packId] ?? 0;
+    const flow = cellsFlow[cellId] ?? 0;
+    if (flow > 0) positiveFlows.push(flow);
+  }
+
+  positiveFlows.sort((left, right) => left - right);
+  const flowMidpoint = Math.floor(positiveFlows.length / 2);
+  const meanFlow =
+    positiveFlows.length === 0
+      ? 0
+      : positiveFlows.length % 2 === 0
+        ? ((positiveFlows[flowMidpoint - 1] ?? 0) +
+            (positiveFlows[flowMidpoint] ?? 0)) /
+          2
+        : (positiveFlows[flowMidpoint] ?? 0);
+  let maxFlow = 0;
+  for (const flow of positiveFlows) {
+    if (flow > maxFlow) maxFlow = flow;
+  }
+  for (let packId = 0; packId < packCellCount; packId += 1) {
+    if (!isPoliticalPackCell(context, packId)) {
+      suitability[packId] = 0;
+      continue;
+    }
+
+    const cellId = packToGrid[packId] ?? 0;
+    const flow = cellsFlow[cellId] ?? 0;
+    const precipitation = cellsPrec[cellId] ?? 0;
+    const temperature = cellsTemp[cellId] ?? 0;
+    const height = cellsH[cellId] ?? 0;
+    const coast = packCoast[packId] ?? 0;
+    const harbor = packHarbor[packId] ?? 0;
+    const haven = context.world.packHaven[packId] ?? -1;
+    const biome = cellsBiome[cellId] ?? 0;
+    const waterbodyId = haven >= 0 ? (cellsWaterbody[haven] ?? 0) : 0;
+    const adjacentWaterType = waterbodyType[waterbodyId] ?? 0;
+
+    let score = biomeHabitability[biome] ?? 0;
+    if (score <= 0) {
+      suitability[packId] = 0;
+      continue;
+    }
+
+    if (meanFlow > 0 && maxFlow > meanFlow) {
+      score += normalize(flow, meanFlow, maxFlow) * 250;
+    }
+
+    score -= (height - 50) / 5;
+
+    if (coast === 1 && haven >= 0) {
+      if ((cellsRiver[cellId] ?? 0) > 0) score += 15;
+      if (adjacentWaterType === 2) {
+        score += (cellsTemp[haven] ?? temperature) <= 0 ? 1 : 30;
+      } else if (adjacentWaterType === 1) {
+        score += 5;
+        if (harbor === 1) score += 20;
+      }
+    }
+
+    const aridityPenalty = precipitation < 20 ? 2 : 0;
+    const coldPenalty = temperature <= -10 ? 2 : 0;
+
+    const rankedScore = Math.max(
+      Math.trunc((score - aridityPenalty - coldPenalty) / 5),
+      0,
+    );
+    suitability[packId] = Math.max(
+      Math.trunc((legacySuitability[packId] ?? 0) * 0.75 + rankedScore * 0.25),
+      0,
+    );
+  }
+
+  return suitability;
+};
+
 const getTargetStates = (
   context: GenerationContext,
   populatedCount: number,
@@ -377,7 +483,7 @@ export const runBurgGenerationStage = (context: GenerationContext): void => {
     return;
   }
 
-  const suitability = computeSuitability(context);
+  const suitability = computePoliticalSuitability(context);
   const populatedPackIds = Array.from(
     { length: packCellCount },
     (_, packId) => packId,
@@ -528,7 +634,7 @@ export const runBurgSpecificationStage = (context: GenerationContext): void => {
     return;
   }
 
-  const suitability = computeSuitability(context);
+  const suitability = computePoliticalSuitability(context);
   const burgPopulation = new Uint16Array(burgCount + 1);
 
   for (let burgId = 1; burgId <= burgCount; burgId += 1) {
@@ -642,7 +748,7 @@ export const runStatesStage = (context: GenerationContext): void => {
     return;
   }
 
-  const suitability = computeSuitability(context);
+  const suitability = computePoliticalSuitability(context);
   const activePackCount = suitability.reduce(
     (sum, value) => sum + (value > 0 ? 1 : 0),
     0,
@@ -1105,7 +1211,7 @@ export const runReligionsStage = (context: GenerationContext): void => {
     cellsH,
   } = context.world;
   cellsReligion.fill(0);
-  if (packCellCount <= 0) {
+  if (packCellCount <= 0 || cultureCount <= 0) {
     context.world.religionCount = 0;
     context.world.religionSeedCell = new Uint32Array(1);
     context.world.religionType = new Uint8Array(1);
@@ -1140,7 +1246,7 @@ export const runReligionsStage = (context: GenerationContext): void => {
     0,
     50,
   );
-  const suitability = computeSuitability(context);
+  const suitability = computePoliticalSuitability(context);
   const candidateBurgs = Array.from(
     { length: burgCount },
     (_, index) => index + 1,

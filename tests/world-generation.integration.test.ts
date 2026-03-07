@@ -1341,6 +1341,66 @@ describe("world generation integration", () => {
     );
   });
 
+  test("keeps oracle-query settlement and politics placement stable", () => {
+    const world = generateWorld({
+      seed: "42424242",
+      width: 1280,
+      height: 900,
+      cells: 9996,
+      culturesCount: 9,
+      statesCount: 23,
+      townsCount: 1000,
+      hiddenControls: {
+        sizeVariety: 7.5,
+        growthRate: 1.6,
+        religionsNumber: 7,
+      },
+      climate: {
+        lakeElevationLimit: 20,
+        precipitation: 94,
+        mapSize: 100,
+        latitude: 50,
+        longitude: 50,
+      },
+      layers: {
+        physical: true,
+        cultures: true,
+        settlements: true,
+        politics: true,
+        religions: true,
+      },
+    });
+
+    expect(world.burgCount).toBe(656);
+    expect(createHash("sha256").update(world.cellsBurg).digest("hex")).toBe(
+      "aa1898def23338556c4bacab2b39997ffee28f280677f7da4288a0c5f769aeb5",
+    );
+    expect(createHash("sha256").update(world.burgCell).digest("hex")).toBe(
+      "5e161e38125095adb6f80ecdad5e3bb22e52cd6147ea3d6b7fc3739d431dbda2",
+    );
+    expect(createHash("sha256").update(world.burgX).digest("hex")).toBe(
+      "1a3a5ee43d94a8694bd25fc7cbdbcfdceec27ac8e320a835ee1acdf572bb930b",
+    );
+    expect(createHash("sha256").update(world.burgY).digest("hex")).toBe(
+      "985695cf6b31e93f61110e69498dc844cc63f87c442389053bd9b04611727cf4",
+    );
+    expect(createHash("sha256").update(world.burgCapital).digest("hex")).toBe(
+      "a8f2b334cc0ef579f9380640139852c6ffcfef895fe0a396b1a68d361d313ce4",
+    );
+    expect(createHash("sha256").update(world.burgPort).digest("hex")).toBe(
+      "4f65b8ab30d1379cda99f02bdebc3b63046e4075f79e511cfdec10de4c2aec3e",
+    );
+    expect(createHash("sha256").update(world.cellsState).digest("hex")).toBe(
+      "2a42b874f4d947fa3eb90f847280cdfbaee05abec56c0a4ebca1935691465079",
+    );
+    expect(
+      createHash("sha256").update(world.stateCenterBurg).digest("hex"),
+    ).toBe("e88624bf274aff4f35798f4bc27027683e9c1d78f132211a3cc4ae5b3decd4e3");
+    expect(createHash("sha256").update(world.stateCells).digest("hex")).toBe(
+      "337d27ca86ccc3f37e2de0b3321c5297f993585db0dceeac930f2b687ee357af",
+    );
+  });
+
   test("generates deterministic religions when religions layer is enabled", () => {
     const withReligionsA = generateWorld({
       ...baseConfig,
@@ -1466,16 +1526,16 @@ describe("world generation integration", () => {
 
     expect(world.religionCount).toBe(16);
     expect(createHash("sha256").update(world.cellsReligion).digest("hex")).toBe(
-      "bb569f50d18bd88ba8595d1092370fa5f376781167df8a13a35dda15c2581ab2",
+      "b6d962e6ce50c69f1c7b1575862387dba5340fac9224ece907b426ecb96b4e6d",
     );
     expect(
       createHash("sha256").update(world.religionSeedCell).digest("hex"),
-    ).toBe("3092e4de4c9c9ed5aca94ca42ee21cc85a2893348269b10ff499d5a499237345");
+    ).toBe("db546dbcb18a28dabce5f033d5761a09e401b6f358ddc7baa436b2cb5bd0a696");
     expect(createHash("sha256").update(world.religionType).digest("hex")).toBe(
       "321918b12ad8caa005eefc87c5566ca7885bcce909cb33ac59ce35c26b70e9fd",
     );
     expect(createHash("sha256").update(world.religionSize).digest("hex")).toBe(
-      "f82a138bee2a9a5f833e8f244e771b3aa2689cea8365ea370caa8dee84df54bc",
+      "b6a9d90d4ca652caf842a1dbfc8c0ad35b2afd4417a41439909e642e85d3cac0",
     );
   });
 
@@ -1528,7 +1588,7 @@ describe("world generation integration", () => {
     }
   });
 
-  test("keeps burg placement stable while later specification timing shifts", () => {
+  test("keeps burg outputs stable while later layers are added", () => {
     const sharedConfig = {
       ...baseConfig,
       seed: "burg-order",
@@ -1571,7 +1631,7 @@ describe("world generation integration", () => {
     expect(Array.from(withPoliticsOnly.burgCulture)).toEqual(
       Array.from(withReligions.burgCulture),
     );
-    expect(Array.from(withPoliticsOnly.burgPopulation)).not.toEqual(
+    expect(Array.from(withPoliticsOnly.burgPopulation)).toEqual(
       Array.from(withReligions.burgPopulation),
     );
   });
