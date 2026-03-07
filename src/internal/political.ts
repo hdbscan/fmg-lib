@@ -266,7 +266,9 @@ const normalize = (value: number, min: number, max: number): number => {
   return clamp((value - min) / (max - min), 0, 1);
 };
 
-const biomeHabitability = [0, 4, 10, 22, 30, 100, 80, 10, 22] as const;
+const biomeHabitability = [
+  0, 4, 10, 22, 30, 50, 100, 80, 90, 12, 4, 0, 12,
+] as const;
 
 type RankedCellData = Readonly<{
   suitability: Int16Array;
@@ -496,7 +498,7 @@ export const computeLakeFeatureMetadata = (
   return { flux, evaporation, outlet, group };
 };
 
-const computeRankedSuitability = (
+export const computeRankedSuitability = (
   context: GenerationContext,
   includeSecondaryPacks = false,
 ): Float64Array => {
@@ -562,6 +564,20 @@ export const computePoliticalSuitability = (
 
     const cellId = packToGrid[packId] ?? 0;
     suitability[packId] = rankedCells[cellId] ?? 0;
+  }
+
+  return suitability;
+};
+
+export const computePackCellSuitability = (
+  context: GenerationContext,
+): Int16Array => {
+  const { packCellCount, packToGrid } = context.world;
+  const suitability = new Int16Array(packCellCount);
+  const rankedCells = computeCellRankData(context).suitability;
+
+  for (let packId = 0; packId < packCellCount; packId += 1) {
+    suitability[packId] = rankedCells[packToGrid[packId] ?? 0] ?? 0;
   }
 
   return suitability;
