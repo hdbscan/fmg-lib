@@ -3365,7 +3365,10 @@ export const runOpenNearSeaLakesStage = (
   return openedAnyLake;
 };
 
-export const runClimateStage = (context: GenerationContext): void => {
+export const runClimateStage = (
+  context: GenerationContext,
+  onStep?: (key: string, label: string) => void,
+): void => {
   const {
     height,
     seaLevel,
@@ -3399,12 +3402,10 @@ export const runClimateStage = (context: GenerationContext): void => {
   ];
   const maxPassableElevation = 85;
 
-  for (let index = 0; index < cellCount; index += 1) {
-    const y = cellsY[index] ?? 0;
-    const h = cellsH[index] ?? 0;
-
+  for (let rowCellId = 0; rowCellId < cellCount; rowCellId += cellsX) {
+    const rowY = cellsY[rowCellId] ?? 0;
     const rowLatitude =
-      mapCoordinates.latN - (y / height) * mapCoordinates.latT;
+      mapCoordinates.latN - (rowY / height) * mapCoordinates.latT;
     const seaLevelTemperature = temperatureAtLatitude(
       rowLatitude,
       temperatureEquator,
@@ -3412,14 +3413,25 @@ export const runClimateStage = (context: GenerationContext): void => {
       temperatureSouthPole,
     );
 
-    const altitudePenalty =
-      h < seaLevel ? 0 : ((h - 18) ** elevationExponent / 1000) * 6.5;
+    for (
+      let cellId = rowCellId;
+      cellId < Math.min(rowCellId + cellsX, cellCount);
+      cellId += 1
+    ) {
+      const h = cellsH[cellId] ?? 0;
+      const altitudePenalty =
+        h < seaLevel ? 0 : rn(((h - 18) ** elevationExponent / 1000) * 6.5);
 
-    const temperature = Math.round(seaLevelTemperature - altitudePenalty);
-    cellsTemp[index] = clamp(temperature, -128, 127);
-
-    cellsPrec[index] = 0;
+      cellsTemp[cellId] = clamp(
+        seaLevelTemperature - altitudePenalty,
+        -128,
+        127,
+      );
+      cellsPrec[cellId] = 0;
+    }
   }
+
+  onStep?.("physical:climate-temp", "Climate temperature");
 
   const cellsNumberModifier = (context.config.requestedCells / 10000) ** 0.25;
   const modifier = cellsNumberModifier * precipitationModifier;
@@ -3592,6 +3604,8 @@ export const runClimateStage = (context: GenerationContext): void => {
       gridCellsY,
     );
   }
+
+  onStep?.("physical:climate-prec", "Climate precipitation");
 };
 
 export const runHydrologyStage = (context: GenerationContext): void => {
