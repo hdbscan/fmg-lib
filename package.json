@@ -11,6 +11,7 @@
     "parity:oracle": "bun ./scripts/fetch-upstream-oracle.ts --output artifacts/parity/upstream-oracle.json",
     "parity:refresh": "bun ./scripts/check-parity.ts --refresh true",
     "parity:check": "bun ./scripts/check-parity.ts",
+    "parity:terrain": "bun ./scripts/check-terrain-parity.ts",
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test ./tests",
     "check": "bun run typecheck && bun test ./tests",

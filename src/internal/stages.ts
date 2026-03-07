@@ -1262,7 +1262,10 @@ export const runGridStage = (context: GenerationContext): void => {
   }
 };
 
-export const runHeightmapStage = (context: GenerationContext): void => {
+export const runHeightmapStage = (
+  context: GenerationContext,
+  onStep?: (key: string, label: string) => void,
+): void => {
   const { width, height, heightNoise, heightTemplate, requestedCells } =
     context.config;
   const { cellCount, cellsH } = context.world;
@@ -1713,37 +1716,69 @@ export const runHeightmapStage = (context: GenerationContext): void => {
     }
   };
 
-  for (const [tool, a2, a3, a4, a5] of steps) {
+  for (const [stepIndex, [tool, a2, a3, a4, a5]] of steps.entries()) {
     if (tool === "Hill") {
       addHill(a2, a3, a4, a5);
+      onStep?.(
+        `heightmap:${stepIndex + 1}:${tool}`,
+        `Heightmap ${stepIndex + 1} ${tool}`,
+      );
       continue;
     }
     if (tool === "Pit") {
       addPit(a2, a3, a4, a5);
+      onStep?.(
+        `heightmap:${stepIndex + 1}:${tool}`,
+        `Heightmap ${stepIndex + 1} ${tool}`,
+      );
       continue;
     }
     if (tool === "Range") {
       shapeRange(a2, a3, a4, a5, false);
+      onStep?.(
+        `heightmap:${stepIndex + 1}:${tool}`,
+        `Heightmap ${stepIndex + 1} ${tool}`,
+      );
       continue;
     }
     if (tool === "Trough") {
       shapeRange(a2, a3, a4, a5, true);
+      onStep?.(
+        `heightmap:${stepIndex + 1}:${tool}`,
+        `Heightmap ${stepIndex + 1} ${tool}`,
+      );
       continue;
     }
     if (tool === "Strait") {
       addStrait(a2, a3);
+      onStep?.(
+        `heightmap:${stepIndex + 1}:${tool}`,
+        `Heightmap ${stepIndex + 1} ${tool}`,
+      );
       continue;
     }
     if (tool === "Mask") {
       maskHeightField(context, heights as unknown as Float32Array, Number(a2));
+      onStep?.(
+        `heightmap:${stepIndex + 1}:${tool}`,
+        `Heightmap ${stepIndex + 1} ${tool}`,
+      );
       continue;
     }
     if (tool === "Add") {
       modifyHeightField(heights as unknown as Float32Array, a3, Number(a2), 1);
+      onStep?.(
+        `heightmap:${stepIndex + 1}:${tool}`,
+        `Heightmap ${stepIndex + 1} ${tool}`,
+      );
       continue;
     }
     if (tool === "Multiply") {
       modifyHeightField(heights as unknown as Float32Array, a3, 0, Number(a2));
+      onStep?.(
+        `heightmap:${stepIndex + 1}:${tool}`,
+        `Heightmap ${stepIndex + 1} ${tool}`,
+      );
       continue;
     }
     if (tool === "Smooth") {
@@ -1751,6 +1786,10 @@ export const runHeightmapStage = (context: GenerationContext): void => {
         context,
         heights as unknown as Float32Array,
         Number(a2),
+      );
+      onStep?.(
+        `heightmap:${stepIndex + 1}:${tool}`,
+        `Heightmap ${stepIndex + 1} ${tool}`,
       );
     }
   }
@@ -1766,6 +1805,8 @@ export const runHeightmapStage = (context: GenerationContext): void => {
         sampleValueNoise(noiseSeed, x, y, 8, 6.5) * heightNoise * 3;
       heights[index] = clamp((heights[index] ?? 0) + detail, 0, 100);
     }
+
+    onStep?.("heightmap:noise", "Heightmap noise");
   }
 
   cellsH.set(heights);
