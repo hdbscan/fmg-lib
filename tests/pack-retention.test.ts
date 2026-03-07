@@ -20,6 +20,8 @@ const config: NormalizedGenerationConfig = {
   hiddenControls: {
     sizeVariety: 1,
     growthRate: 1,
+    statesGrowthRate: 1,
+    provincesRatio: 40,
     religionsNumber: null,
   },
   climate: {
@@ -91,6 +93,9 @@ const createContext = (): GenerationContext => {
       routeToState: new Uint16Array(1),
       routeKind: new Uint8Array(1),
       routeWeight: new Uint16Array(1),
+      cellRouteOffsets: new Uint32Array(5),
+      cellRouteNeighbors: new Uint32Array(0),
+      cellRouteKinds: new Uint8Array(0),
       cellsProvince: new Uint16Array(4),
       provinceCount: 0,
       provinceState: new Uint16Array(1),
@@ -133,7 +138,7 @@ const createContext = (): GenerationContext => {
       cellsTemp: new Int8Array(4),
       cellsPrec: new Uint8Array(4),
       cellsFlow: new Uint32Array(4),
-      cellsRiver: new Uint8Array(4),
+      cellsRiver: new Uint32Array(4),
       cellsBiome: new Uint8Array(4),
       cellsWaterbody: new Uint32Array([1, 0, 2, 0]),
       waterbodyCount: 2,

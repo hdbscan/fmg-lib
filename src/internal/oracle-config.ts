@@ -1,43 +1,29 @@
 import type { ParitySnapshot } from "../parity";
 import type { GenerationConfig, HeightTemplate } from "../types";
 
-const TEMPLATE_GROUPS: Readonly<Record<HeightTemplate, readonly string[]>> = {
-  continents: [
-    "continents",
-    "pangea",
-    "peninsula",
-    "isthmus",
-    "oldWorld",
-    "fractious",
-    "taklamakan",
-  ],
-  archipelago: [
-    "archipelago",
-    "volcano",
-    "highIsland",
-    "lowIsland",
-    "atoll",
-    "shattered",
-  ],
-  "inland-sea": ["mediterranean"],
-};
+const UPSTREAM_HEIGHT_TEMPLATES = new Set<HeightTemplate>([
+  "volcano",
+  "highIsland",
+  "lowIsland",
+  "continents",
+  "archipelago",
+  "atoll",
+  "mediterranean",
+  "peninsula",
+  "pangea",
+  "isthmus",
+  "shattered",
+  "taklamakan",
+  "oldWorld",
+  "fractious",
+]);
 
 export const mapUpstreamTemplateToHeightTemplate = (
   template: string | undefined,
 ): HeightTemplate | undefined => {
-  if (!template) {
-    return undefined;
-  }
-
-  for (const [heightTemplate, upstreamTemplates] of Object.entries(
-    TEMPLATE_GROUPS,
-  ) as Array<[HeightTemplate, readonly string[]]>) {
-    if (upstreamTemplates.includes(template)) {
-      return heightTemplate;
-    }
-  }
-
-  return undefined;
+  return template && UPSTREAM_HEIGHT_TEMPLATES.has(template as HeightTemplate)
+    ? (template as HeightTemplate)
+    : undefined;
 };
 
 export const buildGenerationConfigFromOracle = (

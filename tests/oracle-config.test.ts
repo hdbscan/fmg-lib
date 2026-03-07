@@ -51,10 +51,10 @@ describe("oracle config replay", () => {
       "continents",
     );
     expect(mapUpstreamTemplateToHeightTemplate("highIsland")).toBe(
-      "archipelago",
+      "highIsland",
     );
     expect(mapUpstreamTemplateToHeightTemplate("mediterranean")).toBe(
-      "inland-sea",
+      "mediterranean",
     );
     expect(mapUpstreamTemplateToHeightTemplate("world")).toBeUndefined();
   });
@@ -83,7 +83,7 @@ describe("oracle config replay", () => {
       winds: [225, 45, 225, 315, 135, 315],
     });
 
-    expect(config.heightTemplate).toBe("archipelago");
+    expect(config.heightTemplate).toBe("highIsland");
     expect(config.culturesCount).toBe(9);
     expect(config.statesCount).toBe(14);
     expect(config.townsCount).toBe(1000);
@@ -106,6 +106,18 @@ describe("oracle config replay", () => {
       longitude: 52,
       winds: [225, 45, 225, 315, 135, 315],
     });
+  });
+
+  test("accepts exact upstream terrain template ids in normalized config", () => {
+    const normalized = normalizeConfig({
+      seed: "exact-template",
+      width: 100,
+      height: 80,
+      cells: 100,
+      heightTemplate: "fractious",
+    });
+
+    expect(normalized.heightTemplate).toBe("fractious");
   });
 
   test("uses upstream elevation exponent default in normalized config", () => {
