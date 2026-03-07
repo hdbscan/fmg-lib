@@ -63,6 +63,7 @@ const createContext = (heights: readonly number[]): GenerationContext => {
       cultureTypes: ["Generic"],
       burgPackIds: new Uint32Array(1),
       packRetentionCoast: null,
+      packRetentionWaterType: null,
     },
     world: {
       cellCount,

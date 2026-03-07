@@ -1111,6 +1111,99 @@ const markDistanceField = (
   }
 };
 
+const initializePackRetentionState = (context: GenerationContext): void => {
+  if (
+    context.internal.packRetentionCoast !== null &&
+    context.internal.packRetentionWaterType !== null
+  ) {
+    return;
+  }
+
+  const { cellCount, cellsBorder, cellsH, cellNeighborOffsets, cellNeighbors } =
+    context.world;
+  const retentionCoast = new Int8Array(cellCount);
+  const retentionWaterType = new Uint8Array(cellCount);
+  const featureIds = new Uint32Array(cellCount);
+  let nextFeatureId = 0;
+
+  for (let startCell = 0; startCell < cellCount; startCell += 1) {
+    if ((featureIds[startCell] ?? 0) !== 0) {
+      continue;
+    }
+
+    nextFeatureId += 1;
+    const queue = [startCell];
+    featureIds[startCell] = nextFeatureId;
+    const land = (cellsH[startCell] ?? 0) >= 20;
+    let border = (cellsBorder[startCell] ?? 0) === 1;
+
+    while (queue.length > 0) {
+      const cellId = queue.pop();
+      if (cellId === undefined) {
+        break;
+      }
+
+      if ((cellsBorder[cellId] ?? 0) === 1) {
+        border = true;
+      }
+
+      forEachNeighbor(
+        cellId,
+        cellNeighborOffsets,
+        cellNeighbors,
+        (neighborId) => {
+          const neighborLand = (cellsH[neighborId] ?? 0) >= 20;
+          if (neighborLand === land) {
+            if ((featureIds[neighborId] ?? 0) !== 0) {
+              return;
+            }
+
+            featureIds[neighborId] = nextFeatureId;
+            queue.push(neighborId);
+            return;
+          }
+
+          if (land) {
+            retentionCoast[cellId] = 1;
+            retentionCoast[neighborId] = -1;
+          }
+        },
+      );
+    }
+
+    if (!land) {
+      const waterType = border ? 1 : 2;
+      for (let cellId = 0; cellId < cellCount; cellId += 1) {
+        if ((featureIds[cellId] ?? 0) === nextFeatureId) {
+          retentionWaterType[cellId] = waterType;
+        }
+      }
+    }
+  }
+
+  markDistanceField(
+    retentionCoast,
+    cellCount,
+    cellNeighborOffsets,
+    cellNeighbors,
+    2,
+    1,
+    11,
+  );
+  markDistanceField(
+    retentionCoast,
+    cellCount,
+    cellNeighborOffsets,
+    cellNeighbors,
+    -2,
+    -1,
+    -10,
+  );
+
+  context.internal.packRetentionCoast = retentionCoast;
+  context.internal.packRetentionWaterType = retentionWaterType;
+};
+
 type FrontierEntry = {
   cost: number;
   stateId: number;
@@ -2098,6 +2191,7 @@ export const runFeatureStage = (context: GenerationContext): void => {
 export const runDeepDepressionLakeStage = (
   context: GenerationContext,
 ): boolean => {
+  initializePackRetentionState(context);
   const elevationLimit = context.config.climate.lakeElevationLimit;
   if (elevationLimit >= 80) {
     return false;
@@ -2105,6 +2199,8 @@ export const runDeepDepressionLakeStage = (
 
   const { cellCount, cellsBorder, cellsH, cellNeighborOffsets, cellNeighbors } =
     context.world;
+  const packRetentionCoast = context.internal.packRetentionCoast;
+  const packRetentionWaterType = context.internal.packRetentionWaterType;
 
   let changed = false;
 
@@ -2175,8 +2271,20 @@ export const runDeepDepressionLakeStage = (
     }
 
     cellsH[cellId] = 19;
+    if (packRetentionCoast) {
+      packRetentionCoast[cellId] = -1;
+    }
+    if (packRetentionWaterType) {
+      packRetentionWaterType[cellId] = 2;
+    }
     for (const neighborId of equalHeightNeighbors) {
       cellsH[neighborId] = 19;
+      if (packRetentionCoast) {
+        packRetentionCoast[neighborId] = -1;
+      }
+      if (packRetentionWaterType) {
+        packRetentionWaterType[neighborId] = 2;
+      }
     }
     changed = true;
   }
@@ -2196,6 +2304,7 @@ export const runPackStage = (context: GenerationContext): void => {
     gridToPack,
   } = context.world;
   const retentionCoast = context.internal.packRetentionCoast ?? cellsCoast;
+  const retentionWaterType = context.internal.packRetentionWaterType;
 
   gridToPack.fill(-1);
 
@@ -2216,7 +2325,10 @@ export const runPackStage = (context: GenerationContext): void => {
       return false;
     }
     if (coast === -2) {
-      if (cellId % 4 === 0) {
+      if (
+        cellId % 4 === 0 ||
+        (retentionWaterType !== null && (retentionWaterType[cellId] ?? 0) === 2)
+      ) {
         return false;
       }
     }
@@ -2236,8 +2348,8 @@ export const runPackStage = (context: GenerationContext): void => {
       continue;
     }
 
-    const x = cellsX[cellId] ?? 0;
-    const y = cellsY[cellId] ?? 0;
+    const x = rn(cellsX[cellId] ?? 0, 2);
+    const y = rn(cellsY[cellId] ?? 0, 2);
     pushPackPoint(cellId, x, y);
 
     const coast = retentionCoast[cellId] ?? 0;
@@ -2262,8 +2374,10 @@ export const runPackStage = (context: GenerationContext): void => {
           return;
         }
 
-        const dx = (cellsX[neighborCellId] ?? 0) - x;
-        const dy = (cellsY[neighborCellId] ?? 0) - y;
+        const neighborX = rn(cellsX[neighborCellId] ?? 0, 2);
+        const neighborY = rn(cellsY[neighborCellId] ?? 0, 2);
+        const dx = neighborX - x;
+        const dy = neighborY - y;
         const distanceSquared = dx * dx + dy * dy;
         if (distanceSquared < spacingSquared) {
           return;
@@ -2271,8 +2385,8 @@ export const runPackStage = (context: GenerationContext): void => {
 
         pushPackPoint(
           cellId,
-          rn((x + (cellsX[neighborCellId] ?? 0)) / 2, 1),
-          rn((y + (cellsY[neighborCellId] ?? 0)) / 2, 1),
+          rn((x + neighborX) / 2, 1),
+          rn((y + neighborY) / 2, 1),
         );
       },
     );
@@ -3250,8 +3364,10 @@ export const runOpenNearSeaLakesStage = (
 
   const breachLimit = 22;
   let openedAnyLake = false;
+  initializePackRetentionState(context);
   const packRetentionCoast =
     context.internal.packRetentionCoast ?? context.world.cellsCoast.slice();
+  const packRetentionWaterType = context.internal.packRetentionWaterType;
   context.internal.packRetentionCoast = packRetentionCoast;
 
   const removeLake = (
@@ -3263,6 +3379,9 @@ export const runOpenNearSeaLakesStage = (
     cellsFeature[thresholdCellId] = 0;
     cellsCoast[thresholdCellId] = -1;
     packRetentionCoast[thresholdCellId] = -1;
+    if (packRetentionWaterType) {
+      packRetentionWaterType[thresholdCellId] = 1;
+    }
     cellsWaterbody[thresholdCellId] = oceanId;
 
     forEachNeighbor(
@@ -3283,6 +3402,9 @@ export const runOpenNearSeaLakesStage = (
       }
 
       cellsWaterbody[lakeCellId] = oceanId;
+      if (packRetentionWaterType) {
+        packRetentionWaterType[lakeCellId] = 1;
+      }
     }
 
     waterbodyType[lakeId] = 1;
