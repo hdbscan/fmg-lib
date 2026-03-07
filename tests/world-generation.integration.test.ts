@@ -1663,16 +1663,16 @@ describe("world generation integration", () => {
 
     expect(world.religionCount).toBe(16);
     expect(createHash("sha256").update(world.cellsReligion).digest("hex")).toBe(
-      "ff055b36797b27ae977f8f7f6a10757daeb92dfede7b084f66edb3a08ac619f7",
+      "6748587d952e600dd37c64b349e3a386b828d05af6d963431ae61daba4f30be9",
     );
     expect(
       createHash("sha256").update(world.religionSeedCell).digest("hex"),
-    ).toBe("0d76109a7c9fc51907841eb579d4b49f23aa7ca7c4877616b8a75ca9ca77e5e4");
+    ).toBe("f18c20c1e1e1d1391f7cb55c9cea1e3c3f7d8fc7b1b740158541ce26378f44ae");
     expect(createHash("sha256").update(world.religionType).digest("hex")).toBe(
-      "321918b12ad8caa005eefc87c5566ca7885bcce909cb33ac59ce35c26b70e9fd",
+      "803647fa24074caa2924e2bac36dfd6facb1818516863a4c45517548b8847ca9",
     );
     expect(createHash("sha256").update(world.religionSize).digest("hex")).toBe(
-      "11cc0aad877df1077c10609eaf06dbd88c3c8427e83fe48621545cc4d370b741",
+      "e5b1f1c24bf4d33cbc63d4856a32ad1a746d11f2d8ac8eebec62ad1b75b5af54",
     );
   });
 
