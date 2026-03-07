@@ -1,0 +1,33 @@
+{
+  "slug": "m32-main-after-six-terrain-workers",
+  "capturedAt": "2026-03-07T20:45:13.867Z",
+  "viewport": "1280x900",
+  "fullPage": false,
+  "status": "different",
+  "note": "Comparing main after merged six-terrain-worker batch against upstream FMG fixed seed 42424242.",
+  "local": {
+    "label": "local-main-after-six-terrain-workers",
+    "url": "http://127.0.0.1:44521/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&heightTemplate=continents&precipitation=94&mapSize=100&latitude=50&longitude=50&terrainGeometry=packed",
+    "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+    "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+    "browser": "firefox",
+    "delayMs": 1500,
+    "staticRoot": "ui/dist",
+    "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&heightTemplate=continents&precipitation=94&mapSize=100&latitude=50&longitude=50&terrainGeometry=packed",
+    "artifact": "local.png",
+    "sha256": "a2e49eb40c32a07b7d0f6cc04e32014ff81343076590c9f299370975e6dc88bd"
+  },
+  "reference": {
+    "type": "upstream",
+    "label": "upstream-fmg-seed-42424242-default",
+    "url": "https://azgaar.github.io/Fantasy-Map-Generator/?seed=42424242&options=default",
+    "browser": "firefox",
+    "selector": "#map",
+    "readySelector": "#map",
+    "delayMs": 12000,
+    "staticRoot": null,
+    "staticPath": null,
+    "artifact": "upstream.png",
+    "sha256": "855809c24d33f7995e9a4a4e08a8d251919a8d1d5ef54d5e66324655fccb4efb"
+  }
+}
