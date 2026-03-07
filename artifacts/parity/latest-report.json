@@ -45,27 +45,27 @@
   "politics": {
     "oracleRegionCount": 23,
     "localRegionCount": 23,
-    "matchedRegionPairs": 14,
-    "pixelIntersection": 6727,
-    "pixelUnion": 25916,
-    "iou": 0.2595693779904306
+    "matchedRegionPairs": 12,
+    "pixelIntersection": 5555,
+    "pixelUnion": 24768,
+    "iou": 0.224281330749354
   },
   "religions": {
     "oracleRegionCount": 14,
     "localRegionCount": 31,
-    "matchedRegionPairs": 11,
-    "pixelIntersection": 5775,
-    "pixelUnion": 27721,
-    "iou": 0.20832581797193464
+    "matchedRegionPairs": 12,
+    "pixelIntersection": 5895,
+    "pixelUnion": 27601,
+    "iou": 0.21357921814427014
   },
   "burgs": {
     "oracleCount": 796,
     "localCount": 1023,
     "threshold": 10.74,
-    "oracleRecallWithinThreshold": 0.4108040201005025,
-    "localPrecisionWithinThreshold": 0.2805474095796676,
-    "meanNearestDistance": 22.151502737111674,
-    "medianNearestDistance": 15.14583162540463
+    "oracleRecallWithinThreshold": 0.43467336683417085,
+    "localPrecisionWithinThreshold": 0.3069403714565005,
+    "meanNearestDistance": 21.451691229847814,
+    "medianNearestDistance": 14.606988123867671
   },
   "counts": {
     "landmasses": {

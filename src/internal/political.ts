@@ -219,6 +219,17 @@ const hasBurgNear = (
   return false;
 };
 
+const sortPackIdsByScore = (
+  packIds: readonly number[],
+  getScore: (packId: number) => number,
+): number[] =>
+  packIds
+    .map((packId) => ({ packId, score: getScore(packId) }))
+    .sort(
+      (left, right) => right.score - left.score || left.packId - right.packId,
+    )
+    .map(({ packId }) => packId);
+
 const isPrimaryPackCell = (
   context: GenerationContext,
   packId: number,
@@ -375,12 +386,10 @@ export const runSettlementsStage = (context: GenerationContext): void => {
   let capitals: number[] = [];
   let spacing =
     (context.config.width + context.config.height) / 2 / capitalsNumber;
-  const capitalOrder = populatedPackIds.slice().sort((left, right) => {
-    const leftScore = (suitability[left] ?? 0) * (0.5 + context.random() * 0.5);
-    const rightScore =
-      (suitability[right] ?? 0) * (0.5 + context.random() * 0.5);
-    return rightScore - leftScore || left - right;
-  });
+  const capitalOrder = sortPackIdsByScore(
+    populatedPackIds,
+    (packId) => (suitability[packId] ?? 0) * (0.5 + context.random() * 0.5),
+  );
 
   while (capitals.length < capitalsNumber && spacing > 1) {
     capitals = [];
@@ -393,13 +402,11 @@ export const runSettlementsStage = (context: GenerationContext): void => {
   }
 
   const townsNumber = getTargetTowns(context, populatedPackIds.length);
-  const townOrder = populatedPackIds.slice().sort((left, right) => {
-    const leftScore =
-      (suitability[left] ?? 0) * gauss(context.random, 1, 3, 0, 20, 3);
-    const rightScore =
-      (suitability[right] ?? 0) * gauss(context.random, 1, 3, 0, 20, 3);
-    return rightScore - leftScore || left - right;
-  });
+  const townOrder = sortPackIdsByScore(
+    populatedPackIds,
+    (packId) =>
+      (suitability[packId] ?? 0) * gauss(context.random, 1, 3, 0, 20, 3),
+  );
 
   const burgPackIds = capitals.slice();
   let townSpacing =
