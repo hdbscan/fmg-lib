@@ -16,6 +16,7 @@ import {
   runMarkersZonesStage,
   runMilitaryStage,
   runOpenNearSeaLakesStage,
+  runPackFeatureMetadataStage,
   runPackFeatureStage,
   runPackStage,
   runProvincesStage,
@@ -169,6 +170,12 @@ const createContext = (
       packFeatureBorder: new Uint8Array(0),
       packFeatureSize: new Uint32Array(0),
       packFeatureFirstCell: new Uint32Array(0),
+      packFeatureGroup: new Uint8Array(0),
+      packFeatureChainOffsets: new Uint32Array(0),
+      packFeatureVertexOffsets: new Uint32Array(0),
+      packFeatureVertices: new Uint32Array(0),
+      packFeatureShorelineOffsets: new Uint32Array(0),
+      packFeatureShoreline: new Uint32Array(0),
       packCoast: new Int8Array(0),
       packHaven: new Int32Array(0),
       packHarbor: new Uint8Array(0),
@@ -294,6 +301,12 @@ const toWorldGraph = (context: GenerationContext): WorldGraphV1 => {
     packFeatureBorder: world.packFeatureBorder,
     packFeatureSize: world.packFeatureSize,
     packFeatureFirstCell: world.packFeatureFirstCell,
+    packFeatureGroup: world.packFeatureGroup,
+    packFeatureChainOffsets: world.packFeatureChainOffsets,
+    packFeatureVertexOffsets: world.packFeatureVertexOffsets,
+    packFeatureVertices: world.packFeatureVertices,
+    packFeatureShorelineOffsets: world.packFeatureShorelineOffsets,
+    packFeatureShoreline: world.packFeatureShoreline,
     packCoast: world.packCoast,
     packHaven: world.packHaven,
     packHarbor: world.packHarbor,
@@ -334,6 +347,7 @@ export const generateWorld = (options: GenerateOptions): WorldGraphV1 => {
   runGridFeatureMarkupStage(context);
   runClimateStage(context);
   runHydrologyStage(context);
+  runPackFeatureMetadataStage(context);
   runBiomeStage(context);
 
   if (context.config.layers.cultures) {
