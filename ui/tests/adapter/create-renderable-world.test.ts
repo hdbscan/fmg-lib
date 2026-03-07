@@ -9,6 +9,10 @@ describe("buildRenderableWorld", () => {
 
     expect(renderable.width).toBe(world.width);
     expect(renderable.height).toBe(world.height);
+    expect(renderable.focusBounds.minX).toBeGreaterThanOrEqual(0);
+    expect(renderable.focusBounds.minY).toBeGreaterThanOrEqual(0);
+    expect(renderable.focusBounds.maxX).toBeLessThanOrEqual(world.width);
+    expect(renderable.focusBounds.maxY).toBeLessThanOrEqual(world.height);
     expect(renderable.cells).toHaveLength(world.cellCount);
     expect(renderable.landCellIds.length + renderable.waterCellIds.length).toBe(
       world.cellCount,
@@ -27,6 +31,35 @@ describe("buildRenderableWorld", () => {
     expect(firstCell?.polygon.length).toBeGreaterThanOrEqual(6);
     expect(firstCell?.bboxMinX).toBeLessThanOrEqual(firstCell?.bboxMaxX ?? 0);
     expect(firstCell?.bboxMinY).toBeLessThanOrEqual(firstCell?.bboxMaxY ?? 0);
+  });
+
+  it("tracks padded focus bounds around land instead of the full world", () => {
+    const renderable = buildRenderableWorld(getFixtureWorld());
+
+    let landMinX = Number.POSITIVE_INFINITY;
+    let landMinY = Number.POSITIVE_INFINITY;
+    let landMaxX = Number.NEGATIVE_INFINITY;
+    let landMaxY = Number.NEGATIVE_INFINITY;
+
+    for (const cellId of renderable.landCellIds) {
+      const cell = renderable.cells[cellId];
+      expect(cell).toBeDefined();
+      landMinX = Math.min(landMinX, cell?.bboxMinX ?? 0);
+      landMinY = Math.min(landMinY, cell?.bboxMinY ?? 0);
+      landMaxX = Math.max(landMaxX, cell?.bboxMaxX ?? 0);
+      landMaxY = Math.max(landMaxY, cell?.bboxMaxY ?? 0);
+    }
+
+    expect(renderable.focusBounds.minX).toBeLessThanOrEqual(landMinX);
+    expect(renderable.focusBounds.minY).toBeLessThanOrEqual(landMinY);
+    expect(renderable.focusBounds.maxX).toBeGreaterThanOrEqual(landMaxX);
+    expect(renderable.focusBounds.maxY).toBeGreaterThanOrEqual(landMaxY);
+    expect(
+      renderable.focusBounds.maxX - renderable.focusBounds.minX,
+    ).toBeLessThanOrEqual(renderable.width);
+    expect(
+      renderable.focusBounds.maxY - renderable.focusBounds.minY,
+    ).toBeLessThanOrEqual(renderable.height);
   });
 
   it("falls back to province center cells when a state has no center burg", () => {

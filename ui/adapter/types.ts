@@ -100,6 +100,12 @@ export type RenderableWorld = Readonly<{
   source: WorldGraphV1;
   width: number;
   height: number;
+  focusBounds: Readonly<{
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+  }>;
   cells: ReadonlyArray<RenderCell>;
   landCellIds: Uint32Array;
   waterCellIds: Uint32Array;
