@@ -86,6 +86,15 @@ if (import.meta.main) {
     height: oracle.height,
     cells: oracle.terrain.mesh.polygons.length,
     culturesCount: Math.max(1, oracle.cultureCount ?? 12),
+    ...(oracle.statesNumber !== undefined
+      ? { statesCount: oracle.statesNumber }
+      : {}),
+    ...(oracle.townsNumber !== undefined && oracle.townsNumber !== 1000
+      ? { townsCount: oracle.townsNumber }
+      : {}),
+    ...(oracle.lakeElevationLimit !== undefined
+      ? { climate: { lakeElevationLimit: oracle.lakeElevationLimit } }
+      : {}),
     layers: {
       physical: true,
       cultures: true,

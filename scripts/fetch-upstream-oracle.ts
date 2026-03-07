@@ -57,6 +57,9 @@ const normalizeOracle = (payload: {
     burgs: number;
   };
   cultureCount: number;
+  statesNumber: number | null;
+  townsNumber: number | null;
+  lakeElevationLimit: number | null;
   sourceUrl: string;
 }): ParitySnapshot => ({
   kind: "upstream-oracle",
@@ -80,6 +83,13 @@ const normalizeOracle = (payload: {
   burgs: payload.burgs,
   counts: payload.counts,
   cultureCount: payload.cultureCount,
+  ...(payload.statesNumber !== null
+    ? { statesNumber: payload.statesNumber }
+    : {}),
+  ...(payload.townsNumber !== null ? { townsNumber: payload.townsNumber } : {}),
+  ...(payload.lakeElevationLimit !== null
+    ? { lakeElevationLimit: payload.lakeElevationLimit }
+    : {}),
   sourceUrl: payload.sourceUrl,
 });
 
@@ -203,6 +213,37 @@ export const fetchUpstreamOracle = async (
           burgs: burgs.length,
         },
         cultureCount: Math.max(pack.cultures.length - 1, 1),
+        statesNumber:
+          Number(
+            (
+              globalThis as {
+                document?: {
+                  getElementById: (id: string) => { value?: string } | null;
+                };
+              }
+            ).document?.getElementById("statesNumber")?.value ?? "0",
+          ) || null,
+        townsNumber:
+          Number(
+            (
+              globalThis as {
+                document?: {
+                  getElementById: (id: string) => { value?: string } | null;
+                };
+              }
+            ).document?.getElementById("manorsInput")?.value ?? "0",
+          ) || null,
+        lakeElevationLimit:
+          Number(
+            (
+              globalThis as {
+                document?: {
+                  getElementById: (id: string) => { value?: string } | null;
+                };
+              }
+            ).document?.getElementById("lakeElevationLimitOutput")?.value ??
+              "0",
+          ) || null,
         sourceUrl: String(
           (globalData.location as { href?: string } | undefined)?.href ?? "",
         ),

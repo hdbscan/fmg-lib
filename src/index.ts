@@ -4,6 +4,7 @@ import {
   runBiomeStage,
   runClimateStage,
   runCulturesStage,
+  runDeepDepressionLakeStage,
   runFeatureStage,
   runGridFeatureMarkupStage,
   runGridStage,
@@ -298,6 +299,7 @@ export const generateWorld = (options: GenerateOptions): WorldGraphV1 => {
 
   runGridStage(context);
   runHeightmapStage(context);
+  runDeepDepressionLakeStage(context);
   runFeatureStage(context);
   runLandmassStage(context);
   runWaterbodyStage(context);

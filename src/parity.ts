@@ -43,6 +43,9 @@ export type ParitySnapshot = Readonly<{
   burgs: readonly BurgParityPoint[];
   counts: ParityCounts;
   cultureCount?: number;
+  statesNumber?: number;
+  townsNumber?: number;
+  lakeElevationLimit?: number;
   config?: GenerationConfig;
   sourceUrl?: string;
 }>;

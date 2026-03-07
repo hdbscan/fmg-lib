@@ -23,7 +23,7 @@ const world = generateWorld({
   cells: 20000,
   culturesCount: 12,
   jitter: 0.9,
-  heightNoise: 0.35,
+  heightNoise: 0,
   heightTemplate: "continents", // or "archipelago" | "inland-sea"
   seaLevel: 20,
   climate: {

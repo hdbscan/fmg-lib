@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Drift Report m08-no-default-height-noise-main</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: "IBM Plex Sans", sans-serif;
+        background: #eef3fb;
+        color: #10223f;
+      }
+
+      main {
+        padding: 24px;
+      }
+
+      .meta {
+        margin-bottom: 16px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 16px;
+      }
+
+      figure {
+        margin: 0;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(40, 70, 120, 0.18);
+        border-radius: 14px;
+        padding: 12px;
+      }
+
+      img {
+        width: 100%;
+        display: block;
+        border-radius: 10px;
+      }
+
+      figcaption {
+        margin-top: 10px;
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="meta">
+        <h1>Drift Report: m08-no-default-height-noise-main</h1>
+        <p>Status: different</p>
+        <p>Viewport: 900x600</p>
+        <p>Note: Comparing local generation after removing default post-template height noise against upstream FMG fixed seed 42424242.</p>
+      </div>
+      <div class="grid">
+        <figure>
+          <img src="local.png" alt="local-no-default-height-noise" />
+          <figcaption>local-no-default-height-noise (deee17192f4487f6860ecab80234dd9280542548155f30aa5bc41a70c2e7f923)</figcaption>
+        </figure>
+        <figure>
+          <img src="upstream.png" alt="upstream-fmg-seed-42424242-default" />
+          <figcaption>upstream-fmg-seed-42424242-default (dbc5ffc2651403d1254a25bb415287db1ac786782d0219dc7e63e790088faafe)</figcaption>
+        </figure>
+      </div>
+    </main>
+  </body>
+</html>

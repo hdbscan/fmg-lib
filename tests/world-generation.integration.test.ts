@@ -272,7 +272,10 @@ describe("world generation integration", () => {
       if (feature === 0) {
         expect(river).toBe(0);
         expect(biome).toBe(0);
-        expect(gridPackId).toBe(-1);
+        if (gridPackId >= 0) {
+          expect(gridPackId).toBeLessThan(world.packCellCount);
+          expect(coast).toBeLessThan(0);
+        }
         expect(landmass).toBe(0);
         expect(waterbody).toBeGreaterThan(0);
         const bodyType = world.waterbodyType[waterbody];
@@ -405,6 +408,7 @@ describe("world generation integration", () => {
     expect(accountedFeatureCells).toBe(world.cellCount);
 
     let summedPackArea = 0;
+    let summedPrimaryLandPackArea = 0;
 
     for (let packId = 0; packId < world.packCellCount; packId += 1) {
       const gridCellId = world.packToGrid[packId];
@@ -433,11 +437,9 @@ describe("world generation integration", () => {
 
       expect(gridCellId).toBeGreaterThanOrEqual(0);
       expect(gridCellId).toBeLessThan(world.cellCount);
-      expect(world.gridToPack[gridCellId]).toBe(packId);
-      expect(world.cellsFeature[gridCellId]).toBe(1);
       expect(packFeatureId).toBeGreaterThan(0);
       expect(packFeatureId).toBeLessThanOrEqual(world.packFeatureCount);
-      expect(packCoast).toBeGreaterThanOrEqual(0);
+      expect(packCoast).toBeGreaterThanOrEqual(-10);
       expect(packCoast).toBeLessThanOrEqual(10);
 
       if ((world.cellsCoast[gridCellId] ?? 0) <= 1) {
@@ -456,12 +458,17 @@ describe("world generation integration", () => {
         throw new Error("expected referenced grid attributes to exist");
       }
 
-      expect(x).toBe(gridX);
-      expect(y).toBe(gridY);
+      const isPrimaryPackCell = x === gridX && y === gridY;
+      if (isPrimaryPackCell) {
+        expect(world.gridToPack[gridCellId]).toBe(packId);
+      }
       expect(h).toBe(gridH);
       expect(area).toBeGreaterThan(0);
 
       summedPackArea += area;
+      if (isPrimaryPackCell && (world.cellsFeature[gridCellId] ?? 0) === 1) {
+        summedPrimaryLandPackArea += area;
+      }
 
       const packNeighbors = collectPackNeighbors(world, packId);
       for (const neighborId of packNeighbors) {
@@ -478,7 +485,8 @@ describe("world generation integration", () => {
       }
       return sum;
     }, 0);
-    expect(summedPackArea).toBeCloseTo(landArea, 5);
+    expect(summedPrimaryLandPackArea).toBeCloseTo(landArea, 5);
+    expect(summedPackArea).toBeGreaterThanOrEqual(summedPrimaryLandPackArea);
 
     let accountedPackFeatureCells = 0;
     for (

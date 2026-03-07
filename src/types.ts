@@ -14,6 +14,7 @@ export type ClimateConfig = Readonly<{
   temperatureNorthPole?: number;
   temperatureSouthPole?: number;
   elevationExponent?: number;
+  lakeElevationLimit?: number;
 }>;
 
 export type HeightTemplate = "continents" | "archipelago" | "inland-sea";
@@ -24,6 +25,8 @@ export type GenerationConfig = Readonly<{
   height: number;
   cells: number;
   culturesCount?: number;
+  statesCount?: number;
+  townsCount?: number;
   jitter?: number;
   heightNoise?: number;
   heightTemplate?: HeightTemplate;
@@ -38,6 +41,8 @@ export type NormalizedGenerationConfig = Readonly<{
   height: number;
   requestedCells: number;
   culturesCount: number;
+  statesCount: number | null;
+  townsCount: number | null;
   jitter: number;
   heightNoise: number;
   heightTemplate: HeightTemplate;
@@ -47,6 +52,7 @@ export type NormalizedGenerationConfig = Readonly<{
     temperatureNorthPole: number;
     temperatureSouthPole: number;
     elevationExponent: number;
+    lakeElevationLimit: number;
   }>;
   layers: LayerFlags;
 }>;

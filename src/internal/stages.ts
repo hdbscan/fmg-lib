@@ -15,6 +15,11 @@ const clamp = (value: number, min: number, max: number): number =>
 
 const clamp01 = (value: number): number => clamp(value, 0, 1);
 
+const rn = (value: number, digits = 0): number => {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+};
+
 const lerp = (start: number, end: number, t: number): number =>
   start + (end - start) * t;
 
@@ -1088,13 +1093,8 @@ export const runHeightmapStage = (context: GenerationContext): void => {
       return context.random();
     }
 
-    if (max === undefined) {
-      max = min;
-      min = 0;
-    }
-
-    const low = min ?? 0;
-    const high = max ?? low;
+    const low = max === undefined ? 0 : (min ?? 0);
+    const high = max === undefined ? (min ?? 0) : max;
     return Math.floor(context.random() * (high - low + 1)) + low;
   };
 
@@ -1452,8 +1452,9 @@ export const runHeightmapStage = (context: GenerationContext): void => {
     const startCellId = findGridCell(startX, startY);
     const endCellId = findGridCell(endX, endY);
 
-    const getStraitPath = (current: number, end: number): number[] => {
+    const getStraitPath = (start: number, end: number): number[] => {
       const path: number[] = [];
+      let current = start;
 
       while (current !== end) {
         let min = Number.POSITIVE_INFINITY;
@@ -1476,7 +1477,8 @@ export const runHeightmapStage = (context: GenerationContext): void => {
           }
         }
 
-        current = next;
+        const nextCell = next;
+        current = nextCell;
         path.push(current);
       }
 
@@ -1667,6 +1669,95 @@ export const runFeatureStage = (context: GenerationContext): void => {
   }
 };
 
+export const runDeepDepressionLakeStage = (
+  context: GenerationContext,
+): boolean => {
+  const elevationLimit = context.config.climate.lakeElevationLimit;
+  if (elevationLimit >= 80) {
+    return false;
+  }
+
+  const { cellCount, cellsBorder, cellsH, cellNeighborOffsets, cellNeighbors } =
+    context.world;
+
+  let changed = false;
+
+  for (let cellId = 0; cellId < cellCount; cellId += 1) {
+    if ((cellsBorder[cellId] ?? 0) === 1 || (cellsH[cellId] ?? 0) < 20) {
+      continue;
+    }
+
+    let minNeighborHeight = Number.POSITIVE_INFINITY;
+    const equalHeightNeighbors: number[] = [];
+    forEachNeighbor(
+      cellId,
+      cellNeighborOffsets,
+      cellNeighbors,
+      (neighborId) => {
+        const neighborHeight = cellsH[neighborId] ?? 0;
+        if (neighborHeight < minNeighborHeight) {
+          minNeighborHeight = neighborHeight;
+        }
+        if (neighborHeight === (cellsH[cellId] ?? 0)) {
+          equalHeightNeighbors.push(neighborId);
+        }
+      },
+    );
+
+    if ((cellsH[cellId] ?? 0) > minNeighborHeight) {
+      continue;
+    }
+
+    let deep = true;
+    const threshold = (cellsH[cellId] ?? 0) + elevationLimit;
+    const queue = [cellId];
+    const checked = new Uint8Array(cellCount);
+    checked[cellId] = 1;
+
+    while (deep && queue.length > 0) {
+      const current = queue.pop();
+      if (current === undefined) {
+        break;
+      }
+
+      forEachNeighbor(
+        current,
+        cellNeighborOffsets,
+        cellNeighbors,
+        (neighborId) => {
+          if (!deep || (checked[neighborId] ?? 0) === 1) {
+            return;
+          }
+
+          const neighborHeight = cellsH[neighborId] ?? 0;
+          if (neighborHeight >= threshold) {
+            return;
+          }
+          if (neighborHeight < 20) {
+            deep = false;
+            return;
+          }
+
+          checked[neighborId] = 1;
+          queue.push(neighborId);
+        },
+      );
+    }
+
+    if (!deep) {
+      continue;
+    }
+
+    cellsH[cellId] = 19;
+    for (const neighborId of equalHeightNeighbors) {
+      cellsH[neighborId] = 19;
+    }
+    changed = true;
+  }
+
+  return changed;
+};
+
 export const runPackStage = (context: GenerationContext): void => {
   const {
     cellCount,
@@ -1676,6 +1767,8 @@ export const runPackStage = (context: GenerationContext): void => {
     cellsCoast,
     cellsArea,
     cellsFeature,
+    cellsWaterbody,
+    waterbodyType,
     cellNeighborOffsets,
     cellNeighbors,
     gridToPack,
@@ -1683,58 +1776,139 @@ export const runPackStage = (context: GenerationContext): void => {
 
   gridToPack.fill(-1);
 
-  let packCellCount = 0;
+  const spacingSquared = context.grid.spacing * context.grid.spacing;
+  const packSources: number[] = [];
+  const pointX: number[] = [];
+  const pointY: number[] = [];
+  const pointH: number[] = [];
+  const pointArea: number[] = [];
+  const pointCoast: number[] = [];
+
+  const includeGridCell = (cellId: number): boolean => {
+    const height = cellsH[cellId] ?? 0;
+    const coast = cellsCoast[cellId] ?? 0;
+    if (height >= 20) {
+      return true;
+    }
+    if (coast !== -1 && coast !== -2) {
+      return false;
+    }
+    if (coast === -2) {
+      const waterbodyId = cellsWaterbody[cellId] ?? 0;
+      if ((waterbodyType[waterbodyId] ?? 0) === 2) {
+        return false;
+      }
+      if (cellId % 4 === 0) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const pushPackPoint = (cellId: number, x: number, y: number): void => {
+    packSources.push(cellId);
+    pointX.push(x);
+    pointY.push(y);
+    pointH.push(cellsH[cellId] ?? 0);
+    pointArea.push(cellsArea[cellId] ?? 0);
+    pointCoast.push(cellsCoast[cellId] ?? 0);
+  };
+
   for (let cellId = 0; cellId < cellCount; cellId += 1) {
-    if ((cellsFeature[cellId] ?? 0) !== 1) {
+    if (!includeGridCell(cellId)) {
       continue;
     }
 
-    gridToPack[cellId] = packCellCount;
-    packCellCount += 1;
-  }
-
-  const packToGrid = new Uint32Array(packCellCount);
-  const packX = new Float32Array(packCellCount);
-  const packY = new Float32Array(packCellCount);
-  const packH = new Uint8Array(packCellCount);
-  const packArea = new Float32Array(packCellCount);
-  const packCoast = new Int8Array(packCellCount);
-  const packHaven = new Int32Array(packCellCount);
-  const packHarbor = new Uint8Array(packCellCount);
-
-  packHaven.fill(-1);
-
-  for (let cellId = 0; cellId < cellCount; cellId += 1) {
-    const packId = gridToPack[cellId] ?? -1;
-    if (packId < 0) {
-      continue;
-    }
-
-    packToGrid[packId] = cellId;
-    packX[packId] = cellsX[cellId] ?? 0;
-    packY[packId] = cellsY[cellId] ?? 0;
-    packH[packId] = cellsH[cellId] ?? 0;
-    packArea[packId] = cellsArea[cellId] ?? 0;
+    const x = cellsX[cellId] ?? 0;
+    const y = cellsY[cellId] ?? 0;
+    pushPackPoint(cellId, x, y);
 
     const coast = cellsCoast[cellId] ?? 0;
-    packCoast[packId] = coast > 0 ? coast : 0;
+    if (coast !== 1 && coast !== -1) {
+      continue;
+    }
 
-    let nearestWaterCell = -1;
-    let nearestDistanceSq = Number.POSITIVE_INFINITY;
-    let adjacentWaterCount = 0;
+    if ((context.world.cellsBorder[cellId] ?? 0) === 1) {
+      continue;
+    }
 
     forEachNeighbor(
       cellId,
       cellNeighborOffsets,
       cellNeighbors,
       (neighborCellId) => {
-        if ((gridToPack[neighborCellId] ?? -1) >= 0) {
+        if (cellId > neighborCellId) {
+          return;
+        }
+
+        if ((cellsCoast[neighborCellId] ?? 0) !== coast) {
+          return;
+        }
+
+        const dx = (cellsX[neighborCellId] ?? 0) - x;
+        const dy = (cellsY[neighborCellId] ?? 0) - y;
+        const distanceSquared = dx * dx + dy * dy;
+        if (distanceSquared < spacingSquared) {
+          return;
+        }
+
+        pushPackPoint(
+          cellId,
+          rn((x + (cellsX[neighborCellId] ?? 0)) / 2, 1),
+          rn((y + (cellsY[neighborCellId] ?? 0)) / 2, 1),
+        );
+      },
+    );
+  }
+
+  const packCellCount = packSources.length;
+  const packToGrid = Uint32Array.from(packSources);
+  const packX = Float32Array.from(pointX);
+  const packY = Float32Array.from(pointY);
+  const packH = Uint8Array.from(pointH);
+  const packArea = Float32Array.from(pointArea);
+  const packCoast = Int8Array.from(pointCoast);
+  const packHaven = new Int32Array(packCellCount);
+  const packHarbor = new Uint8Array(packCellCount);
+  const packAdjacency = buildVoronoiAdjacency(
+    packX,
+    packY,
+    context.config.width,
+    context.config.height,
+  );
+
+  packHaven.fill(-1);
+
+  for (let packId = 0; packId < packCellCount; packId += 1) {
+    const gridCellId = packToGrid[packId] ?? 0;
+    const isPrimaryPackCell =
+      Math.abs((packX[packId] ?? 0) - (cellsX[gridCellId] ?? 0)) < 1e-6 &&
+      Math.abs((packY[packId] ?? 0) - (cellsY[gridCellId] ?? 0)) < 1e-6;
+
+    if (isPrimaryPackCell && (gridToPack[gridCellId] ?? -1) === -1) {
+      gridToPack[gridCellId] = packId;
+    }
+
+    if ((cellsFeature[gridCellId] ?? 0) !== 1) {
+      continue;
+    }
+
+    let nearestWaterCell = -1;
+    let nearestDistanceSq = Number.POSITIVE_INFINITY;
+    let adjacentWaterCount = 0;
+
+    forEachNeighbor(
+      gridCellId,
+      cellNeighborOffsets,
+      cellNeighbors,
+      (neighborCellId) => {
+        if ((cellsFeature[neighborCellId] ?? 0) === 1) {
           return;
         }
 
         adjacentWaterCount += 1;
-        const dx = (cellsX[neighborCellId] ?? 0) - (cellsX[cellId] ?? 0);
-        const dy = (cellsY[neighborCellId] ?? 0) - (cellsY[cellId] ?? 0);
+        const dx = (cellsX[neighborCellId] ?? 0) - (cellsX[gridCellId] ?? 0);
+        const dy = (cellsY[neighborCellId] ?? 0) - (cellsY[gridCellId] ?? 0);
         const distanceSq = dx * dx + dy * dy;
         if (distanceSq < nearestDistanceSq) {
           nearestDistanceSq = distanceSq;
@@ -1749,58 +1923,14 @@ export const runPackStage = (context: GenerationContext): void => {
     }
   }
 
-  const neighborLists: number[][] = Array.from(
-    { length: packCellCount },
-    () => [],
-  );
-
-  for (let packId = 0; packId < packCellCount; packId += 1) {
-    const gridCellId = packToGrid[packId] ?? 0;
-    const seen = new Set<number>();
-    const packNeighborList = neighborLists[packId];
-    if (!packNeighborList) {
-      continue;
-    }
-
-    forEachNeighbor(
-      gridCellId,
-      cellNeighborOffsets,
-      cellNeighbors,
-      (neighborCellId) => {
-        const neighborPackId = gridToPack[neighborCellId] ?? -1;
-        if (neighborPackId < 0 || neighborPackId === packId) {
-          return;
-        }
-
-        if (seen.has(neighborPackId)) {
-          return;
-        }
-
-        seen.add(neighborPackId);
-        packNeighborList.push(neighborPackId);
-      },
-    );
-
-    packNeighborList.sort((a, b) => a - b);
-  }
-
-  const packNeighborOffsets = new Uint32Array(packCellCount + 1);
-  const packNeighborsFlat: number[] = [];
-
-  for (let packId = 0; packId < packCellCount; packId += 1) {
-    packNeighborOffsets[packId] = packNeighborsFlat.length;
-    packNeighborsFlat.push(...(neighborLists[packId] ?? []));
-  }
-  packNeighborOffsets[packCellCount] = packNeighborsFlat.length;
-
   context.world.packCellCount = packCellCount;
   context.world.packToGrid = packToGrid;
   context.world.packX = packX;
   context.world.packY = packY;
   context.world.packH = packH;
   context.world.packArea = packArea;
-  context.world.packNeighborOffsets = packNeighborOffsets;
-  context.world.packNeighbors = Uint32Array.from(packNeighborsFlat);
+  context.world.packNeighborOffsets = packAdjacency.offsets;
+  context.world.packNeighbors = packAdjacency.neighbors;
   context.world.packCellsFeatureId = new Uint32Array(packCellCount);
   context.world.packCoast = packCoast;
   context.world.packHaven = packHaven;
@@ -2404,6 +2534,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
 
   const {
     cellsCulture,
+    cellsFeature,
     cellsTemp,
     cellsPrec,
     packCellCount,
@@ -2421,11 +2552,33 @@ export const runCulturesStage = (context: GenerationContext): void => {
     return;
   }
 
-  const targetCultures = Math.min(requestedCultures, packCellCount);
+  const eligiblePackIds = Array.from(
+    { length: packCellCount },
+    (_, packId) => packId,
+  ).filter((packId) => {
+    const gridCellId = packToGrid[packId] ?? 0;
+    return (
+      (cellsFeature[gridCellId] ?? 0) === 1 &&
+      Math.abs((packX[packId] ?? 0) - (context.world.cellsX[gridCellId] ?? 0)) <
+        1e-6 &&
+      Math.abs((packY[packId] ?? 0) - (context.world.cellsY[gridCellId] ?? 0)) <
+        1e-6
+    );
+  });
+
+  if (eligiblePackIds.length <= 0) {
+    context.world.cultureCount = 0;
+    context.world.cultureSeedCell = new Uint32Array(1);
+    context.world.cultureSize = new Uint32Array(1);
+    return;
+  }
+
+  const targetCultures = Math.min(requestedCultures, eligiblePackIds.length);
   const isSeed = new Uint8Array(packCellCount);
   const seedPackIds: number[] = [];
 
-  const firstSeed = Math.floor(context.random() * packCellCount);
+  const firstSeed =
+    eligiblePackIds[Math.floor(context.random() * eligiblePackIds.length)] ?? 0;
   seedPackIds.push(firstSeed);
   isSeed[firstSeed] = 1;
 
@@ -2436,7 +2589,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     const sx = packX[seedPackId] ?? 0;
     const sy = packY[seedPackId] ?? 0;
 
-    for (let packId = 0; packId < packCellCount; packId += 1) {
+    for (const packId of eligiblePackIds) {
       const x = packX[packId] ?? 0;
       const y = packY[packId] ?? 0;
       const dx = x - sx;
@@ -2456,7 +2609,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     let bestPackId = -1;
     let bestScore = -1;
 
-    for (let packId = 0; packId < packCellCount; packId += 1) {
+    for (const packId of eligiblePackIds) {
       if ((isSeed[packId] ?? 0) === 1) {
         continue;
       }
@@ -2495,7 +2648,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     cultureSeedCell[cultureIndex + 1] = packToGrid[packId] ?? 0;
   }
 
-  for (let packId = 0; packId < packCellCount; packId += 1) {
+  for (const packId of eligiblePackIds) {
     const x = packX[packId] ?? 0;
     const y = packY[packId] ?? 0;
 

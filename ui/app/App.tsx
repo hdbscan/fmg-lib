@@ -38,6 +38,8 @@ type GenerationDraft = {
   height: number;
   cells: number;
   culturesCount: number;
+  statesCount: number | null;
+  townsCount: number | null;
   heightTemplate: HeightTemplate;
 };
 
@@ -148,8 +150,56 @@ const toGenerationDraft = (config: GenerationConfig): GenerationDraft => ({
   height: config.height,
   cells: config.cells,
   culturesCount: config.culturesCount ?? 10,
+  statesCount: config.statesCount ?? null,
+  townsCount: config.townsCount ?? null,
   heightTemplate: config.heightTemplate ?? "continents",
 });
+
+const readConfigOverride = (): Partial<GenerationDraft> => {
+  const params = new URLSearchParams(window.location.search);
+  const next: Partial<GenerationDraft> = {};
+
+  const seed = params.get("seed");
+  if (seed) next.seed = seed;
+
+  const width = params.get("width");
+  if (width)
+    next.width = coerceInteger(width, DEFAULT_GENERATION_CONFIG.width, 1);
+
+  const height = params.get("height");
+  if (height)
+    next.height = coerceInteger(height, DEFAULT_GENERATION_CONFIG.height, 1);
+
+  const cells = params.get("cells");
+  if (cells)
+    next.cells = coerceInteger(cells, DEFAULT_GENERATION_CONFIG.cells, 1);
+
+  const cultures = params.get("culturesCount");
+  if (cultures) {
+    next.culturesCount = coerceInteger(
+      cultures,
+      DEFAULT_GENERATION_CONFIG.culturesCount ?? 10,
+      1,
+    );
+  }
+
+  const states = params.get("statesCount");
+  if (states) next.statesCount = coerceInteger(states, 1, 1);
+
+  const towns = params.get("townsCount");
+  if (towns) next.townsCount = coerceInteger(towns, 0, 0);
+
+  const template = params.get("heightTemplate");
+  if (
+    template === "continents" ||
+    template === "archipelago" ||
+    template === "inland-sea"
+  ) {
+    next.heightTemplate = template;
+  }
+
+  return next;
+};
 
 const createRequestId = (): string => {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -559,6 +609,12 @@ export const App = () => {
       height: current.height,
       cells: current.cells,
       culturesCount: current.culturesCount,
+      ...(current.statesCount !== null
+        ? { statesCount: current.statesCount }
+        : {}),
+      ...(current.townsCount !== null
+        ? { townsCount: current.townsCount }
+        : {}),
       heightTemplate: current.heightTemplate,
     };
     postGenerateRequest(config);
@@ -757,6 +813,13 @@ export const App = () => {
     }
 
     const session = loadUiSession();
+    const configOverride = readConfigOverride();
+    if (Object.keys(configOverride).length > 0) {
+      setDraft((current) => ({
+        ...current,
+        ...configOverride,
+      }));
+    }
     if (session) {
       controller.setVisibility(session.visibility);
       controller.setStyle(session.style);
@@ -784,6 +847,31 @@ export const App = () => {
 
     window.setTimeout(() => {
       if (mounted && !state().world) {
+        if (Object.keys(configOverride).length > 0) {
+          const mergedDraft = {
+            ...toGenerationDraft(DEFAULT_GENERATION_CONFIG),
+            ...draft(),
+            ...configOverride,
+          };
+          setDraft(mergedDraft);
+          const config: GenerationConfig = {
+            ...DEFAULT_GENERATION_CONFIG,
+            seed: mergedDraft.seed.trim() || DEFAULT_GENERATION_CONFIG.seed,
+            width: mergedDraft.width,
+            height: mergedDraft.height,
+            cells: mergedDraft.cells,
+            culturesCount: mergedDraft.culturesCount,
+            ...(mergedDraft.statesCount !== null
+              ? { statesCount: mergedDraft.statesCount }
+              : {}),
+            ...(mergedDraft.townsCount !== null
+              ? { townsCount: mergedDraft.townsCount }
+              : {}),
+            heightTemplate: mergedDraft.heightTemplate,
+          };
+          postGenerateRequest(config);
+          return;
+        }
         runGeneration();
       }
     }, 0);

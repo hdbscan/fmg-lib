@@ -120,6 +120,11 @@ const computeSuitability = (context: GenerationContext): Float64Array => {
   const averageArea = totalArea / Math.max(packCellCount, 1);
 
   for (let packId = 0; packId < packCellCount; packId += 1) {
+    if (!isPoliticalPackCell(context, packId)) {
+      suitability[packId] = 0;
+      continue;
+    }
+
     const cellId = packToGrid[packId] ?? 0;
     const flow = cellsFlow[cellId] ?? 0;
     const precipitation = cellsPrec[cellId] ?? 0;
@@ -168,6 +173,12 @@ const getTargetStates = (
   context: GenerationContext,
   populatedCount: number,
 ): number => {
+  if (context.config.statesCount !== null) {
+    let number = context.config.statesCount;
+    if (populatedCount < number * 10) number = Math.floor(populatedCount / 10);
+    return clamp(number, 1, 64);
+  }
+
   let number = Math.round(
     Math.max(
       context.config.culturesCount * 1.6,
@@ -183,6 +194,10 @@ const getTargetTowns = (
   context: GenerationContext,
   populatedCount: number,
 ): number => {
+  if (context.config.townsCount !== null) {
+    return clamp(context.config.townsCount, 0, populatedCount);
+  }
+
   const raw = rn(populatedCount / 5 / (context.world.cellCount / 10000) ** 0.8);
   return clamp(raw, 0, populatedCount);
 };
@@ -202,6 +217,34 @@ const hasBurgNear = (
     if (dx * dx + dy * dy <= spacingSq) return true;
   }
   return false;
+};
+
+const isPrimaryPackCell = (
+  context: GenerationContext,
+  packId: number,
+): boolean => {
+  const gridCellId = context.world.packToGrid[packId] ?? 0;
+  return (
+    Math.abs(
+      (context.world.packX[packId] ?? 0) -
+        (context.world.cellsX[gridCellId] ?? 0),
+    ) < 1e-6 &&
+    Math.abs(
+      (context.world.packY[packId] ?? 0) -
+        (context.world.cellsY[gridCellId] ?? 0),
+    ) < 1e-6
+  );
+};
+
+const isPoliticalPackCell = (
+  context: GenerationContext,
+  packId: number,
+): boolean => {
+  const gridCellId = context.world.packToGrid[packId] ?? 0;
+  return (
+    (context.world.cellsFeature[gridCellId] ?? 0) === 1 &&
+    isPrimaryPackCell(context, packId)
+  );
 };
 
 const getSharedEdgePoint = (
@@ -278,6 +321,7 @@ export const runSettlementsStage = (context: GenerationContext): void => {
   const {
     cellsBurg,
     cellsCulture,
+    cellsFeature,
     packCellCount,
     packToGrid,
     packX,
@@ -311,6 +355,7 @@ export const runSettlementsStage = (context: GenerationContext): void => {
     (_, packId) => packId,
   ).filter(
     (packId) =>
+      isPoliticalPackCell(context, packId) &&
       (suitability[packId] ?? 0) > 0 &&
       (cellsCulture[packToGrid[packId] ?? 0] ?? 0) > 0,
   );
@@ -541,6 +586,10 @@ export const runStatesStage = (context: GenerationContext): void => {
   }
 
   const suitability = computeSuitability(context);
+  const activePackCount = suitability.reduce(
+    (sum, value) => sum + (value > 0 ? 1 : 0),
+    0,
+  );
   const stateCount = capitalBurgIds.length;
   const stateCenterBurg = new Uint16Array(stateCount + 1);
   const stateCulture = new Uint16Array(stateCount + 1);
@@ -553,7 +602,7 @@ export const runStatesStage = (context: GenerationContext): void => {
   const cost = new Float64Array(packCellCount);
   cost.fill(Number.POSITIVE_INFINITY);
   const queue: QueueEntry[] = [];
-  const growthRate = (packCellCount / 2) * 1 * 1;
+  const growthRate = (Math.max(activePackCount, 1) / 2) * 1 * 1;
 
   for (let index = 0; index < capitalBurgIds.length; index += 1) {
     const stateId = index + 1;
@@ -601,6 +650,7 @@ export const runStatesStage = (context: GenerationContext): void => {
       packNeighborOffsets,
       packNeighbors,
       (neighborPackId) => {
+        if (!isPoliticalPackCell(context, neighborPackId)) return;
         const neighborCell = packToGrid[neighborPackId] ?? 0;
         const existing = packState[neighborPackId] ?? 0;
         const neighborHeight = cellsH[neighborCell] ?? 0;
@@ -707,7 +757,8 @@ export const runStatesStage = (context: GenerationContext): void => {
       stateCells[stateId] = (stateCells[stateId] ?? 0) + 1;
   }
 
-  const averageStateCells = packCellCount / Math.max(stateCount, 1);
+  const averageStateCells =
+    Math.max(activePackCount, 1) / Math.max(stateCount, 1);
   for (let stateId = 1; stateId <= stateCount; stateId += 1) {
     const capital = stateCenterBurg[stateId] ?? 0;
     const capitalCell = burgCell[capital] ?? 0;
@@ -841,6 +892,7 @@ export const runProvincesStage = (context: GenerationContext): void => {
       packNeighborOffsets,
       packNeighbors,
       (neighborPackId) => {
+        if (!isPoliticalPackCell(context, neighborPackId)) return;
         const cellId = packToGrid[neighborPackId] ?? 0;
         if ((cellsH[cellId] ?? 0) < 20) return;
         if ((cellsState[cellId] ?? 0) !== stateId) return;
@@ -870,6 +922,7 @@ export const runProvincesStage = (context: GenerationContext): void => {
   }
 
   for (let packId = 0; packId < packCellCount; packId += 1) {
+    if (!isPoliticalPackCell(context, packId)) continue;
     const cellId = packToGrid[packId] ?? 0;
     const stateId = cellsState[cellId] ?? 0;
     if (stateId <= 0 || (cellsH[cellId] ?? 0) < 20) continue;
@@ -988,8 +1041,12 @@ export const runReligionsStage = (context: GenerationContext): void => {
     religionMode.push("culture");
   }
 
+  const activePackCount = Array.from(
+    { length: packCellCount },
+    (_, packId) => packId,
+  ).filter((packId) => isPoliticalPackCell(context, packId)).length;
   const desiredReligionNumber = clamp(
-    Math.round(Math.sqrt(packCellCount) / 2),
+    Math.round(Math.sqrt(Math.max(activePackCount, 1)) / 2),
     1,
     32,
   );
@@ -1080,7 +1137,7 @@ export const runReligionsStage = (context: GenerationContext): void => {
     cellsReligion[cellId] = assigned;
   }
 
-  const maxExpansionCost = (packCellCount / 20) * 1;
+  const maxExpansionCost = (Math.max(activePackCount, 1) / 20) * 1;
   const queue: QueueEntry[] = [];
   const cost = new Float64Array(packCellCount);
   cost.fill(Number.POSITIVE_INFINITY);
@@ -1114,6 +1171,7 @@ export const runReligionsStage = (context: GenerationContext): void => {
       packNeighborOffsets,
       packNeighbors,
       (neighborPackId) => {
+        if (!isPoliticalPackCell(context, neighborPackId)) return;
         const nextCell = packToGrid[neighborPackId] ?? 0;
         if ((cellsH[nextCell] ?? 0) < 20) return;
         if (mode === "culture" && (cellsCulture[nextCell] ?? 0) !== cultureId)
