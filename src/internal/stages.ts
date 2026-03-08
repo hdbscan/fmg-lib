@@ -989,6 +989,15 @@ const advanceCultureRandomForIceStage = (
   }
 };
 
+const advanceCultureRandomForColorShuffle = (
+  random: () => number,
+  count: number,
+): void => {
+  for (let remaining = count; remaining > 0; remaining -= 1) {
+    random();
+  }
+};
+
 const mean = (values: readonly number[]): number => {
   if (values.length === 0) {
     return 0;
@@ -5534,6 +5543,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
   };
 
   const templates = selectTemplates(targetCultures);
+  advanceCultureRandomForColorShuffle(cultureRandom, targetCultures);
   const isSeed = new Uint8Array(packCellCount);
   const seedPackIds: number[] = [];
   const hasCenterNear = (
