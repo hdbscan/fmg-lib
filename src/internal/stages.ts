@@ -1362,6 +1362,14 @@ const packFeatureGroupCode = {
   dry: 11,
 } as const;
 
+const lakeGroupCode = {
+  none: 0,
+  freshwater: 1,
+  salt: 2,
+  frozen: 3,
+  dry: 4,
+} as const;
+
 const compareFrontierEntries = (
   left: FrontierEntry,
   right: FrontierEntry,
@@ -3877,6 +3885,7 @@ const computePackHydrology = (
 ): Readonly<{
   flow: Uint32Array;
   river: Uint32Array;
+  confluence: Uint32Array;
   heights: Uint8Array;
 }> => {
   const {
@@ -3907,6 +3916,7 @@ const computePackHydrology = (
     return {
       flow: new Uint32Array(0),
       river: new Uint32Array(0),
+      confluence: new Uint32Array(0),
       heights: new Uint8Array(0),
     };
   }
@@ -4444,6 +4454,25 @@ const computePackHydrology = (
   const finalHeights = Uint8Array.from(alteredHeights, (value) =>
     Math.max(0, Math.min(255, Math.trunc(value))),
   );
+  const finalConfluenceFlux = new Uint32Array(packCellCount);
+  for (let packId = 0; packId < packCellCount; packId += 1) {
+    if ((finalConfluence[packId] ?? 0) === 0) {
+      continue;
+    }
+
+    const sortedInflux = getPackNeighbors(packId)
+      .filter(
+        (neighborId) =>
+          (finalRiver[neighborId] ?? 0) > 0 &&
+          (alteredHeights[neighborId] ?? 0) > (alteredHeights[packId] ?? 0),
+      )
+      .map((neighborId) => packFlow[neighborId] ?? 0)
+      .sort((left, right) => right - left);
+    finalConfluenceFlux[packId] = sortedInflux.reduce(
+      (sum, flux, index) => (index > 0 ? sum + flux : sum),
+      0,
+    );
+  }
   for (let packId = 0; packId < packCellCount; packId += 1) {
     if ((finalHeights[packId] ?? 0) < 35 || (packFlow[packId] ?? 0) === 0) {
       continue;
@@ -4478,6 +4507,7 @@ const computePackHydrology = (
   return {
     flow: Uint32Array.from(packFlow),
     river: Uint32Array.from(finalRiver),
+    confluence: finalConfluenceFlux,
     heights: finalHeights,
   };
 };
@@ -5003,6 +5033,7 @@ export const runHydrologyStage = (context: GenerationContext): void => {
   const packHydrology = computePackHydrology(context);
   context.internal.packCellsFlow = packHydrology.flow;
   context.internal.packCellsRiver = packHydrology.river;
+  context.internal.packCellsConfluence = packHydrology.confluence;
   context.internal.packCellsH = packHydrology.heights;
 };
 
@@ -5132,6 +5163,9 @@ export const runCulturesStage = (context: GenerationContext): void => {
     packCellCount,
     packArea,
     packCoast,
+    packCellsFeatureId,
+    packFeatureSize,
+    packFeatureType,
     packH,
     packHarbor,
     packHaven,
@@ -5219,12 +5253,12 @@ export const runCulturesStage = (context: GenerationContext): void => {
     return biomes.includes(cellsBiome[gridCellId] ?? 0) ? 1 : fee;
   };
   const getSeaCoastPenalty = (packId: number, fee = 4): number => {
-    const havenCell = packHaven[packId] ?? -1;
-    if (havenCell < 0) {
+    const havenPackId = context.internal.packHavenPack?.[packId] ?? -1;
+    if (!havenPackId) {
       return fee;
     }
-    const waterbodyId = cellsWaterbody[havenCell] ?? 0;
-    return (waterbodyType[waterbodyId] ?? 0) === 1 ? 1 : fee;
+    const featureId = packCellsFeatureId[havenPackId] ?? 0;
+    return (packFeatureType[featureId] ?? 0) !== 2 ? 1 : fee;
   };
   const getCoastDistance = (packId: number): number =>
     Math.max(packCoast[packId] ?? 0, 1);
@@ -5497,9 +5531,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
   const placeCenter = (sortingFn: (packId: number) => number): number => {
     const sorted = candidatePackIds
       .slice()
-      .sort(
-        (left, right) => sortingFn(right) - sortingFn(left) || left - right,
-      );
+      .sort((left, right) => sortingFn(right) - sortingFn(left));
     const maxIndex = Math.max(Math.floor(sorted.length / 2), 0);
     let spacing =
       (context.config.width + context.config.height) / 2 / targetCultures;
@@ -5525,10 +5557,11 @@ export const runCulturesStage = (context: GenerationContext): void => {
     const biome = cellsBiome[cellId] ?? 0;
     const height = packH[packId] ?? 0;
     const harbor = packHarbor[packId] ?? 0;
-    const havenCell = packHaven[packId] ?? -1;
-    const waterbodyId = havenCell >= 0 ? (cellsWaterbody[havenCell] ?? 0) : 0;
-    const waterType = waterbodyType[waterbodyId] ?? 0;
-    const waterSize = waterbodySize[waterbodyId] ?? 0;
+    const havenPackId = context.internal.packHavenPack?.[packId] ?? -1;
+    const oppositeFeatureId =
+      havenPackId >= 0 ? (packCellsFeatureId[havenPackId] ?? 0) : 0;
+    const oppositeFeatureType = packFeatureType[oppositeFeatureId] ?? 0;
+    const oppositeFeatureSize = packFeatureSize[oppositeFeatureId] ?? 0;
     const landmassId = cellsLandmass[cellId] ?? 0;
     const isIsle = landmassId > 0 && (landmassKind[landmassId] ?? 0) === 3;
 
@@ -5538,11 +5571,11 @@ export const runCulturesStage = (context: GenerationContext): void => {
     if (height > 50) {
       return "Highland";
     }
-    if (waterType === 2 && waterSize > 5) {
+    if (oppositeFeatureType === 2 && oppositeFeatureSize > 5) {
       return "Lake";
     }
     if (
-      (harbor > 0 && waterType === 1 && cultureRandom() < 0.1) ||
+      (harbor > 0 && oppositeFeatureType !== 2 && cultureRandom() < 0.1) ||
       (harbor === 1 && cultureRandom() < 0.6) ||
       (isIsle && cultureRandom() < 0.4)
     ) {

@@ -68,6 +68,7 @@ const createContext = (heights: readonly number[]): GenerationContext => {
       packHavenPack: null,
       packCellsFlow: null,
       packCellsRiver: null,
+      packCellsConfluence: null,
       packCellsBiome: null,
       packCellsH: null,
       packCellsCulture: null,

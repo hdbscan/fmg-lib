@@ -70,6 +70,7 @@ const createContext = (): GenerationContext => {
       packHavenPack: null,
       packCellsFlow: null,
       packCellsRiver: null,
+      packCellsConfluence: null,
       packCellsBiome: null,
       packCellsH: null,
       packCellsCulture: null,

@@ -572,12 +572,86 @@ export const computePoliticalSuitability = (
 export const computePackCellSuitability = (
   context: GenerationContext,
 ): Int16Array => {
-  const { packCellCount, packToGrid } = context.world;
+  const {
+    packCellCount,
+    packArea,
+    packCellsFeatureId,
+    packFeatureGroup,
+    packH,
+    packHarbor,
+    packToGrid,
+  } = context.world;
   const suitability = new Int16Array(packCellCount);
-  const rankedCells = computeCellRankData(context).suitability;
+  const packFlow = context.internal.packCellsFlow;
+  const packRiver = context.internal.packCellsRiver;
+  const packConfluence = context.internal.packCellsConfluence;
+  const packBiome = context.internal.packCellsBiome;
+  const packHavenPack = context.internal.packHavenPack;
+  let totalArea = 0;
+  const positiveFlux: number[] = [];
+  let maxFlux = 0;
+  let maxConfluence = 0;
 
   for (let packId = 0; packId < packCellCount; packId += 1) {
-    suitability[packId] = rankedCells[packToGrid[packId] ?? 0] ?? 0;
+    totalArea += packArea[packId] ?? 0;
+    const flow = packFlow?.[packId] ?? 0;
+    if (flow > 0) positiveFlux.push(flow);
+    if (flow > maxFlux) maxFlux = flow;
+    const conflux = packConfluence?.[packId] ?? 0;
+    if (conflux > maxConfluence) maxConfluence = conflux;
+  }
+
+  positiveFlux.sort((left, right) => left - right);
+  const midpoint = Math.floor(positiveFlux.length / 2);
+  const meanFlux =
+    positiveFlux.length === 0
+      ? 0
+      : positiveFlux.length % 2 === 0
+        ? ((positiveFlux[midpoint - 1] ?? 0) + (positiveFlux[midpoint] ?? 0)) /
+          2
+        : (positiveFlux[midpoint] ?? 0);
+  const meanArea = totalArea / Math.max(packCellCount, 1);
+
+  for (let packId = 0; packId < packCellCount; packId += 1) {
+    const height = context.internal.packCellsH?.[packId] ?? packH[packId] ?? 0;
+    if (height < 20) {
+      continue;
+    }
+    const biome = packBiome?.[packId] ?? 0;
+    let score = biomeHabitability[biome] ?? 0;
+    if (!score) {
+      continue;
+    }
+
+    if (meanFlux > 0) {
+      score +=
+        normalize(
+          (packFlow?.[packId] ?? 0) + (packConfluence?.[packId] ?? 0),
+          meanFlux,
+          maxFlux + maxConfluence,
+        ) * 250;
+    }
+
+    score -= (height - 50) / 5;
+    const coast = context.world.packCoast[packId] ?? 0;
+    if (coast === 1) {
+      if ((packRiver?.[packId] ?? 0) > 0) score += rankScoreMap.estuary;
+      const havenPackId = packHavenPack?.[packId] ?? -1;
+      const featureId =
+        havenPackId >= 0 ? (packCellsFeatureId[havenPackId] ?? 0) : 0;
+      const group = packFeatureGroup[featureId] ?? 0;
+      if (group === 8) score += rankScoreMap.freshwater;
+      else if (group === 9) score += rankScoreMap.salt;
+      else if (group === 10) score += rankScoreMap.frozen;
+      else if (group === 11) score += rankScoreMap.dry;
+      else {
+        score += rankScoreMap.oceanCoast;
+        if ((packHarbor[packId] ?? 0) === 1) score += rankScoreMap.safeHarbor;
+      }
+    }
+
+    const suitabilityScore = Math.trunc(score / 5);
+    suitability[packId] = suitabilityScore;
   }
 
   return suitability;
