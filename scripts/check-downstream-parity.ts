@@ -19,6 +19,20 @@ type DownstreamHarnessReport = Readonly<{
   local: DownstreamDiagnostics;
   oracle: DownstreamDiagnostics;
   comparison: DownstreamDiagnosticsComparison;
+  cultureRuntime?: Readonly<{
+    selectedTemplateIds: readonly number[];
+    selectedCenters: readonly number[];
+    sampleIndices: readonly number[];
+    sampleCells: readonly number[];
+    sampleOffsets: readonly number[];
+    templateDrawEvents: readonly Readonly<{
+      draw: number;
+      poolLength: number;
+      pickedIndex: number;
+      templateId: number;
+      accepted: boolean;
+    }>[];
+  }>;
 }>;
 
 const parseArgs = (argv: string[]): Record<string, string> => {
@@ -506,6 +520,218 @@ const fetchUpstreamDownstreamDiagnostics = async (
   }
 };
 
+const fetchUpstreamCultureRuntime = async (sourceUrl: string) => {
+  const browser = await firefox.launch({ headless: true });
+  try {
+    const page = await browser.newPage({
+      viewport: { width: 1280, height: 900 },
+    });
+    await page.goto(sourceUrl, { waitUntil: "domcontentloaded" });
+    await page.waitForTimeout(1000);
+
+    return await page.evaluate(() => {
+      const globalData = globalThis as Record<string, unknown>;
+      const pack = globalData.pack as {
+        cells: {
+          i: number[];
+          p: Array<readonly [number, number]>;
+          culture: Uint16Array;
+        };
+        cultures: Array<{ center?: number }>;
+      };
+      const d3 = globalData.d3 as {
+        quadtree: () => {
+          add: (point: readonly [number, number]) => void;
+          find: (x: number, y: number, radius: number) => unknown;
+        };
+      };
+      const Cultures = globalData.Cultures as {
+        generate: () => void;
+        getDefault: (count?: number) => Array<{ odd?: number }>;
+      };
+      const Ice = globalData.Ice as { generate: () => void };
+      const rankCells = globalData.rankCells as () => void;
+      const biased = globalData.biased as (
+        min: number,
+        max: number,
+        exponent: number,
+      ) => number;
+
+      const originalGenerate = Cultures.generate;
+      const originalGetDefault = Cultures.getDefault;
+      const originalRand = globalData.rand as
+        | ((max: number) => number)
+        | undefined;
+      const originalP = globalData.P as
+        | ((probability: number) => boolean)
+        | undefined;
+      const originalBiased = biased;
+      const originalQuadtree = d3.quadtree;
+      const originalCultureCells = pack.cells.culture;
+      const originalCultures = pack.cultures;
+
+      const templateByRef = new WeakMap<object, number>();
+      const sampleIndices: number[] = [];
+      const sampleCells: number[] = [];
+      const sampleOffsets = [0];
+      const selectedCenters = [0];
+      const selectedTemplateIds = [0];
+      const templateDrawEvents: Array<{
+        draw: number;
+        poolLength: number;
+        pickedIndex: number;
+        templateId: number;
+        accepted: boolean;
+      }> = [];
+      let pendingCenterSampleCount = 0;
+      let currentTemplatePoolLength = 0;
+      let currentTemplateId = 0;
+      let currentTemplateIndex = 0;
+      let currentDraw = 0;
+
+      Cultures.getDefault = (count?: number) => {
+        const defaults = originalGetDefault.call(Cultures, count);
+        defaults.forEach((template, templateId) => {
+          if (template && typeof template === "object") {
+            templateByRef.set(template as object, templateId);
+          }
+        });
+        return defaults;
+      };
+
+      if (originalRand && originalP) {
+        (globalData as { rand: typeof originalRand }).rand = (max) => {
+          const pickedIndex = originalRand(max);
+          currentTemplatePoolLength = max + 1;
+          currentTemplateIndex = pickedIndex;
+          return pickedIndex;
+        };
+        (globalData as { P: typeof originalP }).P = (probability) => {
+          const accepted = originalP(probability);
+          currentDraw += 1;
+          templateDrawEvents.push({
+            draw: currentDraw,
+            poolLength: currentTemplatePoolLength,
+            pickedIndex: currentTemplateIndex,
+            templateId: currentTemplateId,
+            accepted,
+          });
+          return accepted;
+        };
+      }
+
+      (globalData as { biased: typeof biased }).biased = (
+        min,
+        max,
+        exponent,
+      ) => {
+        const sampleIndex = originalBiased(min, max, exponent);
+        sampleIndices.push(sampleIndex);
+        pendingCenterSampleCount += 1;
+        return sampleIndex;
+      };
+
+      d3.quadtree = () => {
+        const tree = originalQuadtree();
+        const originalFind = tree.find.bind(tree);
+        const originalAdd = tree.add.bind(tree);
+        tree.find = (x, y, radius) => {
+          const center = pack.cells.p.findIndex(
+            (point) => point[0] === x && point[1] === y,
+          );
+          if (center >= 0) {
+            sampleCells.push(center);
+          }
+          return originalFind(x, y, radius);
+        };
+        tree.add = (point) => {
+          const center = pack.cells.p.findIndex(
+            (candidate) => candidate === point,
+          );
+          if (center >= 0) {
+            selectedCenters.push(center);
+            sampleOffsets.push(
+              sampleOffsets[sampleOffsets.length - 1]! +
+                pendingCenterSampleCount,
+            );
+            pendingCenterSampleCount = 0;
+          }
+          return originalAdd(point);
+        };
+        return tree;
+      };
+
+      Cultures.generate = function generateWithCapture() {
+        originalGenerate.call(this);
+        for (const culture of pack.cultures.slice(1)) {
+          selectedTemplateIds.push(
+            culture && typeof culture === "object"
+              ? (templateByRef.get(culture as object) ?? 0)
+              : 0,
+          );
+        }
+      };
+
+      try {
+        Ice.generate();
+        rankCells();
+        pack.cells.culture = new Uint16Array(pack.cells.i.length);
+        pack.cultures = [];
+        const defaults = originalGetDefault.call(Cultures, 9);
+        const defaultsWithIds = defaults.map((template, templateId) => ({
+          ...template,
+          templateId,
+        }));
+        const taggedDefaults = defaultsWithIds.map((template) => {
+          if (template && typeof template === "object") {
+            templateByRef.set(template as object, template.templateId);
+          }
+          return template;
+        });
+        Cultures.getDefault = (() =>
+          taggedDefaults.slice()) as typeof originalGetDefault;
+        const originalRandWrapped = globalData.rand as
+          | ((max: number) => number)
+          | undefined;
+        if (originalRandWrapped) {
+          (globalData as { rand: typeof originalRandWrapped }).rand = (max) => {
+            const pickedIndex = originalRandWrapped(max);
+            currentTemplatePoolLength = max + 1;
+            currentTemplateIndex = pickedIndex;
+            currentTemplateId = taggedDefaults[pickedIndex]?.templateId ?? 0;
+            return pickedIndex;
+          };
+        }
+        Cultures.generate();
+      } finally {
+        Cultures.generate = originalGenerate;
+        Cultures.getDefault = originalGetDefault;
+        if (originalRand) {
+          (globalData as { rand: typeof originalRand }).rand = originalRand;
+        }
+        if (originalP) {
+          (globalData as { P: typeof originalP }).P = originalP;
+        }
+        (globalData as { biased: typeof biased }).biased = originalBiased;
+        d3.quadtree = originalQuadtree;
+        pack.cells.culture = originalCultureCells;
+        pack.cultures = originalCultures;
+      }
+
+      return {
+        selectedTemplateIds,
+        selectedCenters,
+        sampleIndices,
+        sampleCells,
+        sampleOffsets,
+        templateDrawEvents,
+      };
+    });
+  } finally {
+    await browser.close();
+  }
+};
+
 const printComparison = (comparison: DownstreamDiagnosticsComparison): void => {
   const first = comparison.firstDivergentStep;
   console.log(`downstream_steps_compared: ${comparison.steps.length}`);
@@ -546,6 +772,7 @@ if (import.meta.main) {
   const config = buildGenerationConfigFromOracle(oracleSnapshot);
   const local = generateDownstreamDiagnostics(config);
   const oracle = await fetchUpstreamDownstreamDiagnostics(sourceUrl);
+  const cultureRuntime = await fetchUpstreamCultureRuntime(sourceUrl);
   const comparison = compareDownstreamDiagnostics(oracle, local);
   const outputPath = path.resolve(process.cwd(), args.output ?? DEFAULT_OUTPUT);
   const report: DownstreamHarnessReport = {
@@ -554,6 +781,7 @@ if (import.meta.main) {
     local,
     oracle,
     comparison,
+    cultureRuntime,
   };
   await mkdir(path.dirname(outputPath), { recursive: true });
   await writeFile(outputPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
