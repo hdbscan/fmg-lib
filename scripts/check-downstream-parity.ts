@@ -191,6 +191,24 @@ const fetchUpstreamDownstreamDiagnostics = async (
             .slice(1)
             .map((culture: { center?: number }) => Number(culture.center ?? 0)),
         ];
+        const cultureTemplateIds = [
+          0,
+          ...(
+            (
+              globalThis as {
+                Cultures?: {
+                  getDefault: (count?: number) => Array<{ name?: string }>;
+                };
+              }
+            ).Cultures?.getDefault(cultureCenterPack.length - 1) ?? []
+          ).flatMap((template, templateId) => {
+            const name = template.name;
+            const selectedIndex = (pack.cultures as Array<{ name?: string }>)
+              .slice(1)
+              .findIndex((culture) => culture.name === name);
+            return selectedIndex >= 0 ? [templateId + 1] : [];
+          }),
+        ];
         const cultureCenterSamples: number[] = [];
         const cultureCenterSampleIndices: number[] = [];
         const cultureCenterSampleOffsets = [0];
@@ -434,6 +452,7 @@ const fetchUpstreamDownstreamDiagnostics = async (
           key,
           label,
           cultureCenterPack,
+          cultureTemplateIds,
           cultureCenterSamples,
           cultureCenterSampleIndices,
           cultureCenterSampleOffsets,
