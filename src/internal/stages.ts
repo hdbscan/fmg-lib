@@ -5081,6 +5081,7 @@ export const runBiomeStage = (context: GenerationContext): void => {
 
 export const runCulturesStage = (context: GenerationContext): void => {
   const { culturesCount: requestedCultures } = context.config;
+  const cultureRandom = createAlea(context.config.seed);
 
   const {
     cellsCulture,
@@ -5112,27 +5113,20 @@ export const runCulturesStage = (context: GenerationContext): void => {
     context.world.cultureCount = 0;
     context.world.cultureSeedCell = new Uint32Array(1);
     context.world.cultureSize = new Uint32Array(1);
+    context.internal.packCellsCulture = new Uint16Array(0);
     return;
   }
 
   const eligiblePackIds = Array.from(
     { length: packCellCount },
     (_, packId) => packId,
-  ).filter((packId) => {
-    const gridCellId = packToGrid[packId] ?? 0;
-    return (
-      (cellsFeature[gridCellId] ?? 0) === 1 &&
-      Math.abs((packX[packId] ?? 0) - (context.world.cellsX[gridCellId] ?? 0)) <
-        1e-6 &&
-      Math.abs((packY[packId] ?? 0) - (context.world.cellsY[gridCellId] ?? 0)) <
-        1e-6
-    );
-  });
+  );
 
   if (eligiblePackIds.length <= 0) {
     context.world.cultureCount = 0;
     context.world.cultureSeedCell = new Uint32Array(1);
     context.world.cultureSize = new Uint32Array(1);
+    context.internal.packCellsCulture = new Uint16Array(0);
     return;
   }
 
@@ -5412,8 +5406,8 @@ export const runCulturesStage = (context: GenerationContext): void => {
     {
       odd: 0.2,
       sort: (packId) =>
-        (getNormalizedScore(packId) / getTemperatureDistance(packId, 18)) *
-        getSeaCoastPenalty(packId),
+        (getNormalizedScore(packId) * getSeaCoastPenalty(packId)) /
+        getTemperatureDistance(packId, 18),
     },
   ];
 
@@ -5425,11 +5419,11 @@ export const runCulturesStage = (context: GenerationContext): void => {
       let attempts = 0;
       let templateIndex = 0;
       do {
-        templateIndex = Math.floor(context.random() * pool.length);
+        templateIndex = Math.floor(cultureRandom() * pool.length);
         attempts += 1;
       } while (
         attempts < 200 &&
-        context.random() >= (pool[templateIndex]?.odd ?? 1)
+        cultureRandom() >= (pool[templateIndex]?.odd ?? 1)
       );
 
       selected.push(pool[templateIndex] as CultureTemplate);
@@ -5462,7 +5456,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     return false;
   };
   const getBiasedIndex = (maxInclusive: number): number =>
-    Math.round(maxInclusive * context.random() ** 5);
+    Math.round(maxInclusive * cultureRandom() ** 5);
   const placeCenter = (sortingFn: (packId: number) => number): number => {
     const sorted = candidatePackIds
       .slice()
@@ -5511,9 +5505,9 @@ export const runCulturesStage = (context: GenerationContext): void => {
       return "Lake";
     }
     if (
-      (harbor > 0 && waterType === 1 && context.random() < 0.1) ||
-      (harbor === 1 && context.random() < 0.6) ||
-      (isIsle && context.random() < 0.4)
+      (harbor > 0 && waterType === 1 && cultureRandom() < 0.1) ||
+      (harbor === 1 && cultureRandom() < 0.6) ||
+      (isIsle && cultureRandom() < 0.4)
     ) {
       return "Naval";
     }
@@ -5537,7 +5531,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     else if (type === "Hunting") base = 0.7;
     else if (type === "Highland") base = 1.2;
     return rn(
-      ((context.random() * context.config.hiddenControls.sizeVariety) / 2 + 1) *
+      ((cultureRandom() * context.config.hiddenControls.sizeVariety) / 2 + 1) *
         base,
       1,
     );
@@ -5707,6 +5701,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
   }
 
   context.internal.cultureTypes = cultureTypes;
+  context.internal.packCellsCulture = packCulture;
 
   const maxExpansionCost =
     Math.max(candidatePackIds.length, 1) *
@@ -5731,7 +5726,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
       packNeighborOffsets,
       packNeighbors,
       (neighborPackId) => {
-        if (!isPoliticalPackCell(context, neighborPackId)) {
+        if ((suitability[neighborPackId] ?? 0) <= 0) {
           return;
         }
 
