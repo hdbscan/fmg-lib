@@ -5228,6 +5228,8 @@ export const runCulturesStage = (context: GenerationContext): void => {
     context.world.cultureSize = new Uint32Array(1);
     context.internal.packCellsCulture = new Uint16Array(0);
     context.internal.cultureCenterPack = new Uint32Array(0);
+    context.internal.cultureCenterSampleOffsets = new Uint32Array(0);
+    context.internal.cultureCenterSamples = new Uint32Array(0);
     return;
   }
 
@@ -5242,6 +5244,8 @@ export const runCulturesStage = (context: GenerationContext): void => {
     context.world.cultureSize = new Uint32Array(1);
     context.internal.packCellsCulture = new Uint16Array(0);
     context.internal.cultureCenterPack = new Uint32Array(0);
+    context.internal.cultureCenterSampleOffsets = new Uint32Array(0);
+    context.internal.cultureCenterSamples = new Uint32Array(0);
     return;
   }
 
@@ -5556,6 +5560,8 @@ export const runCulturesStage = (context: GenerationContext): void => {
   const selectedCultureTypes: PoliticalType[] = [];
   const selectedNativeBiomes: number[] = [];
   const selectedExpansionism: number[] = [];
+  const centerSampleOffsets = [0];
+  const centerSamples: number[] = [];
   const hasCenterNear = (
     selectedPackIds: readonly number[],
     packId: number,
@@ -5589,6 +5595,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     for (let attempt = 0; attempt < 100; attempt += 1) {
       const candidate = sorted[getBiasedIndex(maxIndex)] ?? selectedPackId;
       selectedPackId = candidate;
+      centerSamples.push(candidate);
       spacing *= 0.9;
       if ((isSeed[candidate] ?? 0) === 1) {
         continue;
@@ -5597,6 +5604,8 @@ export const runCulturesStage = (context: GenerationContext): void => {
         break;
       }
     }
+
+    centerSampleOffsets.push(centerSamples.length);
 
     return selectedPackId;
   };
@@ -5828,6 +5837,9 @@ export const runCulturesStage = (context: GenerationContext): void => {
 
   context.internal.cultureTypes = cultureTypes;
   context.internal.cultureCenterPack = Uint32Array.from([0, ...seedPackIds]);
+  context.internal.cultureCenterSampleOffsets =
+    Uint32Array.from(centerSampleOffsets);
+  context.internal.cultureCenterSamples = Uint32Array.from(centerSamples);
 
   const maxExpansionCost =
     Math.max(candidatePackIds.length, 1) *
