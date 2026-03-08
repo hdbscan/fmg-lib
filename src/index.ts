@@ -246,6 +246,8 @@ const createContext = (
   };
 };
 
+export const __createContextForTests = createContext;
+
 const toWorldGraph = (context: GenerationContext): WorldGraphV1 => {
   const { config, grid, world } = context;
 
