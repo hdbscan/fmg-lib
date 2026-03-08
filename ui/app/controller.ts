@@ -17,7 +17,6 @@ import {
   createHitTestIndex,
   findCellAt,
 } from "../adapter";
-import type { ReviewMode } from "./review-mode";
 
 export type ControllerState = {
   world: WorldGraphV1 | null;
@@ -50,7 +49,7 @@ export const DEFAULT_GENERATION_CONFIG: GenerationConfig = {
   },
 };
 
-const DEFAULT_UI_VISIBILITY: LayerVisibilityState = {
+const DEFAULT_PARITY_VISIBILITY: LayerVisibilityState = {
   physical: false,
   biomes: false,
   rivers: true,
@@ -66,23 +65,7 @@ const DEFAULT_UI_VISIBILITY: LayerVisibilityState = {
   labels: true,
 };
 
-export const TERRAIN_REVIEW_VISIBILITY: LayerVisibilityState = {
-  physical: true,
-  biomes: false,
-  rivers: false,
-  cultures: false,
-  settlements: false,
-  states: false,
-  routes: false,
-  provinces: false,
-  religions: false,
-  military: false,
-  markers: false,
-  zones: false,
-  labels: false,
-};
-
-const DEFAULT_UI_STYLE: StylePreset = {
+const DEFAULT_PARITY_STYLE: StylePreset = {
   ...DEFAULT_STYLE,
   oceanColor: "#8da8d6",
   landColorLow: "#c9d7af",
@@ -93,19 +76,13 @@ const DEFAULT_UI_STYLE: StylePreset = {
   burgColor: "#24344f",
 };
 
-export const createController = (
-  options: Readonly<{ reviewMode?: ReviewMode }> = {},
-) => {
-  const reviewMode = options.reviewMode ?? "default";
-  const isTerrainReview = reviewMode === "terrain";
+export const createController = () => {
   let state: ControllerState = {
     world: null,
     renderable: null,
     hitTest: null,
-    visibility: isTerrainReview
-      ? TERRAIN_REVIEW_VISIBILITY
-      : DEFAULT_UI_VISIBILITY,
-    style: DEFAULT_UI_STYLE,
+    visibility: DEFAULT_PARITY_VISIBILITY,
+    style: DEFAULT_PARITY_STYLE,
     camera: {
       x: 0,
       y: 0,

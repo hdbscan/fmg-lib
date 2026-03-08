@@ -14,6 +14,7 @@ import {
   type LayerVisibilityState,
   type PRESET_VISIBILITY,
   type RenderCell,
+  type RenderableWorld,
   type StylePreset,
   clampZoom,
 } from "../adapter";
@@ -25,11 +26,6 @@ import {
   DEFAULT_GENERATION_CONFIG,
   createController,
 } from "./controller";
-import {
-  fitCameraToRenderable,
-  readReviewMode,
-  shouldPersistUiSession,
-} from "./review-mode";
 import { loadUiSession, saveUiSession } from "./session";
 import {
   SUPPORTED_WORLD_SCHEMA_VERSION,
@@ -298,6 +294,41 @@ const invertCameraPoint = (
   worldY: (y - camera.y) / camera.zoom,
 });
 
+const fitCameraToWorld = (
+  width: number,
+  height: number,
+  renderable: RenderableWorld,
+): CameraState => {
+  const safeWidth = Math.max(1, width);
+  const safeHeight = Math.max(1, height);
+  const horizontalPadding = Math.max(24, Math.round(safeWidth * 0.035));
+  const verticalPadding = Math.max(24, Math.round(safeHeight * 0.04));
+  const availableWidth = Math.max(160, safeWidth - horizontalPadding * 2);
+  const availableHeight = Math.max(160, safeHeight - verticalPadding * 2);
+  const focusWidth = Math.max(
+    1,
+    renderable.focusBounds.maxX - renderable.focusBounds.minX,
+  );
+  const focusHeight = Math.max(
+    1,
+    renderable.focusBounds.maxY - renderable.focusBounds.minY,
+  );
+  const zoom = clampZoom(
+    Math.min(availableWidth / focusWidth, availableHeight / focusHeight),
+  );
+
+  const focusCenterX =
+    (renderable.focusBounds.minX + renderable.focusBounds.maxX) / 2;
+  const focusCenterY =
+    (renderable.focusBounds.minY + renderable.focusBounds.maxY) / 2;
+
+  return {
+    zoom,
+    x: safeWidth / 2 - focusCenterX * zoom,
+    y: safeHeight / 2 - focusCenterY * zoom,
+  };
+};
+
 const summarizeCell = (world: WorldGraphV1, cell: RenderCell) => {
   const temperature = world.cellsTemp[cell.id] ?? 0;
   const moisture = world.cellsPrec[cell.id] ?? 0;
@@ -324,9 +355,7 @@ const summarizeCell = (world: WorldGraphV1, cell: RenderCell) => {
 
 export const App = () => {
   const terrainGeometryMode = readTerrainGeometryMode();
-  const reviewMode = readReviewMode(window.location.search);
-  const persistUiSession = shouldPersistUiSession(reviewMode);
-  const controller = createController({ reviewMode });
+  const controller = createController();
   const [state, setState] = createSignal<ControllerState>(
     controller.getState(),
   );
@@ -414,9 +443,7 @@ export const App = () => {
     }
 
     const size = canvasSize();
-    controller.setCamera(
-      fitCameraToRenderable(size.width, size.height, renderable, reviewMode),
-    );
+    controller.setCamera(fitCameraToWorld(size.width, size.height, renderable));
     syncRendererState(refreshState());
   };
 
@@ -438,12 +465,7 @@ export const App = () => {
       const renderable = nextState.renderable;
       if (renderable) {
         controller.setCamera(
-          fitCameraToRenderable(
-            size.width,
-            size.height,
-            renderable,
-            reviewMode,
-          ),
+          fitCameraToWorld(size.width, size.height, renderable),
         );
         nextState = refreshState();
       }
@@ -861,7 +883,7 @@ export const App = () => {
       };
     }
 
-    const session = persistUiSession ? loadUiSession() : null;
+    const session = loadUiSession();
     const configOverride = readConfigOverride();
     if (Object.keys(configOverride).length > 0) {
       setDraft((current: GenerationDraft) => ({
@@ -973,10 +995,6 @@ export const App = () => {
     }
 
     const nextState = state();
-    if (!persistUiSession) {
-      return;
-    }
-
     saveUiSession({
       camera: nextState.camera,
       visibility: nextState.visibility,
