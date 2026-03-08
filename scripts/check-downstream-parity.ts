@@ -194,6 +194,69 @@ const fetchUpstreamDownstreamDiagnostics = async (
         const cultureCenterSamples: number[] = [];
         const cultureCenterSampleOffsets = [0];
         if (key === "downstream:cultures") {
+          const createAlea = (seed: string): (() => number) => {
+            let state = 0xefc8249d;
+            const mash = (value: string): number => {
+              for (let index = 0; index < value.length; index += 1) {
+                state += value.charCodeAt(index);
+                let hashed = 0.02519603282416938 * state;
+                state = hashed >>> 0;
+                hashed -= state;
+                hashed *= state;
+                state = hashed >>> 0;
+                hashed -= state;
+                state += hashed * 4294967296;
+              }
+              return (state >>> 0) * 2.3283064365386963e-10;
+            };
+
+            let s0 = mash(" ");
+            let s1 = mash(" ");
+            let s2 = mash(" ");
+            let carry = 1;
+            s0 -= mash(seed);
+            if (s0 < 0) s0 += 1;
+            s1 -= mash(seed);
+            if (s1 < 0) s1 += 1;
+            s2 -= mash(seed);
+            if (s2 < 0) s2 += 1;
+
+            return () => {
+              const next = 2091639 * s0 + carry * 2.3283064365386963e-10;
+              s0 = s1;
+              s1 = s2;
+              carry = next | 0;
+              s2 = next - carry;
+              return s2;
+            };
+          };
+          const random = createAlea(String(globalData.seed ?? ""));
+          for (let packId = 0; packId < pack.cells.i.length; packId += 1) {
+            const height = pack.cells.h[packId] ?? 0;
+            const gridCellId = pack.cells.g[packId] ?? 0;
+            const temperature =
+              (globalData.grid as { cells: { temp: ArrayLike<number> } }).cells
+                .temp[gridCellId] ?? 0;
+            const featureId =
+              (pack.cells as { f?: ArrayLike<number> }).f?.[packId] ?? 0;
+            const feature = (
+              globalData.pack as { features?: Array<{ type?: string }> }
+            ).features?.[featureId];
+            if (height >= 20 || temperature > 0 || feature?.type === "lake") {
+              continue;
+            }
+            if (random() < 0.8) {
+              continue;
+            }
+            random();
+          }
+          for (
+            let remaining = cultureCenterPack.length - 1;
+            remaining > 0;
+            remaining -= 1
+          ) {
+            random();
+          }
           const populated = Array.from(pack.cells.i).filter(
             (packId) =>
               Number(
@@ -242,56 +305,51 @@ const fetchUpstreamDownstreamDiagnostics = async (
                 ).document?.getElementById("culturesInput")?.value ?? 0,
               ),
             ) ?? [];
-          const centers = (
-            globalThis as {
-              d3?: {
-                quadtree: () => {
-                  add: (point: readonly [number, number]) => void;
-                  find: (x: number, y: number, radius: number) => unknown;
-                };
-              };
-            }
-          ).d3?.quadtree();
+          const selectedCenters: number[] = [];
           const getBiased = (
-            globalThis as {
-              biased?: (min: number, max: number, exponent: number) => number;
-            }
-          ).biased;
+            min: number,
+            max: number,
+            exponent: number,
+          ): number => Math.round(min + (max - min) * random() ** exponent);
 
-          if (centers && getBiased) {
-            for (const culture of defaults.slice(
-              0,
-              cultureCenterPack.length - 1,
-            )) {
-              const sortingFn =
-                culture.sort ??
-                ((packId: number) =>
-                  Number(
-                    (pack.cells as { s?: ArrayLike<number> }).s?.[packId] ?? 0,
-                  ));
-              const sorted = populated
-                .slice()
-                .sort((left, right) => sortingFn(right) - sortingFn(left));
-              const max = Math.floor(sorted.length / 2);
-              let spacing =
-                (Number(globalData.graphWidth ?? 0) +
-                  Number(globalData.graphHeight ?? 0)) /
-                2 /
-                Math.max(cultureCenterPack.length - 1, 1);
-              let center = 0;
-              for (let attempt = 0; attempt < 100; attempt += 1) {
-                center = sorted[getBiased(0, max, 5)] ?? center;
-                cultureCenterSamples.push(center);
-                spacing *= 0.9;
-                const point = pack.cells.p[center] ?? [0, 0];
-                if (!centers.find(point[0] ?? 0, point[1] ?? 0, spacing)) {
-                  break;
-                }
+          for (const culture of defaults.slice(
+            0,
+            cultureCenterPack.length - 1,
+          )) {
+            const sortingFn =
+              culture.sort ??
+              ((packId: number) =>
+                Number(
+                  (pack.cells as { s?: ArrayLike<number> }).s?.[packId] ?? 0,
+                ));
+            const sorted = populated
+              .slice()
+              .sort((left, right) => sortingFn(right) - sortingFn(left));
+            const max = Math.floor(sorted.length / 2);
+            let spacing =
+              (Number(globalData.graphWidth ?? 0) +
+                Number(globalData.graphHeight ?? 0)) /
+              2 /
+              Math.max(cultureCenterPack.length - 1, 1);
+            let center = 0;
+            for (let attempt = 0; attempt < 100; attempt += 1) {
+              center = sorted[getBiased(0, max, 5)] ?? center;
+              cultureCenterSamples.push(center);
+              spacing *= 0.9;
+              const [x, y] = pack.cells.p[center] ?? [0, 0];
+              const spacingSq = spacing * spacing;
+              const blocked = selectedCenters.some((selectedCenter) => {
+                const [sx, sy] = pack.cells.p[selectedCenter] ?? [0, 0];
+                const dx = (sx ?? 0) - (x ?? 0);
+                const dy = (sy ?? 0) - (y ?? 0);
+                return dx * dx + dy * dy < spacingSq;
+              });
+              if (!blocked) {
+                break;
               }
-              const centerPoint = pack.cells.p[center] ?? [0, 0];
-              centers.add(centerPoint);
-              cultureCenterSampleOffsets.push(cultureCenterSamples.length);
             }
+            selectedCenters.push(center);
+            cultureCenterSampleOffsets.push(cultureCenterSamples.length);
           }
         }
         const burgCell = [
