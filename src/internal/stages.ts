@@ -5551,7 +5551,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
         attempts += 1;
       } while (
         attempts < 200 &&
-        cultureRandom() >= (pool[templateIndex]?.odd ?? 1)
+        !P(cultureRandom, pool[templateIndex]?.odd ?? 1)
       );
 
       selected.push(pool[templateIndex] as CultureTemplate);
