@@ -191,6 +191,8 @@ const fetchUpstreamDownstreamDiagnostics = async (
             .slice(1)
             .map((culture: { center?: number }) => Number(culture.center ?? 0)),
         ];
+        const cultureCenterSamples: number[] = [];
+        const cultureCenterSampleOffsets = [0];
         const burgCell = [
           0,
           ...pack.burgs.slice(1).map((burg) => burg.cell ?? 0),
@@ -270,6 +272,8 @@ const fetchUpstreamDownstreamDiagnostics = async (
           key,
           label,
           cultureCenterPack,
+          cultureCenterSamples,
+          cultureCenterSampleOffsets,
           packCulture,
           packBurg,
           packState,

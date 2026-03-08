@@ -76,6 +76,8 @@ const createContext = (): GenerationContext => {
       packCellsCulture: null,
       packFeatureLakeGroup: null,
       cultureCenterPack: null,
+      cultureCenterSampleOffsets: null,
+      cultureCenterSamples: null,
     },
     world: {
       cellCount: 4,
