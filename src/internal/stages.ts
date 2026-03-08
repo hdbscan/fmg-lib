@@ -5230,6 +5230,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     context.internal.cultureCenterPack = new Uint32Array(0);
     context.internal.cultureCenterSampleOffsets = new Uint32Array(0);
     context.internal.cultureCenterSamples = new Uint32Array(0);
+    context.internal.cultureCenterSampleIndices = new Uint32Array(0);
     return;
   }
 
@@ -5246,6 +5247,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     context.internal.cultureCenterPack = new Uint32Array(0);
     context.internal.cultureCenterSampleOffsets = new Uint32Array(0);
     context.internal.cultureCenterSamples = new Uint32Array(0);
+    context.internal.cultureCenterSampleIndices = new Uint32Array(0);
     return;
   }
 
@@ -5562,6 +5564,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
   const selectedExpansionism: number[] = [];
   const centerSampleOffsets = [0];
   const centerSamples: number[] = [];
+  const centerSampleIndices: number[] = [];
   const hasCenterNear = (
     selectedPackIds: readonly number[],
     packId: number,
@@ -5593,7 +5596,9 @@ export const runCulturesStage = (context: GenerationContext): void => {
     let selectedPackId = sorted[0] ?? candidatePackIds[0] ?? 0;
 
     for (let attempt = 0; attempt < 100; attempt += 1) {
-      const candidate = sorted[getBiasedIndex(maxIndex)] ?? selectedPackId;
+      const sampleIndex = getBiasedIndex(maxIndex);
+      const candidate = sorted[sampleIndex] ?? selectedPackId;
+      centerSampleIndices.push(sampleIndex);
       selectedPackId = candidate;
       centerSamples.push(candidate);
       spacing *= 0.9;
@@ -5840,6 +5845,8 @@ export const runCulturesStage = (context: GenerationContext): void => {
   context.internal.cultureCenterSampleOffsets =
     Uint32Array.from(centerSampleOffsets);
   context.internal.cultureCenterSamples = Uint32Array.from(centerSamples);
+  context.internal.cultureCenterSampleIndices =
+    Uint32Array.from(centerSampleIndices);
 
   const maxExpansionCost =
     Math.max(candidatePackIds.length, 1) *

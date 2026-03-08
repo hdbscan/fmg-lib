@@ -76,6 +76,7 @@ const createContext = (heights: readonly number[]): GenerationContext => {
       cultureCenterPack: null,
       cultureCenterSampleOffsets: null,
       cultureCenterSamples: null,
+      cultureCenterSampleIndices: null,
     },
     world: {
       cellCount,

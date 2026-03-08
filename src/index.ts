@@ -126,6 +126,7 @@ const createContext = (
       cultureCenterPack: null,
       cultureCenterSampleOffsets: null,
       cultureCenterSamples: null,
+      cultureCenterSampleIndices: null,
     },
     world: {
       cellCount: 0,
@@ -613,11 +614,14 @@ export const generateDownstreamDiagnostics = (
       ? { cultureCenterPack: context.internal.cultureCenterPack }
       : {}),
     ...(context.internal.cultureCenterSampleOffsets &&
-    context.internal.cultureCenterSamples
+    context.internal.cultureCenterSamples &&
+    context.internal.cultureCenterSampleIndices
       ? {
           cultureCenterSampleOffsets:
             context.internal.cultureCenterSampleOffsets,
           cultureCenterSamples: context.internal.cultureCenterSamples,
+          cultureCenterSampleIndices:
+            context.internal.cultureCenterSampleIndices,
         }
       : {}),
     ...(context.internal.packCellsCulture

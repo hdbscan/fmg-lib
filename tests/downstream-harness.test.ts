@@ -11,6 +11,7 @@ describe("downstream diagnostics", () => {
       label: "Cultures",
       cultureCenterPack: [1],
       cultureCenterSamples: [1],
+      cultureCenterSampleIndices: [0],
       cultureCenterSampleOffsets: [0, 1],
       packCulture: [1],
       packBurg: [0],
