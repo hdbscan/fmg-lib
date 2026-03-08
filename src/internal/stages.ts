@@ -5252,6 +5252,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
   }>;
 
   const suitability = computePackCellSuitability(context);
+  const packHydrologyHeights = context.internal.packCellsH;
   const populatedPackIds = eligiblePackIds.filter(
     (packId) => (suitability[packId] ?? 0) > 0,
   );
@@ -5293,14 +5294,15 @@ export const runCulturesStage = (context: GenerationContext): void => {
   };
   const getSeaCoastPenalty = (packId: number, fee = 4): number => {
     const havenPackId = context.internal.packHavenPack?.[packId] ?? -1;
-    if (havenPackId < 0) {
+    if (havenPackId <= 0) {
       return fee;
     }
     const featureId = packCellsFeatureId[havenPackId] ?? 0;
     return (packFeatureType[featureId] ?? 0) !== 2 ? 1 : fee;
   };
   const getTypeValue = (packId: number): number => packCoast[packId] ?? 0;
-  const getAltitude = (packId: number): number => packH[packId] ?? 0;
+  const getAltitude = (packId: number): number =>
+    packHydrologyHeights?.[packId] ?? packH[packId] ?? 0;
 
   const cultureTemplates: CultureTemplate[] = [
     {
@@ -5597,7 +5599,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
   const getCultureType = (packId: number): PoliticalType => {
     const cellId = packToGrid[packId] ?? 0;
     const biome = cellsBiome[cellId] ?? 0;
-    const height = packH[packId] ?? 0;
+    const height = packHydrologyHeights?.[packId] ?? packH[packId] ?? 0;
     const harbor = packHarbor[packId] ?? 0;
     const havenPackId = context.internal.packHavenPack?.[packId] ?? -1;
     const oppositeFeatureId =
