@@ -50,19 +50,19 @@ export const DEFAULT_GENERATION_CONFIG: GenerationConfig = {
 };
 
 const DEFAULT_PARITY_VISIBILITY: LayerVisibilityState = {
-  physical: false,
+  physical: true,
   biomes: false,
   rivers: true,
   cultures: false,
-  settlements: true,
-  states: true,
+  settlements: false,
+  states: false,
   routes: false,
   provinces: false,
   religions: false,
   military: false,
   markers: false,
   zones: false,
-  labels: true,
+  labels: false,
 };
 
 const DEFAULT_PARITY_STYLE: StylePreset = {

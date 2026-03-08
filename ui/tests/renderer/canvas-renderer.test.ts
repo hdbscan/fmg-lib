@@ -164,4 +164,30 @@ describe("CanvasMapRenderer", () => {
 
     expect(rootCanvas.context.drawImageCalls).toBe(4);
   });
+
+  it("keeps offscreen layers large enough for the full world", () => {
+    globalThis.document = {
+      createElement: () => new FakeCanvas(1, 1),
+    } as unknown as Document;
+
+    const world = buildRenderableWorld(getFixtureWorld());
+    const rootCanvas = new FakeCanvas(320, 240);
+    const renderer = new CanvasMapRenderer(
+      rootCanvas as unknown as HTMLCanvasElement,
+      DEFAULT_VISIBILITY,
+      DEFAULT_STYLE,
+      { x: 0, y: 0, zoom: 1 },
+    );
+
+    renderer.setWorld(world);
+
+    const physicalLayer = (
+      renderer as unknown as {
+        layerCanvases: Map<string, FakeCanvas>;
+      }
+    ).layerCanvases.get("physical");
+
+    expect(physicalLayer?.width).toBeGreaterThanOrEqual(world.width);
+    expect(physicalLayer?.height).toBeGreaterThanOrEqual(world.height);
+  });
 });

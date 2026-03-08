@@ -286,6 +286,25 @@ export class CanvasMapRenderer implements MapRenderer {
 
   private readonly terrainGeometryMode: TerrainGeometryMode;
 
+  private getLayerSurfaceSize(): Readonly<{ width: number; height: number }> {
+    return {
+      width: Math.max(this.rootCanvas.width, this.world?.width ?? 0),
+      height: Math.max(this.rootCanvas.height, this.world?.height ?? 0),
+    };
+  }
+
+  private syncLayerCanvasSizes(): void {
+    const size = this.getLayerSurfaceSize();
+    for (const layer of LAYERS) {
+      const layerCanvas = this.layerCanvases.get(layer);
+      if (!layerCanvas) {
+        continue;
+      }
+      layerCanvas.width = size.width;
+      layerCanvas.height = size.height;
+    }
+  }
+
   constructor(
     canvas: HTMLCanvasElement,
     visibility: LayerVisibilityState,
@@ -310,20 +329,15 @@ export class CanvasMapRenderer implements MapRenderer {
       this.layerCanvases.set(layer, layerCanvas);
       this.layerContexts.set(layer, get2D(layerCanvas));
     }
+
+    this.syncLayerCanvasSizes();
   }
 
   public resize(width: number, height: number): void {
     this.rootCanvas.width = width;
     this.rootCanvas.height = height;
 
-    for (const layer of LAYERS) {
-      const layerCanvas = this.layerCanvases.get(layer);
-      if (!layerCanvas) {
-        continue;
-      }
-      layerCanvas.width = width;
-      layerCanvas.height = height;
-    }
+    this.syncLayerCanvasSizes();
 
     this.markDirty();
   }
@@ -331,6 +345,7 @@ export class CanvasMapRenderer implements MapRenderer {
   public setWorld(world: RenderableWorld | null): void {
     this.world = world;
     this.edges = world ? buildEdges(world) : [];
+    this.syncLayerCanvasSizes();
     this.markDirty();
   }
 
@@ -388,10 +403,12 @@ export class CanvasMapRenderer implements MapRenderer {
       return;
     }
 
+    const surface = this.getLayerSurfaceSize();
+
     context.setTransform(1, 0, 0, 1, 0, 0);
-    context.clearRect(0, 0, this.rootCanvas.width, this.rootCanvas.height);
+    context.clearRect(0, 0, surface.width, surface.height);
     context.fillStyle = this.style.oceanColor;
-    context.fillRect(0, 0, this.rootCanvas.width, this.rootCanvas.height);
+    context.fillRect(0, 0, surface.width, surface.height);
 
     if (!this.world) {
       return;
@@ -549,8 +566,10 @@ export class CanvasMapRenderer implements MapRenderer {
       return;
     }
 
+    const surface = this.getLayerSurfaceSize();
+
     context.setTransform(1, 0, 0, 1, 0, 0);
-    context.clearRect(0, 0, this.rootCanvas.width, this.rootCanvas.height);
+    context.clearRect(0, 0, surface.width, surface.height);
 
     if (this.visibility.states) {
       for (const cell of this.world.cells) {
@@ -648,8 +667,10 @@ export class CanvasMapRenderer implements MapRenderer {
       return;
     }
 
+    const surface = this.getLayerSurfaceSize();
+
     context.setTransform(1, 0, 0, 1, 0, 0);
-    context.clearRect(0, 0, this.rootCanvas.width, this.rootCanvas.height);
+    context.clearRect(0, 0, surface.width, surface.height);
 
     if (this.visibility.zones) {
       context.fillStyle = `${this.style.zoneColor}33`;
@@ -750,8 +771,10 @@ export class CanvasMapRenderer implements MapRenderer {
       return;
     }
 
+    const surface = this.getLayerSurfaceSize();
+
     context.setTransform(1, 0, 0, 1, 0, 0);
-    context.clearRect(0, 0, this.rootCanvas.width, this.rootCanvas.height);
+    context.clearRect(0, 0, surface.width, surface.height);
 
     const drawHighlight = (
       cellId: number | null,
