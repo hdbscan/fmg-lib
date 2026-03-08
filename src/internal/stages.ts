@@ -5514,9 +5514,9 @@ export const runCulturesStage = (context: GenerationContext): void => {
   const selectTemplates = (count: number): CultureTemplate[] => {
     const pool = cultureTemplates.slice();
     const selected: CultureTemplate[] = [];
+    let attempts = 0;
 
     while (selected.length < count && pool.length > 0) {
-      let attempts = 0;
       let templateIndex = 0;
       do {
         templateIndex = Math.floor(cultureRandom() * pool.length);
