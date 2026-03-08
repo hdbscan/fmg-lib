@@ -22,7 +22,8 @@
         "sizeVariety": 7.5,
         "growthRate": 1.6,
         "provincesRatio": 28,
-        "religionsNumber": 7
+        "religionsNumber": 7,
+        "cellsDesired": 10000
       },
       "climate": {
         "temperatureEquator": 27,
@@ -63,28 +64,28 @@
   },
   "politics": {
     "oracleRegionCount": 23,
-    "localRegionCount": 22,
-    "matchedRegionPairs": 15,
-    "pixelIntersection": 7864,
-    "pixelUnion": 28090,
-    "iou": 0.27995728017087934
+    "localRegionCount": 23,
+    "matchedRegionPairs": 14,
+    "pixelIntersection": 6959,
+    "pixelUnion": 26076,
+    "iou": 0.2668737536431968
   },
   "religions": {
     "oracleRegionCount": 14,
-    "localRegionCount": 13,
-    "matchedRegionPairs": 8,
-    "pixelIntersection": 8537,
-    "pixelUnion": 25846,
-    "iou": 0.3303025613247698
+    "localRegionCount": 15,
+    "matchedRegionPairs": 9,
+    "pixelIntersection": 7470,
+    "pixelUnion": 26909,
+    "iou": 0.277602289196923
   },
   "burgs": {
     "oracleCount": 796,
-    "localCount": 886,
+    "localCount": 654,
     "threshold": 10.73,
-    "oracleRecallWithinThreshold": 0.657035175879397,
-    "localPrecisionWithinThreshold": 0.49548532731376976,
-    "meanNearestDistance": 12.669262416647715,
-    "medianNearestDistance": 9.4356477014734
+    "oracleRecallWithinThreshold": 0.6457286432160804,
+    "localPrecisionWithinThreshold": 0.6162079510703364,
+    "meanNearestDistance": 10.293113381406869,
+    "medianNearestDistance": 8.35295475709796
   },
   "counts": {
     "landmasses": {
@@ -104,8 +105,8 @@
     },
     "burgs": {
       "oracle": 796,
-      "local": 886,
-      "delta": 90
+      "local": 654,
+      "delta": -142
     }
   }
 }

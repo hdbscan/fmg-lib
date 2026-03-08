@@ -1,5 +1,30 @@
-import { createHash } from "node:crypto";
 import type { HeightTemplate, WorldGraphV1 } from "./types";
+
+const fnv1a = (bytes: readonly number[]): string => {
+  let hash = 0x811c9dc5;
+  for (const byte of bytes) {
+    hash ^= byte & 0xff;
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+};
+
+const hashValues = (values: readonly number[]): string => {
+  const bytes: number[] = [];
+  for (const value of values) {
+    const normalized = value >>> 0;
+    bytes.push(
+      normalized & 0xff,
+      (normalized >>> 8) & 0xff,
+      (normalized >>> 16) & 0xff,
+      (normalized >>> 24) & 0xff,
+    );
+  }
+  return fnv1a(bytes);
+};
+
+const hashString = (value: string): string =>
+  fnv1a(Array.from(new TextEncoder().encode(value)));
 
 export type DownstreamDiagnosticStep = Readonly<{
   key: string;
@@ -139,14 +164,9 @@ const firstDifferenceIndex = (
   return null;
 };
 
-const hashValues = (values: readonly number[]): string =>
-  createHash("sha256").update(Uint32Array.from(values)).digest("hex");
-
 const captureRouteDataHash = (world: DownstreamWorldView): string => {
   if (world.routeLinks) {
-    return createHash("sha256")
-      .update(JSON.stringify(world.routeLinks))
-      .digest("hex");
+    return hashString(JSON.stringify(world.routeLinks));
   }
 
   const values = [world.routeCount];

@@ -282447,6 +282447,7 @@
   "growthRate": 1.6,
   "provincesRatio": 28,
   "religionsNumber": 7,
+  "cellsDesired": 10000,
   "temperatureEquator": 27,
   "temperatureNorthPole": -31,
   "temperatureSouthPole": -14,

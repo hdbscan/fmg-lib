@@ -1,0 +1,33 @@
+{
+  "slug": "m38-main-after-review-mode-and-culture-pass",
+  "capturedAt": "2026-03-08T09:49:12.699Z",
+  "viewport": "1280x900",
+  "fullPage": false,
+  "status": "different",
+  "note": "Terrain-review screenshot after adding dedicated review mode and advancing downstream culture replay.",
+  "local": {
+    "label": "local-main-after-review-mode-and-culture-pass",
+    "url": "http://127.0.0.1:32821/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&heightTemplate=continents&precipitation=94&mapSize=100&latitude=50&longitude=50&terrainGeometry=packed&review=terrain",
+    "selector": "[data-screenshot=\"ui-shell-canvas\"]",
+    "readySelector": "[data-screenshot=\"ui-shell-canvas\"]",
+    "browser": "firefox",
+    "delayMs": 1500,
+    "staticRoot": "ui/dist",
+    "staticPath": "/?seed=42424242&width=1280&height=900&cells=9996&culturesCount=9&statesCount=23&townsCount=1000&heightTemplate=continents&precipitation=94&mapSize=100&latitude=50&longitude=50&terrainGeometry=packed&review=terrain",
+    "artifact": "local.png",
+    "sha256": "ba399abebaddc755bd3f1265c69df2da7b90983630e369808a59ad42a0eb7a21"
+  },
+  "reference": {
+    "type": "upstream",
+    "label": "upstream-fmg-seed-42424242-default",
+    "url": "https://azgaar.github.io/Fantasy-Map-Generator/?seed=42424242&options=default",
+    "browser": "firefox",
+    "selector": "#map",
+    "readySelector": "#map",
+    "delayMs": 12000,
+    "staticRoot": null,
+    "staticPath": null,
+    "artifact": "upstream.png",
+    "sha256": "855809c24d33f7995e9a4a4e08a8d251919a8d1d5ef54d5e66324655fccb4efb"
+  }
+}

@@ -1,5 +1,20 @@
-import { createHash } from "node:crypto";
 import type { HeightTemplate, WorldGraphV1 } from "./types";
+
+const hashValues = (values: readonly number[]): string => {
+  let hash = 0x811c9dc5;
+  for (const value of values) {
+    const normalized = value >>> 0;
+    hash ^= normalized & 0xff;
+    hash = Math.imul(hash, 0x01000193);
+    hash ^= (normalized >>> 8) & 0xff;
+    hash = Math.imul(hash, 0x01000193);
+    hash ^= (normalized >>> 16) & 0xff;
+    hash = Math.imul(hash, 0x01000193);
+    hash ^= (normalized >>> 24) & 0xff;
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+};
 
 export type PhysicalDiagnosticStep = Readonly<{
   key: string;
@@ -93,9 +108,6 @@ const firstDifferenceIndex = (
 
   return null;
 };
-
-const hashValues = (values: readonly number[]): string =>
-  createHash("sha256").update(Uint32Array.from(values)).digest("hex");
 
 type PhysicalWorldView = Readonly<{
   packCellCount: number;
