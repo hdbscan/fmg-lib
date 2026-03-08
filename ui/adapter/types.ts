@@ -112,6 +112,7 @@ export type RenderRiverSegment = Readonly<{
   fromY: number;
   toX: number;
   toY: number;
+  width: number;
 }>;
 
 export type RenderableWorld = Readonly<{

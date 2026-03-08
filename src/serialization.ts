@@ -171,8 +171,12 @@ export const serializeWorld = (world: WorldGraphV1): string => {
       packY: encodeTypedArray(world.packY, "f32"),
       packH: encodeTypedArray(world.packH, "u8"),
       packArea: encodeTypedArray(world.packArea, "f32"),
+      packFlow: encodeTypedArray(world.packFlow, "u32"),
       packNeighborOffsets: encodeTypedArray(world.packNeighborOffsets, "u32"),
       packNeighbors: encodeTypedArray(world.packNeighbors, "u32"),
+      packRiver: encodeTypedArray(world.packRiver, "u32"),
+      packRiverCellOffsets: encodeTypedArray(world.packRiverCellOffsets, "u32"),
+      packRiverCells: encodeTypedArray(world.packRiverCells, "i32"),
       packCellsFeatureId: encodeTypedArray(world.packCellsFeatureId, "u32"),
       packFeatureType: encodeTypedArray(world.packFeatureType, "u8"),
       packFeatureFeatureId: encodeTypedArray(world.packFeatureFeatureId, "u32"),
@@ -372,10 +376,22 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
   const packY = decodeTypedArray(world.arrays.packY);
   const packH = decodeTypedArray(world.arrays.packH);
   const packArea = decodeTypedArray(world.arrays.packArea);
+  const packFlow = world.arrays.packFlow
+    ? decodeTypedArray(world.arrays.packFlow)
+    : new Uint32Array(world.packCellCount);
   const packNeighborOffsets = decodeTypedArray(
     world.arrays.packNeighborOffsets,
   );
   const packNeighbors = decodeTypedArray(world.arrays.packNeighbors);
+  const packRiver = world.arrays.packRiver
+    ? decodeTypedArray(world.arrays.packRiver)
+    : new Uint32Array(world.packCellCount);
+  const packRiverCellOffsets = world.arrays.packRiverCellOffsets
+    ? decodeTypedArray(world.arrays.packRiverCellOffsets)
+    : new Uint32Array(1);
+  const packRiverCells = world.arrays.packRiverCells
+    ? decodeTypedArray(world.arrays.packRiverCells)
+    : new Int32Array(0);
   const packCellsFeatureId = decodeTypedArray(world.arrays.packCellsFeatureId);
   const packFeatureType = decodeTypedArray(world.arrays.packFeatureType);
   const packFeatureFeatureId = world.arrays.packFeatureFeatureId
@@ -497,8 +513,12 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     !(packY instanceof Float32Array) ||
     !(packH instanceof Uint8Array) ||
     !(packArea instanceof Float32Array) ||
+    !(packFlow instanceof Uint32Array) ||
     !(packNeighborOffsets instanceof Uint32Array) ||
     !(packNeighbors instanceof Uint32Array) ||
+    !(packRiver instanceof Uint32Array) ||
+    !(packRiverCellOffsets instanceof Uint32Array) ||
+    !(packRiverCells instanceof Int32Array) ||
     !(packCellsFeatureId instanceof Uint32Array) ||
     !(packFeatureType instanceof Uint8Array) ||
     !(packFeatureFeatureId instanceof Uint32Array) ||
@@ -627,8 +647,12 @@ const deserializeV1: WorldDeserializer = (value: unknown): WorldGraphV1 => {
     packY,
     packH,
     packArea,
+    packFlow,
     packNeighborOffsets,
     packNeighbors,
+    packRiver,
+    packRiverCellOffsets,
+    packRiverCells,
     packCellsFeatureId,
     packFeatureCount: world.packFeatureCount,
     packFeatureType,

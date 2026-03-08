@@ -243,7 +243,40 @@ const setupUpstreamPhysicalCore = async (page, maskLayer = null) => {
         if (map) {
           map.style.background = "#ffffff";
         }
-        forceMaskStyle("#rivers path, #rivers line, #rivers polyline");
+        const riversGroup = byId("rivers");
+        if (riversGroup && globalThis.pack?.rivers && globalThis.Rivers) {
+          const toPath = (points) => {
+            if (!Array.isArray(points) || points.length === 0) {
+              return "";
+            }
+            const [firstX, firstY] = points[0] ?? [0, 0];
+            const commands = [`M${firstX},${firstY}`];
+            for (
+              let pointIndex = 1;
+              pointIndex < points.length;
+              pointIndex += 1
+            ) {
+              const [x, y] = points[pointIndex] ?? [0, 0];
+              commands.push(`L${x},${y}`);
+            }
+            return commands.join(" ");
+          };
+          const lines = [];
+          for (const river of globalThis.pack.rivers) {
+            if (!river?.cells || river.cells.length < 3) {
+              continue;
+            }
+            const points = globalThis.Rivers.addMeandering(river.cells);
+            const d = toPath(points);
+            if (!d) {
+              continue;
+            }
+            lines.push(
+              `<path d="${d}" fill="none" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>`,
+            );
+          }
+          riversGroup.innerHTML = lines.join("");
+        }
       }
 
       window.__fmgRenderParity = {

@@ -198,8 +198,12 @@ export type WorldGraphV1 = Readonly<{
   packY: Float32Array;
   packH: Uint8Array;
   packArea: Float32Array;
+  packFlow: Uint32Array;
   packNeighborOffsets: Uint32Array;
   packNeighbors: Uint32Array;
+  packRiver: Uint32Array;
+  packRiverCellOffsets: Uint32Array;
+  packRiverCells: Int32Array;
   packCellsFeatureId: Uint32Array;
   packFeatureCount: number;
   packFeatureType: Uint8Array;
@@ -320,8 +324,12 @@ export type SerializedWorldV1 = Readonly<{
     packY: SerializedTypedArray;
     packH: SerializedTypedArray;
     packArea: SerializedTypedArray;
+    packFlow: SerializedTypedArray;
     packNeighborOffsets: SerializedTypedArray;
     packNeighbors: SerializedTypedArray;
+    packRiver: SerializedTypedArray;
+    packRiverCellOffsets: SerializedTypedArray;
+    packRiverCells: SerializedTypedArray;
     packCellsFeatureId: SerializedTypedArray;
     packFeatureType: SerializedTypedArray;
     packFeatureFeatureId: SerializedTypedArray;
@@ -390,6 +398,8 @@ export type GenerationContext = {
     packCellsFlow: Uint32Array | null;
     packCellsRiver: Uint32Array | null;
     packCellsConfluence: Uint32Array | null;
+    packRiverCellOffsets: Uint32Array | null;
+    packRiverCells: Int32Array | null;
     packCellsBiome: Uint8Array | null;
     packCellsH: Uint8Array | null;
     packCellsCulture: Uint16Array | null;
@@ -491,8 +501,12 @@ export type GenerationContext = {
     packY: Float32Array;
     packH: Uint8Array;
     packArea: Float32Array;
+    packFlow: Uint32Array;
     packNeighborOffsets: Uint32Array;
     packNeighbors: Uint32Array;
+    packRiver: Uint32Array;
+    packRiverCellOffsets: Uint32Array;
+    packRiverCells: Int32Array;
     packCellsFeatureId: Uint32Array;
     packFeatureCount: number;
     packFeatureType: Uint8Array;

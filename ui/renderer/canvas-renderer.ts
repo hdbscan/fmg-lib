@@ -479,9 +479,9 @@ export class CanvasMapRenderer implements MapRenderer {
       }
 
       context.strokeStyle = this.style.riverColor;
-      context.lineWidth = 1.15;
       context.lineCap = "round";
       for (const segment of this.world.riverSegments) {
+        context.lineWidth = Math.max(0.75, segment.width);
         context.beginPath();
         context.moveTo(segment.fromX, segment.fromY);
         context.lineTo(segment.toX, segment.toY);
@@ -555,9 +555,9 @@ export class CanvasMapRenderer implements MapRenderer {
     }
 
     context.strokeStyle = this.style.riverColor;
-    context.lineWidth = 1.15;
     context.lineCap = "round";
     for (const segment of this.world.riverSegments) {
+      context.lineWidth = Math.max(0.75, segment.width);
       context.beginPath();
       context.moveTo(segment.fromX, segment.fromY);
       context.lineTo(segment.toX, segment.toY);

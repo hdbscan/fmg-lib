@@ -3001,6 +3001,9 @@ describe("world generation integration", () => {
     expect(Array.from(decoded.packNeighbors)).toEqual(
       Array.from(original.packNeighbors),
     );
+    expect(Array.from(decoded.packRiver)).toEqual(
+      Array.from(original.packRiver),
+    );
     expect(Array.from(decoded.packCellsFeatureId)).toEqual(
       Array.from(original.packCellsFeatureId),
     );

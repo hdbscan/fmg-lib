@@ -86,6 +86,124 @@ const calcPolygonArea = (polygon: Float32Array): number => {
   return Math.abs(total) * 0.5;
 };
 
+const RIVER_FLUX_FACTOR = 500;
+const RIVER_MAX_FLUX_WIDTH = 1;
+const RIVER_LENGTH_FACTOR = 200;
+const RIVER_LENGTH_STEP_WIDTH = 1 / RIVER_LENGTH_FACTOR;
+const RIVER_LENGTH_PROGRESSION = [1, 1, 2, 3, 5, 8, 13, 21, 34].map(
+  (value) => value / RIVER_LENGTH_FACTOR,
+);
+
+type RiverPoint = readonly [number, number, number];
+
+const getRiverBorderPoint = (
+  world: WorldGraphV1,
+  packId: number,
+): readonly [number, number] => {
+  const x = world.packX[packId] ?? 0;
+  const y = world.packY[packId] ?? 0;
+  const min = Math.min(y, world.height - y, x, world.width - x);
+  if (min === y) {
+    return [x, 0];
+  }
+  if (min === world.height - y) {
+    return [x, world.height];
+  }
+  if (min === x) {
+    return [0, y];
+  }
+  return [world.width, y];
+};
+
+const addRiverMeandering = (
+  world: WorldGraphV1,
+  riverCells: readonly number[],
+): RiverPoint[] => {
+  if (riverCells.length === 0) {
+    return [];
+  }
+
+  const points = riverCells.map((packId, index) =>
+    packId < 0
+      ? getRiverBorderPoint(world, riverCells[index - 1] ?? 0)
+      : ([world.packX[packId] ?? 0, world.packY[packId] ?? 0] as const),
+  );
+  const meandered: RiverPoint[] = [];
+  const lastStep = riverCells.length - 1;
+  let step = (world.packH[riverCells[0] ?? 0] ?? 0) < 20 ? 1 : 10;
+
+  for (let index = 0; index <= lastStep; index += 1, step += 1) {
+    const packId = riverCells[index] ?? -1;
+    const [x1, y1] = points[index] ?? [0, 0];
+    const flux = packId >= 0 ? (world.packFlow[packId] ?? 0) : 0;
+    meandered.push([x1, y1, flux]);
+    if (index === lastStep) {
+      break;
+    }
+
+    const nextPackId = riverCells[index + 1] ?? -1;
+    const [x2, y2] = points[index + 1] ?? [x1, y1];
+    if (nextPackId === -1) {
+      meandered.push([x2, y2, flux]);
+      break;
+    }
+
+    const dist2 = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+    if (dist2 <= 25 && riverCells.length >= 6) {
+      continue;
+    }
+
+    const meander = 0.5 + 1 / step + Math.max(0.5 - step / 100, 0);
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const sinMeander = Math.sin(angle) * meander;
+    const cosMeander = Math.cos(angle) * meander;
+
+    if (step < 20 && (dist2 > 64 || (dist2 > 36 && riverCells.length < 5))) {
+      meandered.push(
+        [(x1 * 2 + x2) / 3 - sinMeander, (y1 * 2 + y2) / 3 + cosMeander, 0],
+        [
+          (x1 + x2 * 2) / 3 + sinMeander / 2,
+          (y1 + y2 * 2) / 3 - cosMeander / 2,
+          0,
+        ],
+      );
+    } else if (dist2 > 25 || riverCells.length < 6) {
+      meandered.push([
+        (x1 + x2) / 2 - sinMeander,
+        (y1 + y2) / 2 + cosMeander,
+        0,
+      ]);
+    }
+  }
+
+  return meandered;
+};
+
+const getRiverSourceWidth = (flux: number): number =>
+  Math.min(flux ** 0.9 / RIVER_FLUX_FACTOR, RIVER_MAX_FLUX_WIDTH);
+
+const getRiverOffset = (
+  flux: number,
+  pointIndex: number,
+  widthFactor: number,
+  startingWidth: number,
+): number => {
+  if (pointIndex === 0) {
+    return startingWidth;
+  }
+
+  const fluxWidth = Math.min(
+    flux ** 0.7 / RIVER_FLUX_FACTOR,
+    RIVER_MAX_FLUX_WIDTH,
+  );
+  const lengthWidth =
+    pointIndex * RIVER_LENGTH_STEP_WIDTH +
+    (RIVER_LENGTH_PROGRESSION[pointIndex] ??
+      RIVER_LENGTH_PROGRESSION[RIVER_LENGTH_PROGRESSION.length - 1] ??
+      0);
+  return widthFactor * (lengthWidth + fluxWidth) + startingWidth;
+};
+
 const collectTerrainFeatures = (
   world: WorldGraphV1,
 ): readonly RenderTerrainFeature[] => {
@@ -159,9 +277,62 @@ const collectRiverSegments = (
 ): readonly RenderRiverSegment[] => {
   const segments: RenderRiverSegment[] = [];
 
+  if (world.packRiverCellOffsets.length > 1) {
+    const defaultWidthFactor = 1 / (world.requestedCells / 10000) ** 0.25;
+    const mainStemWidthFactor = defaultWidthFactor * 1.2;
+    for (
+      let riverIndex = 0;
+      riverIndex < world.packRiverCellOffsets.length - 1;
+      riverIndex += 1
+    ) {
+      const start = world.packRiverCellOffsets[riverIndex] ?? 0;
+      const end = world.packRiverCellOffsets[riverIndex + 1] ?? start;
+      const riverCells = Array.from(world.packRiverCells.slice(start, end));
+      if (riverCells.length < 2) {
+        continue;
+      }
+
+      const sourcePackId = riverCells.find((packId) => packId >= 0) ?? -1;
+      if (sourcePackId < 0) {
+        continue;
+      }
+
+      const meandered = addRiverMeandering(world, riverCells);
+      const widthFactor = mainStemWidthFactor;
+      const startingWidth = getRiverSourceWidth(
+        world.packFlow[sourcePackId] ?? 0,
+      );
+      for (let pointIndex = 1; pointIndex < meandered.length; pointIndex += 1) {
+        const previous = meandered[pointIndex - 1];
+        const current = meandered[pointIndex];
+        if (!previous || !current) {
+          continue;
+        }
+
+        segments.push({
+          river: world.packRiver[sourcePackId] ?? 0,
+          fromX: previous[0],
+          fromY: previous[1],
+          toX: current[0],
+          toY: current[1],
+          width: getRiverOffset(
+            Math.max(previous[2], current[2]),
+            pointIndex,
+            widthFactor,
+            startingWidth,
+          ),
+        });
+      }
+    }
+
+    if (segments.length > 0) {
+      return segments;
+    }
+  }
+
   for (let packId = 0; packId < world.packCellCount; packId += 1) {
     const gridCellId = world.packToGrid[packId] ?? 0;
-    const river = world.cellsRiver[gridCellId] ?? 0;
+    const river = world.packRiver[packId] ?? world.cellsRiver[gridCellId] ?? 0;
     if (river <= 0) {
       continue;
     }
@@ -182,7 +353,11 @@ const collectRiverSegments = (
       }
 
       const neighborGridCellId = world.packToGrid[neighborPackId] ?? 0;
-      if ((world.cellsRiver[neighborGridCellId] ?? 0) !== river) {
+      const neighborRiver =
+        world.packRiver[neighborPackId] ??
+        world.cellsRiver[neighborGridCellId] ??
+        0;
+      if (neighborRiver !== river) {
         continue;
       }
 
@@ -192,6 +367,7 @@ const collectRiverSegments = (
         fromY: world.packY[packId] ?? 0,
         toX: world.packX[neighborPackId] ?? 0,
         toY: world.packY[neighborPackId] ?? 0,
+        width: 1.15,
       });
     }
   }

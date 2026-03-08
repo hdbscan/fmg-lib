@@ -1128,7 +1128,7 @@ const buildVoronoiAdjacency = (
     if (
       cellId < 0 ||
       cellId >= cellCount ||
-      cellNeighborsById[cellId]!.length > 0
+      (cellNeighborsById[cellId]?.length ?? 0) > 0
     ) {
       continue;
     }
@@ -3900,6 +3900,8 @@ const computePackHydrology = (
   confluence: Uint32Array;
   heights: Uint8Array;
   lakeGroup: Uint8Array;
+  riverCellOffsets: Uint32Array;
+  riverCells: Int32Array;
 }> => {
   const {
     cellsTemp,
@@ -3932,6 +3934,8 @@ const computePackHydrology = (
       confluence: new Uint32Array(0),
       heights: new Uint8Array(0),
       lakeGroup: new Uint8Array(0),
+      riverCellOffsets: new Uint32Array(1),
+      riverCells: new Int32Array(0),
     };
   }
 
@@ -4495,6 +4499,21 @@ const computePackHydrology = (
     lakeGroup[feature.i] = lakeGroupCode.freshwater;
   }
   const finalConfluenceFlux = new Uint32Array(packCellCount);
+  const riverCellOffsets: number[] = [0];
+  const riverCells: number[] = [];
+  for (let riverId = 1; riverId < survivingRiver.length; riverId += 1) {
+    if ((survivingRiver[riverId] ?? 0) === 0) {
+      continue;
+    }
+
+    for (const packId of riversData[riverId] ?? []) {
+      if (packId < 0 || (finalRiver[packId] ?? 0) !== riverId) {
+        continue;
+      }
+      riverCells.push(packId);
+    }
+    riverCellOffsets.push(riverCells.length);
+  }
   for (let packId = 0; packId < packCellCount; packId += 1) {
     if ((finalConfluence[packId] ?? 0) === 0) {
       continue;
@@ -4550,6 +4569,8 @@ const computePackHydrology = (
     confluence: finalConfluenceFlux,
     heights: finalHeights,
     lakeGroup,
+    riverCellOffsets: Uint32Array.from(riverCellOffsets),
+    riverCells: Int32Array.from(riverCells),
   };
 };
 
@@ -5075,6 +5096,8 @@ export const runHydrologyStage = (context: GenerationContext): void => {
   context.internal.packCellsFlow = packHydrology.flow;
   context.internal.packCellsRiver = packHydrology.river;
   context.internal.packCellsConfluence = packHydrology.confluence;
+  context.internal.packRiverCellOffsets = packHydrology.riverCellOffsets;
+  context.internal.packRiverCells = packHydrology.riverCells;
   context.internal.packCellsH = packHydrology.heights;
   context.internal.packFeatureLakeGroup = packHydrology.lakeGroup;
 };
@@ -6518,17 +6541,20 @@ export const runRoutesStage = (context: GenerationContext): void => {
 
     if (featureId > 0) {
       landBurgsByFeature[featureId] ??= [];
-      landBurgsByFeature[featureId]!.push(routedBurg);
+      const landBurgs = landBurgsByFeature[featureId] ?? [];
+      landBurgs.push(routedBurg);
 
       if ((burgCapital[burgId] ?? 0) === 1) {
         capitalsByFeature[featureId] ??= [];
-        capitalsByFeature[featureId]!.push(routedBurg);
+        const capitals = capitalsByFeature[featureId] ?? [];
+        capitals.push(routedBurg);
       }
     }
 
     if (port > 0 && portCellId >= 0) {
       portsByWaterbody[port] ??= [];
-      portsByWaterbody[port]!.push(routedBurg);
+      const ports = portsByWaterbody[port] ?? [];
+      ports.push(routedBurg);
     }
   }
 
