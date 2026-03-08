@@ -9,6 +9,12 @@ import {
 } from "../src/index";
 import { buildGenerationConfigFromOracle } from "../src/internal/oracle-config";
 import { fetchUpstreamOracle } from "./fetch-upstream-oracle";
+import {
+  type RawUpstreamCultureRuntimePayload,
+  type UpstreamCultureRuntime,
+  injectUpstreamCultureRuntimeInstrumentation,
+  normalizeUpstreamCultureRuntime,
+} from "./lib/upstream-culture-runtime";
 
 const DEFAULT_OUTPUT = "artifacts/parity/downstream-harness-report.json";
 const DEFAULT_ORACLE_CACHE = "artifacts/parity/upstream-oracle.json";
@@ -19,20 +25,7 @@ type DownstreamHarnessReport = Readonly<{
   local: DownstreamDiagnostics;
   oracle: DownstreamDiagnostics;
   comparison: DownstreamDiagnosticsComparison;
-  cultureRuntime?: Readonly<{
-    selectedTemplateIds: readonly number[];
-    selectedCenters: readonly number[];
-    sampleIndices: readonly number[];
-    sampleCells: readonly number[];
-    sampleOffsets: readonly number[];
-    templateDrawEvents: readonly Readonly<{
-      draw: number;
-      poolLength: number;
-      pickedIndex: number;
-      templateId: number;
-      accepted: boolean;
-    }>[];
-  }>;
+  cultureRuntime?: UpstreamCultureRuntime;
 }>;
 
 const parseArgs = (argv: string[]): Record<string, string> => {
@@ -528,65 +521,55 @@ const fetchUpstreamCultureRuntime = async (sourceUrl: string) => {
     });
     await page.route("**/index-*.js", async (route) => {
       const response = await route.fetch();
-      let body = await response.text();
-      body = body.replace(
-        'const s=(m=>{const g=this.getDefault(m),y=[];if(pack.cultures?.forEach(w=>{w.lock&&!w.removed&&y.push(w)}),!y.length){if(m===g.length)return g;if(g.every(w=>w.odd===1))return g.splice(0,m)}for(let w,v,b=0;y.length<m&&g.length>0;){do v=se(g.length-1),w=g[v],b++;while(b<200&&!U(w.odd));y.push(w),g.splice(v,1)}return y})(r);pack.cultures=s;const u=tn(),c=jp(r),h=ye("emblemShape").value,f=[],l=m=>{let g=(graphWidth+graphHeight)/2/r;const y=100,w=[...i].sort((k,M)=>m(M)-m(k)),v=Math.floor(w.length/2);let b=0;for(let k=0;k<y&&(b=w[Kp(0,v,5)],g*=.9,!(!t[b]&&!u.find(this.cells.p[b][0],this.cells.p[b][1],g)));k++);return b},d=m=>{',
-        'const s=(m=>{const g=this.getDefault(m),y=[];if(pack.cultures?.forEach(w=>{w.lock&&!w.removed&&y.push(w)}),!y.length){if(m===g.length)return g;if(g.every(w=>w.odd===1))return g.splice(0,m)}for(let w,v,b=0;y.length<m&&g.length>0;){do v=se(g.length-1),w=g[v],b++;while(b<200&&!U(w.odd));y.push(w),g.splice(v,1)}return y})(r);globalThis.__cultureRuntime={selectedTemplates:s.map(w=>({name:w.name,base:w.base,odd:w.odd})),placeCenter:[]};pack.cultures=s;const u=tn(),c=jp(r),h=ye("emblemShape").value,f=[],l=m=>{let g=(graphWidth+graphHeight)/2/r;const y=100,w=[...i].sort((k,M)=>m(M)-m(k)),v=Math.floor(w.length/2);let b=0;const C=[];for(let k=0;k<y;k++){const E=Kp(0,v,5);b=w[E],g*=.9;const A=!(!t[b]&&!u.find(this.cells.p[b][0],this.cells.p[b][1],g));C.push({sampleIndex:E,cellId:b,spacing:g,accepted:!A});if(!A)break}return globalThis.__cultureRuntime.placeCenter.push({sortedTop:w.slice(0,20),samples:C}),b},d=m=>{',
+      const body = injectUpstreamCultureRuntimeInstrumentation(
+        await response.text(),
       );
       await route.fulfill({ response, body });
     });
     await page.goto(sourceUrl, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(1000);
 
-    return await page.evaluate(() => {
-      const runtime = (globalThis as Record<string, unknown>)
-        .__cultureRuntime as
-        | {
-            selectedTemplates?: Array<{ base?: number }>;
-            placeCenter?: Array<{
-              samples: Array<{
-                sampleIndex: number;
-                cellId: number;
-                spacing: number;
-                accepted: boolean;
+    const payload = await page.evaluate<RawUpstreamCultureRuntimePayload>(
+      () => {
+        const runtime = (globalThis as Record<string, unknown>)
+          .__cultureRuntime as
+          | {
+              selectedTemplates?: Array<{ templateId?: number; base?: number }>;
+              templateDrawEvents?: Array<{
+                draw?: number;
+                poolLength?: number;
+                pickedIndex?: number;
+                templateId?: number;
+                templateBase?: number;
+                odd?: number;
+                accepted?: boolean;
               }>;
-            }>;
-          }
-        | undefined;
-      const pack = (globalThis as Record<string, unknown>).pack as {
-        cultures: Array<{ center?: number }>;
-      };
-      const placeCenter = runtime?.placeCenter ?? [];
-      const sampleOffsets = [0];
-      for (const entry of placeCenter) {
-        sampleOffsets.push(
-          (sampleOffsets[sampleOffsets.length - 1] ?? 0) + entry.samples.length,
-        );
-      }
+              placeCenter?: Array<{
+                samples: Array<{
+                  sampleIndex: number;
+                  cellId: number;
+                  spacing: number;
+                  accepted: boolean;
+                }>;
+              }>;
+            }
+          | undefined;
+        const pack = (globalThis as Record<string, unknown>).pack as {
+          cultures: Array<{ center?: number }>;
+        };
 
-      return {
-        selectedTemplateIds: [
-          0,
-          ...((runtime?.selectedTemplates ?? []).map((template) =>
-            Number(template.base ?? 0),
-          ) as number[]),
-        ],
-        selectedCenters: [
-          0,
-          ...pack.cultures
+        return {
+          selectedTemplates: runtime?.selectedTemplates ?? [],
+          templateDrawEvents: runtime?.templateDrawEvents ?? [],
+          placeCenter: runtime?.placeCenter ?? [],
+          selectedCenters: pack.cultures
             .slice(1)
             .map((culture) => Number(culture.center ?? 0)),
-        ],
-        sampleIndices: placeCenter.flatMap((entry) =>
-          entry.samples.map((sample) => sample.sampleIndex),
-        ),
-        sampleCells: placeCenter.flatMap((entry) =>
-          entry.samples.map((sample) => sample.cellId),
-        ),
-        sampleOffsets,
-        templateDrawEvents: [],
-      };
-    });
+        };
+      },
+    );
+
+    return normalizeUpstreamCultureRuntime(payload);
   } finally {
     await browser.close();
   }
