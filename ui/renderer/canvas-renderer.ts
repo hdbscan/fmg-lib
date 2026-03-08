@@ -481,16 +481,10 @@ export class CanvasMapRenderer implements MapRenderer {
       context.strokeStyle = this.style.riverColor;
       context.lineWidth = 1.15;
       context.lineCap = "round";
-      for (const edge of this.edges) {
-        const cellA = this.world.cells[edge.cellA];
-        const cellB = edge.cellB == null ? null : this.world.cells[edge.cellB];
-        if (!cellA || !cellB || cellA.river <= 0 || cellB.river <= 0) {
-          continue;
-        }
-
+      for (const segment of this.world.riverSegments) {
         context.beginPath();
-        context.moveTo(edge.ax, edge.ay);
-        context.lineTo(edge.bx, edge.by);
+        context.moveTo(segment.fromX, segment.fromY);
+        context.lineTo(segment.toX, segment.toY);
         context.stroke();
       }
       return;
@@ -563,16 +557,10 @@ export class CanvasMapRenderer implements MapRenderer {
     context.strokeStyle = this.style.riverColor;
     context.lineWidth = 1.15;
     context.lineCap = "round";
-    for (const edge of this.edges) {
-      const cellA = this.world.cells[edge.cellA];
-      const cellB = edge.cellB == null ? null : this.world.cells[edge.cellB];
-      if (!cellA || !cellB || cellA.river <= 0 || cellB.river <= 0) {
-        continue;
-      }
-
+    for (const segment of this.world.riverSegments) {
       context.beginPath();
-      context.moveTo(edge.ax, edge.ay);
-      context.lineTo(edge.bx, edge.by);
+      context.moveTo(segment.fromX, segment.fromY);
+      context.lineTo(segment.toX, segment.toY);
       context.stroke();
     }
   }
@@ -640,16 +628,10 @@ export class CanvasMapRenderer implements MapRenderer {
     context.lineCap = "round";
     context.lineJoin = "round";
 
-    for (const edge of this.edges) {
-      const cellA = this.world.cells[edge.cellA];
-      const cellB = edge.cellB == null ? null : this.world.cells[edge.cellB];
-      if (!cellA || !cellB || cellA.river <= 0 || cellB.river <= 0) {
-        continue;
-      }
-
+    for (const segment of this.world.riverSegments) {
       context.beginPath();
-      context.moveTo(edge.ax, edge.ay);
-      context.lineTo(edge.bx, edge.by);
+      context.moveTo(segment.fromX, segment.fromY);
+      context.lineTo(segment.toX, segment.toY);
       context.stroke();
     }
   }

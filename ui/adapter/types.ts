@@ -106,6 +106,14 @@ export type RenderTerrainFeature = Readonly<{
   shorelinePackIds: Uint32Array;
 }>;
 
+export type RenderRiverSegment = Readonly<{
+  river: number;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+}>;
+
 export type RenderableWorld = Readonly<{
   source: WorldGraphV1;
   width: number;
@@ -128,6 +136,7 @@ export type RenderableWorld = Readonly<{
   zones: ReadonlyArray<RenderZone>;
   burgs: ReadonlyArray<RenderBurg>;
   terrainFeatures: ReadonlyArray<RenderTerrainFeature>;
+  riverSegments: ReadonlyArray<RenderRiverSegment>;
 }>;
 
 export type LayerVisibilityState = Readonly<{

@@ -6,6 +6,7 @@ import type {
   RenderMilitary,
   RenderProvince,
   RenderReligion,
+  RenderRiverSegment,
   RenderRoute,
   RenderState,
   RenderTerrainFeature,
@@ -151,6 +152,51 @@ const collectTerrainFeatures = (
 
   terrainFeatures.sort((left, right) => right.area - left.area);
   return terrainFeatures;
+};
+
+const collectRiverSegments = (
+  world: WorldGraphV1,
+): readonly RenderRiverSegment[] => {
+  const segments: RenderRiverSegment[] = [];
+
+  for (let packId = 0; packId < world.packCellCount; packId += 1) {
+    const gridCellId = world.packToGrid[packId] ?? 0;
+    const river = world.cellsRiver[gridCellId] ?? 0;
+    if (river <= 0) {
+      continue;
+    }
+
+    const [neighborStart, neighborEnd] = readRange(
+      world.packNeighborOffsets,
+      world.packNeighbors.length,
+      packId,
+    );
+    for (
+      let neighborIndex = neighborStart;
+      neighborIndex < neighborEnd;
+      neighborIndex += 1
+    ) {
+      const neighborPackId = world.packNeighbors[neighborIndex] ?? -1;
+      if (neighborPackId < 0 || neighborPackId <= packId) {
+        continue;
+      }
+
+      const neighborGridCellId = world.packToGrid[neighborPackId] ?? 0;
+      if ((world.cellsRiver[neighborGridCellId] ?? 0) !== river) {
+        continue;
+      }
+
+      segments.push({
+        river,
+        fromX: world.packX[packId] ?? 0,
+        fromY: world.packY[packId] ?? 0,
+        toX: world.packX[neighborPackId] ?? 0,
+        toY: world.packY[neighborPackId] ?? 0,
+      });
+    }
+  }
+
+  return segments;
 };
 
 const collectStates = (world: WorldGraphV1): readonly RenderState[] => {
@@ -433,5 +479,6 @@ export const buildRenderableWorld = (world: WorldGraphV1): RenderableWorld => {
     zones: collectZones(world),
     burgs: collectBurgs(world),
     terrainFeatures: collectTerrainFeatures(world),
+    riverSegments: collectRiverSegments(world),
   };
 };
