@@ -82,6 +82,7 @@ const createContext = (): GenerationContext => {
       cultureCenterSampleOffsets: null,
       cultureCenterSamples: null,
       cultureCenterSampleIndices: null,
+      cultureSuitability: null,
     },
     world: {
       cellCount: 4,

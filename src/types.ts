@@ -409,6 +409,7 @@ export type GenerationContext = {
     cultureCenterSampleOffsets: Uint32Array | null;
     cultureCenterSamples: Uint32Array | null;
     cultureCenterSampleIndices: Uint32Array | null;
+    cultureSuitability: Int16Array | null;
   };
   world: {
     cellCount: number;

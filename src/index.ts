@@ -132,6 +132,7 @@ const createContext = (
       cultureCenterSampleOffsets: null,
       cultureCenterSamples: null,
       cultureCenterSampleIndices: null,
+      cultureSuitability: null,
     },
     world: {
       cellCount: 0,
@@ -642,6 +643,9 @@ export const generateDownstreamDiagnostics = (
           cultureCenterSampleIndices:
             context.internal.cultureCenterSampleIndices,
         }
+      : {}),
+    ...(context.internal.cultureSuitability
+      ? { cultureSuitability: context.internal.cultureSuitability }
       : {}),
     ...(context.internal.packCellsCulture
       ? { packCulture: context.internal.packCellsCulture }

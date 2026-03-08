@@ -4507,9 +4507,6 @@ const computePackHydrology = (
     }
 
     for (const packId of riversData[riverId] ?? []) {
-      if (packId < 0 || (finalRiver[packId] ?? 0) !== riverId) {
-        continue;
-      }
       riverCells.push(packId);
     }
     riverCellOffsets.push(riverCells.length);
@@ -5255,6 +5252,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     context.internal.cultureCenterSampleOffsets = new Uint32Array(0);
     context.internal.cultureCenterSamples = new Uint32Array(0);
     context.internal.cultureCenterSampleIndices = new Uint32Array(0);
+    context.internal.cultureSuitability = new Int16Array(0);
     return;
   }
 
@@ -5273,6 +5271,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     context.internal.cultureCenterSampleOffsets = new Uint32Array(0);
     context.internal.cultureCenterSamples = new Uint32Array(0);
     context.internal.cultureCenterSampleIndices = new Uint32Array(0);
+    context.internal.cultureSuitability = new Int16Array(0);
     return;
   }
 
@@ -5289,6 +5288,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
   }>;
 
   const suitability = computePackCellSuitability(context);
+  context.internal.cultureSuitability = suitability;
   const packHydrologyHeights = context.internal.packCellsH;
   const populatedPackIds = eligiblePackIds.filter(
     (packId) => (suitability[packId] ?? 0) > 0,
