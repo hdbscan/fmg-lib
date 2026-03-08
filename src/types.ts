@@ -394,6 +394,7 @@ export type GenerationContext = {
     packCellsH: Uint8Array | null;
     packCellsCulture: Uint16Array | null;
     packFeatureLakeGroup: Uint8Array | null;
+    cultureCenterPack: Uint32Array | null;
   };
   world: {
     cellCount: number;

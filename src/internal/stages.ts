@@ -5213,6 +5213,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     context.world.cultureSeedCell = new Uint32Array(1);
     context.world.cultureSize = new Uint32Array(1);
     context.internal.packCellsCulture = new Uint16Array(0);
+    context.internal.cultureCenterPack = new Uint32Array(0);
     return;
   }
 
@@ -5226,6 +5227,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     context.world.cultureSeedCell = new Uint32Array(1);
     context.world.cultureSize = new Uint32Array(1);
     context.internal.packCellsCulture = new Uint16Array(0);
+    context.internal.cultureCenterPack = new Uint32Array(0);
     return;
   }
 
@@ -5282,7 +5284,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
   };
   const getSeaCoastPenalty = (packId: number, fee = 4): number => {
     const havenPackId = context.internal.packHavenPack?.[packId] ?? -1;
-    if (!havenPackId) {
+    if (havenPackId < 0) {
       return fee;
     }
     const featureId = packCellsFeatureId[havenPackId] ?? 0;
@@ -5798,6 +5800,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
   }
 
   context.internal.cultureTypes = cultureTypes;
+  context.internal.cultureCenterPack = Uint32Array.from([0, ...seedPackIds]);
 
   const maxExpansionCost =
     Math.max(candidatePackIds.length, 1) *
