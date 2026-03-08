@@ -193,6 +193,107 @@ const fetchUpstreamDownstreamDiagnostics = async (
         ];
         const cultureCenterSamples: number[] = [];
         const cultureCenterSampleOffsets = [0];
+        if (key === "downstream:cultures") {
+          const populated = Array.from(pack.cells.i).filter(
+            (packId) =>
+              Number(
+                (pack.cells as { s?: ArrayLike<number> }).s?.[packId] ?? 0,
+              ) > 0,
+          );
+          const defaults =
+            (
+              globalThis as {
+                Cultures?: {
+                  getDefault: (
+                    count?: number,
+                  ) => Array<{ odd?: number; sort?: (id: number) => number }>;
+                };
+                document?: {
+                  getElementById: (id: string) => {
+                    value?: string;
+                    selectedOptions?: ArrayLike<{ dataset?: { max?: string } }>;
+                  } | null;
+                };
+                d3?: {
+                  quadtree: () => {
+                    add: (point: readonly [number, number]) => void;
+                    find: (x: number, y: number, radius: number) => unknown;
+                  };
+                };
+                rand?: (max: number) => number;
+                P?: (probability: number) => boolean;
+                biased?: (min: number, max: number, exponent: number) => number;
+                graphWidth?: number;
+                graphHeight?: number;
+              }
+            ).Cultures?.getDefault(
+              Number(
+                (
+                  globalThis as {
+                    document?: {
+                      getElementById: (id: string) => {
+                        value?: string;
+                        selectedOptions?: ArrayLike<{
+                          dataset?: { max?: string };
+                        }>;
+                      } | null;
+                    };
+                  }
+                ).document?.getElementById("culturesInput")?.value ?? 0,
+              ),
+            ) ?? [];
+          const centers = (
+            globalThis as {
+              d3?: {
+                quadtree: () => {
+                  add: (point: readonly [number, number]) => void;
+                  find: (x: number, y: number, radius: number) => unknown;
+                };
+              };
+            }
+          ).d3?.quadtree();
+          const getBiased = (
+            globalThis as {
+              biased?: (min: number, max: number, exponent: number) => number;
+            }
+          ).biased;
+
+          if (centers && getBiased) {
+            for (const culture of defaults.slice(
+              0,
+              cultureCenterPack.length - 1,
+            )) {
+              const sortingFn =
+                culture.sort ??
+                ((packId: number) =>
+                  Number(
+                    (pack.cells as { s?: ArrayLike<number> }).s?.[packId] ?? 0,
+                  ));
+              const sorted = populated
+                .slice()
+                .sort((left, right) => sortingFn(right) - sortingFn(left));
+              const max = Math.floor(sorted.length / 2);
+              let spacing =
+                (Number(globalData.graphWidth ?? 0) +
+                  Number(globalData.graphHeight ?? 0)) /
+                2 /
+                Math.max(cultureCenterPack.length - 1, 1);
+              let center = 0;
+              for (let attempt = 0; attempt < 100; attempt += 1) {
+                center = sorted[getBiased(0, max, 5)] ?? center;
+                cultureCenterSamples.push(center);
+                spacing *= 0.9;
+                const point = pack.cells.p[center] ?? [0, 0];
+                if (!centers.find(point[0] ?? 0, point[1] ?? 0, spacing)) {
+                  break;
+                }
+              }
+              const centerPoint = pack.cells.p[center] ?? [0, 0];
+              centers.add(centerPoint);
+              cultureCenterSampleOffsets.push(cultureCenterSamples.length);
+            }
+          }
+        }
         const burgCell = [
           0,
           ...pack.burgs.slice(1).map((burg) => burg.cell ?? 0),
