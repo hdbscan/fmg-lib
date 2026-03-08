@@ -1636,7 +1636,11 @@ export const runHeightmapStage = (
     context.config;
   const { cellCount, cellsH } = context.world;
   const heights = new Uint8Array(cellCount);
-  const heightmapRandom = createAlea(context.config.seed);
+  const heightmapStageRandom = createAlea(context.config.seed);
+  const heightmapRandom = (): number => {
+    context.random();
+    return heightmapStageRandom();
+  };
   const blobPower = getBlobPower(requestedCells);
   const linePower = getLinePower(requestedCells);
   const steps = HEIGHTMAP_STEPS[heightTemplate] ?? [];
@@ -3628,7 +3632,11 @@ export const runClimateStage = (
     longitude,
   );
   const precipitationModifier = precipitation / 100;
-  const climateRandom = createAlea(context.config.seed);
+  const climateStageRandom = createAlea(context.config.seed);
+  const climateRandom = (): number => {
+    context.random();
+    return climateStageRandom();
+  };
   const hasBorderLand = Array.from(
     { length: cellCount },
     (_, cellId) => cellId,
@@ -5081,7 +5089,7 @@ export const runBiomeStage = (context: GenerationContext): void => {
 
 export const runCulturesStage = (context: GenerationContext): void => {
   const { culturesCount: requestedCultures } = context.config;
-  const cultureRandom = createAlea(context.config.seed);
+  const cultureRandom = context.random;
 
   const {
     cellsCulture,
@@ -5726,10 +5734,6 @@ export const runCulturesStage = (context: GenerationContext): void => {
       packNeighborOffsets,
       packNeighbors,
       (neighborPackId) => {
-        if ((suitability[neighborPackId] ?? 0) <= 0) {
-          return;
-        }
-
         const neighborCell = packToGrid[neighborPackId] ?? 0;
         const totalCost =
           next.cost +
