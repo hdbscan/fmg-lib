@@ -5260,8 +5260,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     const featureId = packCellsFeatureId[havenPackId] ?? 0;
     return (packFeatureType[featureId] ?? 0) !== 2 ? 1 : fee;
   };
-  const getCoastDistance = (packId: number): number =>
-    Math.max(packCoast[packId] ?? 0, 1);
+  const getTypeValue = (packId: number): number => packCoast[packId] ?? 0;
   const getAltitude = (packId: number): number => packH[packId] ?? 0;
 
   const cultureTemplates: CultureTemplate[] = [
@@ -5300,7 +5299,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
       odd: 0.7,
       sort: (packId) =>
         (getNormalizedScore(packId) / getTemperatureDistance(packId, 6)) *
-        getCoastDistance(packId),
+        getTypeValue(packId),
     },
     {
       odd: 0.7,
@@ -5324,14 +5323,14 @@ export const runCulturesStage = (context: GenerationContext): void => {
         (getNormalizedScore(packId) /
           getTemperatureDistance(packId, 5) /
           getBiomePenalty(packId, [9])) *
-        getCoastDistance(packId),
+        getTypeValue(packId),
     },
     {
       odd: 0.1,
       sort: (packId) =>
         getNormalizedScore(packId) /
         getTemperatureDistance(packId, 12) /
-        getCoastDistance(packId),
+        getTypeValue(packId),
     },
     {
       odd: 0.1,
@@ -5343,7 +5342,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
       sort: (packId) =>
         getNormalizedScore(packId) /
         getTemperatureDistance(packId, 15) /
-        getCoastDistance(packId),
+        getTypeValue(packId),
     },
     {
       odd: 0.4,
@@ -5365,7 +5364,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
         (getNormalizedScore(packId) /
           getTemperatureDistance(packId, 11) /
           getBiomePenalty(packId, [4])) *
-        getCoastDistance(packId),
+        getTypeValue(packId),
     },
     {
       odd: 0.2,
@@ -5378,7 +5377,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
         (getNormalizedScore(packId) /
           getTemperatureDistance(packId, 19) /
           getBiomePenalty(packId, [1, 2, 3], 7)) *
-        getCoastDistance(packId),
+        getTypeValue(packId),
     },
     {
       odd: 0.2,
@@ -5386,7 +5385,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
         (getNormalizedScore(packId) /
           getTemperatureDistance(packId, 26) /
           getBiomePenalty(packId, [1, 2], 7)) *
-        getCoastDistance(packId),
+        getTypeValue(packId),
     },
     {
       odd: 0.05,
@@ -5414,13 +5413,13 @@ export const runCulturesStage = (context: GenerationContext): void => {
         (getNormalizedScore(packId) /
           getTemperatureDistance(packId, 11) /
           getBiomePenalty(packId, [6, 8])) *
-        getCoastDistance(packId),
+        getTypeValue(packId),
     },
     {
       odd: 0.05,
       sort: (packId) =>
         (getNormalizedScore(packId) / getTemperatureDistance(packId, 22)) *
-        getCoastDistance(packId),
+        getTypeValue(packId),
     },
     {
       odd: 0.1,
@@ -5434,7 +5433,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
         getNormalizedScore(packId) /
         getTemperatureDistance(packId, 24) /
         getSeaCoastPenalty(packId) /
-        getCoastDistance(packId),
+        getTypeValue(packId),
     },
     {
       odd: 0.05,
@@ -5459,7 +5458,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
         getNormalizedScore(packId) /
         getTemperatureDistance(packId, 25) /
         getBiomePenalty(packId, [7], 7) /
-        getCoastDistance(packId),
+        getTypeValue(packId),
     },
     {
       odd: 0.1,
@@ -5472,7 +5471,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
         (getNormalizedScore(packId) /
           getTemperatureDistance(packId, 5) /
           getBiomePenalty(packId, [2, 4, 10], 7)) *
-        getCoastDistance(packId),
+        getTypeValue(packId),
     },
     {
       odd: 0.2,
