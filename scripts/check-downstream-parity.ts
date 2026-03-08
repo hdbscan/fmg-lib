@@ -192,6 +192,7 @@ const fetchUpstreamDownstreamDiagnostics = async (
             .map((culture: { center?: number }) => Number(culture.center ?? 0)),
         ];
         const cultureCenterSamples: number[] = [];
+        const cultureCenterSampleIndices: number[] = [];
         const cultureCenterSampleOffsets = [0];
         if (key === "downstream:cultures") {
           const createAlea = (seed: string): (() => number) => {
@@ -333,7 +334,9 @@ const fetchUpstreamDownstreamDiagnostics = async (
               Math.max(cultureCenterPack.length - 1, 1);
             let center = 0;
             for (let attempt = 0; attempt < 100; attempt += 1) {
-              center = sorted[getBiased(0, max, 5)] ?? center;
+              const sampleIndex = getBiased(0, max, 5);
+              cultureCenterSampleIndices.push(sampleIndex);
+              center = sorted[sampleIndex] ?? center;
               cultureCenterSamples.push(center);
               spacing *= 0.9;
               const [x, y] = pack.cells.p[center] ?? [0, 0];
@@ -432,6 +435,7 @@ const fetchUpstreamDownstreamDiagnostics = async (
           label,
           cultureCenterPack,
           cultureCenterSamples,
+          cultureCenterSampleIndices,
           cultureCenterSampleOffsets,
           packCulture,
           packBurg,
