@@ -36,6 +36,7 @@ const normalizeOracle = (payload: {
   width: number;
   height: number;
   gridSpacing: number;
+  packCellCount: number;
   terrainVertices: [number, number][];
   terrainPolygons: number[][];
   terrainHeights: ArrayLike<number>;
@@ -57,7 +58,8 @@ const normalizeOracle = (payload: {
     burgs: number;
   };
   cultureCount: number;
-  heightmapTemplate: string | null;
+  template: string | null;
+  culturesSet: string | null;
   statesNumber: number | null;
   townsNumber: number | null;
   sizeVariety: number | null;
@@ -82,6 +84,7 @@ const normalizeOracle = (payload: {
   width: payload.width,
   height: payload.height,
   gridSpacing: payload.gridSpacing,
+  packCellCount: payload.packCellCount,
   terrain: {
     mesh: {
       vertices: payload.terrainVertices,
@@ -98,9 +101,13 @@ const normalizeOracle = (payload: {
   burgs: payload.burgs,
   counts: payload.counts,
   cultureCount: payload.cultureCount,
-  ...(payload.heightmapTemplate !== null
-    ? { heightmapTemplate: payload.heightmapTemplate }
+  ...(payload.template !== null
+    ? {
+        template: payload.template,
+        heightmapTemplate: payload.template,
+      }
     : {}),
+  ...(payload.culturesSet !== null ? { culturesSet: payload.culturesSet } : {}),
   ...(payload.statesNumber !== null
     ? { statesNumber: payload.statesNumber }
     : {}),
@@ -243,6 +250,7 @@ export const fetchUpstreamOracle = async (
         burgs: unknown[];
         vertices: { p: [number, number][] };
         cells: {
+          i: ArrayLike<number>;
           v: number[][];
           state: ArrayLike<number>;
           religion: ArrayLike<number>;
@@ -280,6 +288,7 @@ export const fetchUpstreamOracle = async (
         width: Number(globalData.graphWidth),
         height: Number(globalData.graphHeight),
         gridSpacing: Number(grid.spacing),
+        packCellCount: pack.cells.i.length,
         terrainVertices: grid.vertices.p.map(
           ([x, y]: [number, number]) => [x, y] as [number, number],
         ),
@@ -311,7 +320,7 @@ export const fetchUpstreamOracle = async (
           burgs: burgs.length,
         },
         cultureCount: Math.max(pack.cultures.length - 1, 1),
-        heightmapTemplate:
+        template:
           ((
             globalThis as {
               document?: {
@@ -319,6 +328,16 @@ export const fetchUpstreamOracle = async (
               };
             }
           ).document?.getElementById("templateInput")?.value ??
+            null) ||
+          null,
+        culturesSet:
+          ((
+            globalThis as {
+              document?: {
+                getElementById: (id: string) => { value?: string } | null;
+              };
+            }
+          ).document?.getElementById("culturesSet")?.value ??
             null) ||
           null,
         statesNumber:

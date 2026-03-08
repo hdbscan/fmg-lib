@@ -44,7 +44,7 @@ export const buildGenerationConfigFromOracle = (
   oracle: ParitySnapshot,
 ): GenerationConfig => {
   const heightTemplate = mapUpstreamTemplateToHeightTemplate(
-    oracle.heightmapTemplate,
+    oracle.template ?? oracle.heightmapTemplate,
   );
   const climate = {
     ...(oracle.temperatureEquator !== undefined

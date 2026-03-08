@@ -38,6 +38,19 @@ const parseArgs = (argv: string[]): Record<string, string> => {
 const printReport = (report: ParityReport): void => {
   console.log(`oracle: ${report.oracle.sourceUrl ?? report.oracle.seed}`);
   console.log(`seed: ${report.oracle.seed}`);
+  if (report.oracle.template || report.oracle.culturesSet) {
+    console.log(
+      `oracle_controls: template=${report.oracle.template ?? "unknown"}, culturesSet=${report.oracle.culturesSet ?? "unknown"}`,
+    );
+  }
+  if (
+    report.oracle.packCellCount !== undefined ||
+    report.local.packCellCount !== undefined
+  ) {
+    console.log(
+      `pack_cells: local ${report.local.packCellCount ?? "unknown"}/${report.oracle.packCellCount ?? "unknown"}`,
+    );
+  }
   console.log(`terrain_iou: ${report.terrain.iou.toFixed(4)}`);
   console.log(`political_iou: ${report.politics.iou.toFixed(4)}`);
   console.log(`religion_iou: ${report.religions.iou.toFixed(4)}`);

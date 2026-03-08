@@ -35,6 +35,7 @@ export type ParitySnapshot = Readonly<{
   width: number;
   height: number;
   gridSpacing: number;
+  packCellCount?: number;
   terrain: Readonly<{
     mesh: PolygonMesh;
     land: readonly number[];
@@ -43,6 +44,8 @@ export type ParitySnapshot = Readonly<{
   burgs: readonly BurgParityPoint[];
   counts: ParityCounts;
   cultureCount?: number;
+  template?: string;
+  culturesSet?: string;
   heightmapTemplate?: string;
   statesNumber?: number;
   townsNumber?: number;
@@ -95,12 +98,16 @@ export type ParityReport = Readonly<{
     seed: string;
     width: number;
     height: number;
+    packCellCount?: number;
+    template?: string;
+    culturesSet?: string;
     sourceUrl?: string;
   }>;
   local: Readonly<{
     seed: string;
     width: number;
     height: number;
+    packCellCount?: number;
     config?: GenerationConfig;
   }>;
   raster: Readonly<{
@@ -569,6 +576,7 @@ export const buildLocalParitySnapshot = (
     width: world.width,
     height: world.height,
     gridSpacing: world.gridSpacing,
+    packCellCount: world.packCellCount,
     terrain: {
       mesh: {
         vertices: terrainVertices,
@@ -716,11 +724,35 @@ export const computeParityReport = (
 
   return {
     ...report,
-    oracle: oracle.sourceUrl
-      ? { ...report.oracle, sourceUrl: oracle.sourceUrl }
-      : report.oracle,
+    oracle:
+      oracle.sourceUrl ||
+      oracle.packCellCount !== undefined ||
+      oracle.template !== undefined ||
+      oracle.culturesSet !== undefined
+        ? {
+            ...report.oracle,
+            ...(oracle.packCellCount !== undefined
+              ? { packCellCount: oracle.packCellCount }
+              : {}),
+            ...(oracle.template !== undefined
+              ? { template: oracle.template }
+              : {}),
+            ...(oracle.culturesSet !== undefined
+              ? { culturesSet: oracle.culturesSet }
+              : {}),
+            ...(oracle.sourceUrl ? { sourceUrl: oracle.sourceUrl } : {}),
+          }
+        : report.oracle,
     local: local.config
-      ? { ...report.local, config: local.config }
-      : report.local,
+      ? {
+          ...report.local,
+          ...(local.packCellCount !== undefined
+            ? { packCellCount: local.packCellCount }
+            : {}),
+          config: local.config,
+        }
+      : local.packCellCount !== undefined
+        ? { ...report.local, packCellCount: local.packCellCount }
+        : report.local,
   };
 };

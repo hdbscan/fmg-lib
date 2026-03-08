@@ -12,6 +12,7 @@ const oracleFixture: ParitySnapshot = {
   width: 100,
   height: 100,
   gridSpacing: 10,
+  packCellCount: 1,
   terrain: {
     mesh: {
       vertices: [
@@ -47,6 +48,8 @@ const oracleFixture: ParitySnapshot = {
     religions: 1,
     burgs: 1,
   },
+  template: "continents",
+  culturesSet: "world",
   sourceUrl: "fixture",
 };
 
@@ -59,6 +62,9 @@ describe("parity report", () => {
     expect(report.religions.iou).toBe(1);
     expect(report.burgs.meanNearestDistance).toBe(0);
     expect(report.counts.burgs.delta).toBe(0);
+    expect(report.oracle.packCellCount).toBe(1);
+    expect(report.oracle.template).toBe("continents");
+    expect(report.oracle.culturesSet).toBe("world");
   });
 
   test("builds a local parity snapshot from generated worlds", () => {
@@ -83,6 +89,7 @@ describe("parity report", () => {
     expect(snapshot.regions.religions).toHaveLength(world.packCellCount);
     expect(snapshot.burgs).toHaveLength(world.burgCount);
     expect(snapshot.terrain.land).toHaveLength(world.cellCount);
+    expect(snapshot.packCellCount).toBe(world.packCellCount);
   });
 
   test("uses grid terrain geometry and packed region geometry", () => {
