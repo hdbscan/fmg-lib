@@ -14,6 +14,11 @@ export type RegionMesh = Readonly<{
   religions: readonly number[];
 }>;
 
+export type CoastlineMesh = Readonly<{
+  mesh: PolygonMesh;
+  landFeatureCount: number;
+}>;
+
 export type BurgParityPoint = Readonly<{
   id: number;
   x: number;
@@ -39,6 +44,7 @@ export type ParitySnapshot = Readonly<{
     mesh: PolygonMesh;
     land: readonly number[];
   }>;
+  coastline: CoastlineMesh;
   regions: RegionMesh;
   burgs: readonly BurgParityPoint[];
   counts: ParityCounts;
@@ -91,6 +97,14 @@ export type BurgParityMetric = Readonly<{
   medianNearestDistance: number;
 }>;
 
+export type CoastlineParityMetric = Readonly<{
+  oracleLandFeatureCount: number;
+  localLandFeatureCount: number;
+  pixelIntersection: number;
+  pixelUnion: number;
+  iou: number;
+}>;
+
 export type ParityReport = Readonly<{
   oracle: Readonly<{
     seed: string;
@@ -113,6 +127,7 @@ export type ParityReport = Readonly<{
     pixelUnion: number;
     iou: number;
   }>;
+  coastline: CoastlineParityMetric;
   politics: RegionParityMetric;
   religions: RegionParityMetric;
   burgs: BurgParityMetric;
@@ -145,6 +160,43 @@ const collectCellPolygons = (
   }
 
   return polygons;
+};
+
+const collectFeaturePolygons = (
+  featureChainOffsets: Uint32Array,
+  featureVertexOffsets: Uint32Array,
+  featureVertices: Uint32Array,
+  featureTypes: Uint8Array,
+): CoastlineMesh => {
+  const polygons: number[][] = [];
+  let landFeatureCount = 0;
+
+  for (
+    let featureId = 1;
+    featureId < featureChainOffsets.length;
+    featureId += 1
+  ) {
+    if ((featureTypes[featureId] ?? 0) !== 3) {
+      continue;
+    }
+
+    landFeatureCount += 1;
+    const chainStart = featureChainOffsets[featureId - 1] ?? 0;
+    const chainEnd = featureChainOffsets[featureId] ?? chainStart;
+    for (let chainIndex = chainStart; chainIndex < chainEnd; chainIndex += 1) {
+      const vertexStart = featureVertexOffsets[chainIndex] ?? 0;
+      const vertexEnd = featureVertexOffsets[chainIndex + 1] ?? vertexStart;
+      polygons.push(Array.from(featureVertices.slice(vertexStart, vertexEnd)));
+    }
+  }
+
+  return {
+    mesh: {
+      vertices: [],
+      polygons,
+    },
+    landFeatureCount,
+  };
 };
 
 const copyNumbers = (
@@ -281,6 +333,36 @@ const computeBinaryIou = (
     pixelIntersection,
     pixelUnion,
     iou: pixelUnion === 0 ? 1 : pixelIntersection / pixelUnion,
+  };
+};
+
+const computeCoastlineMetric = (
+  oracle: ParitySnapshot,
+  local: ParitySnapshot,
+  rasterWidth: number,
+  rasterHeight: number,
+): CoastlineParityMetric => {
+  const oracleRaster = rasterize(
+    oracle.coastline.mesh,
+    Array.from({ length: oracle.coastline.mesh.polygons.length }, () => 1),
+    oracle.width,
+    oracle.height,
+    rasterWidth,
+    rasterHeight,
+  );
+  const localRaster = rasterize(
+    local.coastline.mesh,
+    Array.from({ length: local.coastline.mesh.polygons.length }, () => 1),
+    local.width,
+    local.height,
+    rasterWidth,
+    rasterHeight,
+  );
+
+  return {
+    oracleLandFeatureCount: oracle.coastline.landFeatureCount,
+    localLandFeatureCount: local.coastline.landFeatureCount,
+    ...computeBinaryIou(oracleRaster, localRaster),
   };
 };
 
@@ -563,6 +645,12 @@ export const buildLocalParitySnapshot = (
     world.packCellVertexOffsets,
     world.packCellVertices,
   );
+  const coastline = collectFeaturePolygons(
+    world.packFeatureChainOffsets,
+    world.packFeatureVertexOffsets,
+    world.packFeatureVertices,
+    world.packFeatureType,
+  );
 
   const snapshot: ParitySnapshot = {
     kind: "local-world",
@@ -576,6 +664,13 @@ export const buildLocalParitySnapshot = (
         polygons: terrainPolygons,
       },
       land: copyGridLandLabels(world),
+    },
+    coastline: {
+      mesh: {
+        vertices: regionVertices,
+        polygons: coastline.mesh.polygons,
+      },
+      landFeatureCount: coastline.landFeatureCount,
     },
     regions: {
       vertices: regionVertices,
@@ -671,6 +766,12 @@ export const computeParityReport = (
     rasterWidth,
     rasterHeight,
   );
+  const coastline = computeCoastlineMetric(
+    oracle,
+    local,
+    rasterWidth,
+    rasterHeight,
+  );
 
   const report: ParityReport = {
     oracle: {
@@ -688,6 +789,7 @@ export const computeParityReport = (
       height: rasterHeight,
     },
     terrain: computeBinaryIou(oracleTerrain, localTerrain),
+    coastline,
     politics: buildRegionMetric(oraclePolitics, localPolitics),
     religions: buildRegionMetric(oracleReligions, localReligions),
     burgs: computeBurgMetric(oracle, local),
