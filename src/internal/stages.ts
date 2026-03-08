@@ -5771,7 +5771,6 @@ export const runCulturesStage = (context: GenerationContext): void => {
   }
 
   context.internal.cultureTypes = cultureTypes;
-  context.internal.packCellsCulture = packCulture;
 
   const maxExpansionCost =
     Math.max(candidatePackIds.length, 1) *
@@ -5824,6 +5823,8 @@ export const runCulturesStage = (context: GenerationContext): void => {
       },
     );
   }
+
+  context.internal.packCellsCulture = packCulture;
 
   for (const packId of assignablePackIds) {
     const cultureId = packCulture[packId] ?? 0;
