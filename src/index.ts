@@ -123,6 +123,7 @@ const createContext = (
       packCellsH: null,
       packCellsCulture: null,
       packFeatureLakeGroup: null,
+      cultureCenterPack: null,
     },
     world: {
       cellCount: 0,
@@ -606,6 +607,9 @@ export const generateDownstreamDiagnostics = (
     width: config.width,
     height: config.height,
     ...context.world,
+    ...(context.internal.cultureCenterPack
+      ? { cultureCenterPack: context.internal.cultureCenterPack }
+      : {}),
     ...(context.internal.packCellsCulture
       ? { packCulture: context.internal.packCellsCulture }
       : {}),

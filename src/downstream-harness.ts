@@ -4,6 +4,7 @@ import type { HeightTemplate, WorldGraphV1 } from "./types";
 export type DownstreamDiagnosticStep = Readonly<{
   key: string;
   label: string;
+  cultureCenterPack: readonly number[];
   packCulture: readonly number[];
   packBurg: readonly number[];
   packState: readonly number[];
@@ -48,12 +49,14 @@ export type DownstreamStepComparison = Readonly<{
   label: string;
   matches: boolean;
   cultureMatches: boolean;
+  cultureCenterMatches: boolean;
   burgMatches: boolean;
   stateMatches: boolean;
   routeMatches: boolean;
   provinceMatches: boolean;
   religionMatches: boolean;
   firstCultureDifferenceCell: number | null;
+  firstCultureCenterDifferenceCell: number | null;
   firstBurgDifferenceCell: number | null;
   firstStateDifferenceCell: number | null;
   firstProvinceDifferenceCell: number | null;
@@ -103,6 +106,7 @@ type DownstreamWorldView = Readonly<{
   cellRouteKinds?: ArrayLike<number>;
   routeLinks?: Record<string, Record<string, number>>;
   packCulture?: ArrayLike<number>;
+  cultureCenterPack?: ArrayLike<number>;
 }>;
 
 const arraysEqual = (
@@ -181,6 +185,9 @@ export const captureDownstreamDiagnosticStep = (
         world.packToGrid,
         world.cellsCulture,
       );
+  const cultureCenterPack = world.cultureCenterPack
+    ? toArray(world.cultureCenterPack)
+    : [];
   const packBurg = capturePackProjection(
     world.packCellCount,
     world.packToGrid,
@@ -220,6 +227,7 @@ export const captureDownstreamDiagnosticStep = (
   return {
     key,
     label,
+    cultureCenterPack,
     packCulture,
     packBurg,
     packState,
@@ -294,6 +302,10 @@ export const compareDownstreamDiagnostics = (
         oracleStep.packCulture,
         localStep.packCulture,
       );
+      const cultureCenterMatches = arraysEqual(
+        oracleStep.cultureCenterPack,
+        localStep.cultureCenterPack,
+      );
       const burgMatches =
         arraysEqual(oracleStep.packBurg, localStep.packBurg) &&
         arraysEqual(oracleStep.burgCell, localStep.burgCell) &&
@@ -329,12 +341,14 @@ export const compareDownstreamDiagnostics = (
         label: localStep.label,
         matches:
           cultureMatches &&
+          cultureCenterMatches &&
           burgMatches &&
           stateMatches &&
           routeMatches &&
           provinceMatches &&
           religionMatches,
         cultureMatches,
+        cultureCenterMatches,
         burgMatches,
         stateMatches,
         routeMatches,
@@ -343,6 +357,10 @@ export const compareDownstreamDiagnostics = (
         firstCultureDifferenceCell: firstDifferenceIndex(
           oracleStep.packCulture,
           localStep.packCulture,
+        ),
+        firstCultureCenterDifferenceCell: firstDifferenceIndex(
+          oracleStep.cultureCenterPack,
+          localStep.cultureCenterPack,
         ),
         firstBurgDifferenceCell: firstDifferenceIndex(
           oracleStep.packBurg,

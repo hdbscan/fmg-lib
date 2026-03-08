@@ -9,6 +9,7 @@ describe("downstream diagnostics", () => {
     const baseStep = {
       key: "downstream:cultures",
       label: "Cultures",
+      cultureCenterPack: [1],
       packCulture: [1],
       packBurg: [0],
       packState: [0],

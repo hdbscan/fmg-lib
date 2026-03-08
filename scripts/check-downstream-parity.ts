@@ -126,6 +126,9 @@ const fetchUpstreamDownstreamDiagnostics = async (
           cells?: number;
           removed?: boolean;
         }>;
+        cultures: Array<{
+          center?: number;
+        }>;
         routes: Array<{
           i: number;
           group: string;
@@ -182,6 +185,12 @@ const fetchUpstreamDownstreamDiagnostics = async (
         const packReligion = pack.cells.religion
           ? projectPack(pack.cells.religion)
           : projectGrid(grid.cells.religion ?? []);
+        const cultureCenterPack = [
+          0,
+          ...pack.cultures
+            .slice(1)
+            .map((culture: { center?: number }) => Number(culture.center ?? 0)),
+        ];
         const burgCell = [
           0,
           ...pack.burgs.slice(1).map((burg) => burg.cell ?? 0),
@@ -260,6 +269,7 @@ const fetchUpstreamDownstreamDiagnostics = async (
         return {
           key,
           label,
+          cultureCenterPack,
           packCulture,
           packBurg,
           packState,
@@ -364,6 +374,9 @@ const printComparison = (comparison: DownstreamDiagnosticsComparison): void => {
     `first_divergent_step: ${first ? `${first.key} (${first.label})` : "none"}`,
   );
   if (!first) return;
+  console.log(
+    `first_divergent_culture_center: ${first.firstCultureCenterDifferenceCell ?? "none"}`,
+  );
   console.log(
     `first_divergent_culture_cell: ${first.firstCultureDifferenceCell ?? "none"}`,
   );
