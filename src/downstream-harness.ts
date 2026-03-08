@@ -102,6 +102,7 @@ type DownstreamWorldView = Readonly<{
   cellRouteNeighbors?: ArrayLike<number>;
   cellRouteKinds?: ArrayLike<number>;
   routeLinks?: Record<string, Record<string, number>>;
+  packCulture?: ArrayLike<number>;
 }>;
 
 const arraysEqual = (
@@ -173,11 +174,13 @@ export const captureDownstreamDiagnosticStep = (
   key: string,
   label: string,
 ): DownstreamDiagnosticStep => {
-  const packCulture = capturePackProjection(
-    world.packCellCount,
-    world.packToGrid,
-    world.cellsCulture,
-  );
+  const packCulture = world.packCulture
+    ? toArray(world.packCulture)
+    : capturePackProjection(
+        world.packCellCount,
+        world.packToGrid,
+        world.cellsCulture,
+      );
   const packBurg = capturePackProjection(
     world.packCellCount,
     world.packToGrid,

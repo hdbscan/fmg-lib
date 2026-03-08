@@ -120,6 +120,7 @@ const createContext = (
       packCellsRiver: null,
       packCellsBiome: null,
       packCellsH: null,
+      packCellsCulture: null,
     },
     world: {
       cellCount: 0,
@@ -601,6 +602,9 @@ export const generateDownstreamDiagnostics = (
     width: config.width,
     height: config.height,
     ...context.world,
+    ...(context.internal.packCellsCulture
+      ? { packCulture: context.internal.packCellsCulture }
+      : {}),
   });
 
   runGridStage(context);
