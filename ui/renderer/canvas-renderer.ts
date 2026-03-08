@@ -428,12 +428,14 @@ export class CanvasMapRenderer implements MapRenderer {
         strokeTerrainFeature(context, feature.rings);
       }
 
-      for (const feature of this.world.terrainFeatures) {
-        context.fillStyle =
-          feature.type === 3
-            ? landScale(Math.max(20, feature.height))
-            : this.style.oceanColor;
-        fillTerrainFeature(context, feature.rings);
+      for (const cell of this.world.cells) {
+        if (cell.feature !== 1) {
+          continue;
+        }
+
+        const height = this.world.source.cellsH[cell.id] ?? 20;
+        context.fillStyle = landScale(height);
+        fillPolygon(context, cell.polygon);
       }
 
       if (this.visibility.biomes) {

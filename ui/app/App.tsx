@@ -69,6 +69,8 @@ type StatusTone = "idle" | "working" | "success" | "error";
 
 type RequestKind = "generate" | "serialize" | "deserialize";
 
+type ReviewMode = "terrain" | null;
+
 const GENERATION_PRESETS: readonly GenerationPreset[] = [
   {
     id: "default",
@@ -251,6 +253,11 @@ const readTerrainGeometryMode = (): TerrainGeometryMode => {
   return params.get("terrainGeometry") === "packed" ? "packed" : "grid";
 };
 
+const readReviewMode = (): ReviewMode => {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("review") === "terrain" ? "terrain" : null;
+};
+
 const toLibraryHeightTemplate = (
   template: AppHeightTemplate,
 ): HeightTemplate => {
@@ -352,6 +359,7 @@ const summarizeCell = (world: WorldGraphV1, cell: RenderCell) => {
 
 export const App = () => {
   const terrainGeometryMode = readTerrainGeometryMode();
+  const reviewMode = readReviewMode();
   const controller = createController();
   const [state, setState] = createSignal<ControllerState>(
     controller.getState(),
@@ -880,7 +888,7 @@ export const App = () => {
       };
     }
 
-    const session = loadUiSession();
+    const session = reviewMode === "terrain" ? null : loadUiSession();
     const configOverride = readConfigOverride();
     if (Object.keys(configOverride).length > 0) {
       setDraft((current: GenerationDraft) => ({
@@ -908,6 +916,14 @@ export const App = () => {
         const nextHeight = Math.max(320, Math.round(entry.contentRect.height));
         setCanvasSize({ width: nextWidth, height: nextHeight });
         renderer?.resize(nextWidth, nextHeight);
+        const renderable = state().renderable;
+        if (reviewMode === "terrain" && renderable) {
+          controller.setCamera(
+            fitCameraToWorld(nextWidth, nextHeight, renderable),
+          );
+          syncRendererState(refreshState());
+          return;
+        }
         queueRender();
       });
       resizeObserver.observe(viewportElement);
@@ -988,6 +1004,10 @@ export const App = () => {
 
   createEffect(() => {
     if (!mounted) {
+      return;
+    }
+
+    if (reviewMode === "terrain") {
       return;
     }
 
