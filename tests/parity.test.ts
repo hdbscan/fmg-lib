@@ -29,6 +29,18 @@ const oracleFixture: ParitySnapshot = {
     },
     land: [1, 0],
   },
+  coastline: {
+    mesh: {
+      vertices: [
+        [5, 5],
+        [45, 8],
+        [42, 45],
+        [10, 40],
+      ],
+      polygons: [[0, 1, 2, 3]],
+    },
+    landFeatureCount: 1,
+  },
   regions: {
     vertices: [
       [0, 0],
@@ -55,6 +67,7 @@ describe("parity report", () => {
     const report = computeParityReport(oracleFixture, oracleFixture, 64);
 
     expect(report.terrain.iou).toBe(1);
+    expect(report.coastline.iou).toBe(1);
     expect(report.politics.iou).toBe(1);
     expect(report.religions.iou).toBe(1);
     expect(report.burgs.meanNearestDistance).toBe(0);
@@ -78,6 +91,9 @@ describe("parity report", () => {
     const snapshot = buildLocalParitySnapshot(world);
 
     expect(snapshot.terrain.mesh.polygons).toHaveLength(world.cellCount);
+    expect(snapshot.coastline.mesh.vertices).toHaveLength(
+      world.packVertexX.length,
+    );
     expect(snapshot.regions.polygons).toHaveLength(world.packCellCount);
     expect(snapshot.regions.states).toHaveLength(world.packCellCount);
     expect(snapshot.regions.religions).toHaveLength(world.packCellCount);
@@ -159,6 +175,30 @@ describe("parity report", () => {
     expect(report.religions.iou).toBeLessThan(1);
     expect(report.counts.states.delta).toBe(-1);
     expect(report.counts.religions.delta).toBe(-1);
+  });
+
+  test("reports coastline drift even when terrain landmask still matches", () => {
+    const shiftedLocal: ParitySnapshot = {
+      ...oracleFixture,
+      kind: "local-world",
+      coastline: {
+        mesh: {
+          vertices: [
+            [8, 7],
+            [40, 10],
+            [38, 42],
+            [14, 38],
+          ],
+          polygons: [[0, 1, 2, 3]],
+        },
+        landFeatureCount: 1,
+      },
+    };
+
+    const report = computeParityReport(oracleFixture, shiftedLocal, 64);
+
+    expect(report.terrain.iou).toBe(1);
+    expect(report.coastline.iou).toBeLessThan(1);
   });
 
   test("reports worse metrics when burg positions drift", () => {

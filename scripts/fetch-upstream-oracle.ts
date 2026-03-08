@@ -39,6 +39,8 @@ const normalizeOracle = (payload: {
   terrainVertices: [number, number][];
   terrainPolygons: number[][];
   terrainHeights: ArrayLike<number>;
+  coastlinePolygons: number[][];
+  coastlineFeatureCount: number;
   regionVertices: [number, number][];
   regionPolygons: number[][];
   stateLabels: ArrayLike<number>;
@@ -89,6 +91,13 @@ const normalizeOracle = (payload: {
       polygons: payload.terrainPolygons,
     },
     land: normalizeBooleanArray(payload.terrainHeights),
+  },
+  coastline: {
+    mesh: {
+      vertices: payload.regionVertices,
+      polygons: payload.coastlinePolygons,
+    },
+    landFeatureCount: payload.coastlineFeatureCount,
   },
   regions: {
     vertices: payload.regionVertices,
@@ -252,7 +261,11 @@ export const fetchUpstreamOracle = async (
           religion: ArrayLike<number>;
         };
         cultures: Array<unknown>;
-        features: Array<{ land?: boolean } | null>;
+        features: Array<{
+          land?: boolean;
+          type?: string;
+          vertices?: number[];
+        } | null>;
         states: Array<{ removed?: boolean } | null>;
         religions: Array<{ removed?: boolean } | null>;
       };
@@ -291,6 +304,16 @@ export const fetchUpstreamOracle = async (
           polygon.slice(),
         ),
         terrainHeights: Array.from(grid.cells.h, Number),
+        coastlinePolygons: pack.features.flatMap((feature) => {
+          if (!feature?.land || feature.type !== "island") {
+            return [];
+          }
+
+          return [feature.vertices?.slice() ?? []];
+        }),
+        coastlineFeatureCount: pack.features.filter(
+          (feature) => feature?.land === true && feature.type === "island",
+        ).length,
         regionVertices: pack.vertices.p.map(
           ([x, y]: [number, number]) => [x, y] as [number, number],
         ),

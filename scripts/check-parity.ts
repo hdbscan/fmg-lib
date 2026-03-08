@@ -39,6 +39,10 @@ const printReport = (report: ParityReport): void => {
   console.log(`oracle: ${report.oracle.sourceUrl ?? report.oracle.seed}`);
   console.log(`seed: ${report.oracle.seed}`);
   console.log(`terrain_iou: ${report.terrain.iou.toFixed(4)}`);
+  console.log(`coastline_iou: ${report.coastline.iou.toFixed(4)}`);
+  console.log(
+    `coastline_land_features: ${report.coastline.localLandFeatureCount}/${report.coastline.oracleLandFeatureCount}`,
+  );
   console.log(`political_iou: ${report.politics.iou.toFixed(4)}`);
   console.log(`religion_iou: ${report.religions.iou.toFixed(4)}`);
   console.log(
@@ -63,7 +67,8 @@ const loadCachedOracle = async (
 ): Promise<ParitySnapshot | null> => {
   try {
     const raw = await readFile(oraclePath, "utf8");
-    return JSON.parse(raw) as ParitySnapshot;
+    const parsed = JSON.parse(raw) as Partial<ParitySnapshot>;
+    return parsed.coastline ? (parsed as ParitySnapshot) : null;
   } catch {
     return null;
   }

@@ -24,6 +24,18 @@ const baseOracle: ParitySnapshot = {
     },
     land: [1],
   },
+  coastline: {
+    mesh: {
+      vertices: [
+        [0, 0],
+        [100, 0],
+        [100, 80],
+        [0, 80],
+      ],
+      polygons: [[0, 1, 2, 3]],
+    },
+    landFeatureCount: 1,
+  },
   regions: {
     vertices: [
       [0, 0],

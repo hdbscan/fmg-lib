@@ -43,6 +43,8 @@ export {
   buildLocalParitySnapshot,
   computeParityReport,
   type BurgParityMetric,
+  type CoastlineMesh,
+  type CoastlineParityMetric,
   type CountParityMetric,
   type ParityCounts,
   type ParityReport,
