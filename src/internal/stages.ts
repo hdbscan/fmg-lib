@@ -961,6 +961,34 @@ const advanceClimateRandomForMapSize = (
   consumeLatitude();
 };
 
+const advanceCultureRandomForIceStage = (
+  context: GenerationContext,
+  random: () => number,
+): void => {
+  const { cellCount, cellsH, cellsTemp, cellsWaterbody } = context.world;
+  const { waterbodyType } = context.world;
+
+  for (let cellId = 0; cellId < cellCount; cellId += 1) {
+    if ((cellsH[cellId] ?? 0) >= 20) {
+      continue;
+    }
+    if ((cellsTemp[cellId] ?? 0) > 0) {
+      continue;
+    }
+
+    const waterbodyId = cellsWaterbody[cellId] ?? 0;
+    if ((waterbodyType[waterbodyId] ?? 0) === WATERBODY_TYPE_LAKE) {
+      continue;
+    }
+
+    if (random() < 0.8) {
+      continue;
+    }
+
+    random();
+  }
+};
+
 const mean = (values: readonly number[]): number => {
   if (values.length === 0) {
     return 0;
@@ -5089,7 +5117,8 @@ export const runBiomeStage = (context: GenerationContext): void => {
 
 export const runCulturesStage = (context: GenerationContext): void => {
   const { culturesCount: requestedCultures } = context.config;
-  const cultureRandom = context.random;
+  const cultureRandom = createAlea(context.config.seed);
+  advanceCultureRandomForIceStage(context, cultureRandom);
 
   const {
     cellsCulture,
