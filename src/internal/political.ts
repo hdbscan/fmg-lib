@@ -576,6 +576,7 @@ export const computePackCellSuitability = (
     cellsWaterbody,
     packCellCount,
     packArea,
+    packCellsFeatureId,
     packH,
     packHarbor,
     packToGrid,
@@ -586,7 +587,7 @@ export const computePackCellSuitability = (
   const packConfluence = context.internal.packCellsConfluence;
   const packBiome = context.internal.packCellsBiome;
   const packHavenPack = context.internal.packHavenPack;
-  const lakeMetadata = computeLakeFeatureMetadata(context);
+  const packFeatureLakeGroup = context.internal.packFeatureLakeGroup;
   let totalArea = 0;
   const positiveFlux: number[] = [];
   let maxFlux = 0;
@@ -637,9 +638,9 @@ export const computePackCellSuitability = (
     if (coast === 1) {
       if ((packRiver?.[packId] ?? 0) > 0) score += rankScoreMap.estuary;
       const havenPackId = packHavenPack?.[packId] ?? -1;
-      const havenCellId = havenPackId > 0 ? (packToGrid[havenPackId] ?? 0) : 0;
-      const waterbodyId = cellsWaterbody[havenCellId] ?? 0;
-      const group = lakeMetadata.group[waterbodyId] ?? 0;
+      const featureId =
+        havenPackId > 0 ? (packCellsFeatureId[havenPackId] ?? 0) : 0;
+      const group = packFeatureLakeGroup?.[featureId] ?? 0;
       if (group === lakeGroupCode.freshwater) score += rankScoreMap.freshwater;
       else if (group === lakeGroupCode.salt) score += rankScoreMap.salt;
       else if (group === lakeGroupCode.frozen) score += rankScoreMap.frozen;

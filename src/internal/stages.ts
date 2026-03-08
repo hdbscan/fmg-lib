@@ -4479,6 +4479,11 @@ const computePackHydrology = (
       continue;
     }
 
+    if ((feature.flux ?? 0) > (feature.evaporation ?? 0) * 1.2) {
+      lakeGroup[feature.i] = lakeGroupCode.freshwater;
+      continue;
+    }
+
     if (!feature.outlet) {
       lakeGroup[feature.i] =
         (feature.evaporation ?? 0) > (feature.flux ?? 0) * 4
@@ -5563,7 +5568,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     for (const selectedPackId of selectedPackIds) {
       const dx = (packX[selectedPackId] ?? 0) - x;
       const dy = (packY[selectedPackId] ?? 0) - y;
-      if (dx * dx + dy * dy <= spacingSq) {
+      if (dx * dx + dy * dy < spacingSq) {
         return true;
       }
     }
