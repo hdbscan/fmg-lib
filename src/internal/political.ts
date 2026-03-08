@@ -637,7 +637,7 @@ export const computePackCellSuitability = (
     if (coast === 1) {
       if ((packRiver?.[packId] ?? 0) > 0) score += rankScoreMap.estuary;
       const havenPackId = packHavenPack?.[packId] ?? -1;
-      const havenCellId = havenPackId >= 0 ? (packToGrid[havenPackId] ?? 0) : 0;
+      const havenCellId = havenPackId > 0 ? (packToGrid[havenPackId] ?? 0) : 0;
       const waterbodyId = cellsWaterbody[havenCellId] ?? 0;
       const group = lakeMetadata.group[waterbodyId] ?? 0;
       if (group === lakeGroupCode.freshwater) score += rankScoreMap.freshwater;
