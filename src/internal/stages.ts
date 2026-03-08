@@ -5546,6 +5546,9 @@ export const runCulturesStage = (context: GenerationContext): void => {
   advanceCultureRandomForColorShuffle(cultureRandom, targetCultures);
   const isSeed = new Uint8Array(packCellCount);
   const seedPackIds: number[] = [];
+  const selectedCultureTypes: PoliticalType[] = [];
+  const selectedNativeBiomes: number[] = [];
+  const selectedExpansionism: number[] = [];
   const hasCenterNear = (
     selectedPackIds: readonly number[],
     packId: number,
@@ -5648,7 +5651,12 @@ export const runCulturesStage = (context: GenerationContext): void => {
 
   for (const template of templates) {
     const centerPackId = placeCenter(template.sort);
+    const centerCellId = packToGrid[centerPackId] ?? 0;
+    const centerType = getCultureType(centerPackId);
     seedPackIds.push(centerPackId);
+    selectedCultureTypes.push(centerType);
+    selectedNativeBiomes.push(cellsBiome[centerCellId] ?? 0);
+    selectedExpansionism.push(getExpansionism(centerType));
     isSeed[centerPackId] = 1;
   }
 
@@ -5799,11 +5807,13 @@ export const runCulturesStage = (context: GenerationContext): void => {
     const packId = seedPackIds[cultureIndex] ?? 0;
     const cultureId = cultureIndex + 1;
     const centerCell = packToGrid[packId] ?? 0;
-    const type = getCultureType(packId);
+    const type = selectedCultureTypes[cultureIndex] ?? getCultureType(packId);
     cultureSeedCell[cultureId] = centerCell;
     cultureTypes[cultureId] = type;
-    cultureNativeBiome[cultureId] = cellsBiome[centerCell] ?? 0;
-    cultureExpansionism[cultureId] = getExpansionism(type);
+    cultureNativeBiome[cultureId] =
+      selectedNativeBiomes[cultureIndex] ?? cellsBiome[centerCell] ?? 0;
+    cultureExpansionism[cultureId] =
+      selectedExpansionism[cultureIndex] ?? getExpansionism(type);
     packCulture[packId] = cultureId;
     cost[packId] = 0;
     pushQueue({ cost: 0, cultureId, packId });
