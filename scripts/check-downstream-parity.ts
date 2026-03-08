@@ -191,91 +191,14 @@ const fetchUpstreamDownstreamDiagnostics = async (
             .slice(1)
             .map((culture: { center?: number }) => Number(culture.center ?? 0)),
         ];
-        const cultureTemplateIds = [
-          0,
-          ...(
-            (
-              globalThis as {
-                Cultures?: {
-                  getDefault: (count?: number) => Array<{ name?: string }>;
-                };
-              }
-            ).Cultures?.getDefault(cultureCenterPack.length - 1) ?? []
-          ).flatMap((template, templateId) => {
-            const name = template.name;
-            const selectedIndex = (pack.cultures as Array<{ name?: string }>)
-              .slice(1)
-              .findIndex((culture) => culture.name === name);
-            return selectedIndex >= 0 ? [templateId + 1] : [];
-          }),
-        ];
+        const cultureTemplateIds = [0];
         const cultureCenterSamples: number[] = [];
         const cultureCenterSampleIndices: number[] = [];
         const cultureCenterSampleOffsets = [0];
         if (key === "downstream:cultures") {
-          const createAlea = (seed: string): (() => number) => {
-            let state = 0xefc8249d;
-            const mash = (value: string): number => {
-              for (let index = 0; index < value.length; index += 1) {
-                state += value.charCodeAt(index);
-                let hashed = 0.02519603282416938 * state;
-                state = hashed >>> 0;
-                hashed -= state;
-                hashed *= state;
-                state = hashed >>> 0;
-                hashed -= state;
-                state += hashed * 4294967296;
-              }
-              return (state >>> 0) * 2.3283064365386963e-10;
-            };
-
-            let s0 = mash(" ");
-            let s1 = mash(" ");
-            let s2 = mash(" ");
-            let carry = 1;
-            s0 -= mash(seed);
-            if (s0 < 0) s0 += 1;
-            s1 -= mash(seed);
-            if (s1 < 0) s1 += 1;
-            s2 -= mash(seed);
-            if (s2 < 0) s2 += 1;
-
-            return () => {
-              const next = 2091639 * s0 + carry * 2.3283064365386963e-10;
-              s0 = s1;
-              s1 = s2;
-              carry = next | 0;
-              s2 = next - carry;
-              return s2;
-            };
-          };
-          const random = createAlea(String(globalData.seed ?? ""));
-          for (let packId = 0; packId < pack.cells.i.length; packId += 1) {
-            const height = pack.cells.h[packId] ?? 0;
-            const gridCellId = pack.cells.g[packId] ?? 0;
-            const temperature =
-              (globalData.grid as { cells: { temp: ArrayLike<number> } }).cells
-                .temp[gridCellId] ?? 0;
-            const featureId =
-              (pack.cells as { f?: ArrayLike<number> }).f?.[packId] ?? 0;
-            const feature = (
-              globalData.pack as { features?: Array<{ type?: string }> }
-            ).features?.[featureId];
-            if (height >= 20 || temperature > 0 || feature?.type === "lake") {
-              continue;
-            }
-            if (random() < 0.8) {
-              continue;
-            }
-            random();
-          }
-          for (
-            let remaining = cultureCenterPack.length - 1;
-            remaining > 0;
-            remaining -= 1
-          ) {
-            random();
-          }
+          const originalRandom = Math.random;
+          (globalThis as { Ice?: { generate: () => void } }).Ice?.generate();
+          const random = (): number => Math.random();
           const populated = Array.from(pack.cells.i).filter(
             (packId) =>
               Number(
@@ -324,6 +247,39 @@ const fetchUpstreamDownstreamDiagnostics = async (
                 ).document?.getElementById("culturesInput")?.value ?? 0,
               ),
             ) ?? [];
+          const selectedTemplates: Array<{
+            odd?: number;
+            sort?: (id: number) => number;
+            templateId: number;
+          }> = [];
+          const pool = defaults.map((template, templateId) => ({
+            ...template,
+            templateId,
+          }));
+          let attempts = 0;
+          while (
+            selectedTemplates.length < cultureCenterPack.length - 1 &&
+            pool.length > 0
+          ) {
+            let templateIndex = 0;
+            do {
+              templateIndex = Math.floor(random() * pool.length);
+              attempts += 1;
+            } while (
+              attempts < 200 &&
+              random() >= (pool[templateIndex]?.odd ?? 1)
+            );
+
+            const selected = pool.splice(templateIndex, 1)[0];
+            if (!selected) {
+              break;
+            }
+            selectedTemplates.push(selected);
+            cultureTemplateIds.push(selected.templateId);
+          }
+          (
+            globalThis as { getColors?: (count: number) => unknown }
+          ).getColors?.(cultureCenterPack.length - 1);
           const selectedCenters: number[] = [];
           const getBiased = (
             min: number,
@@ -331,10 +287,7 @@ const fetchUpstreamDownstreamDiagnostics = async (
             exponent: number,
           ): number => Math.round(min + (max - min) * random() ** exponent);
 
-          for (const culture of defaults.slice(
-            0,
-            cultureCenterPack.length - 1,
-          )) {
+          for (const culture of selectedTemplates) {
             const sortingFn =
               culture.sort ??
               ((packId: number) =>
@@ -372,6 +325,7 @@ const fetchUpstreamDownstreamDiagnostics = async (
             selectedCenters.push(center);
             cultureCenterSampleOffsets.push(cultureCenterSamples.length);
           }
+          Math.random = originalRandom;
         }
         const burgCell = [
           0,
