@@ -89,7 +89,10 @@ describe("buildRenderableWorld", () => {
     expect(world.stateCount).toBeGreaterThan(0);
 
     const stateCenterBurg = world.stateCenterBurg.slice();
-    const provinceCenterCell = world.provinceCenterCell.slice();
+    const provinceCenterCell = new Uint32Array(
+      Math.max(world.provinceCenterCell.length, 2),
+    );
+    provinceCenterCell.set(world.provinceCenterCell);
     stateCenterBurg[1] = 0;
     provinceCenterCell[1] = 2;
 

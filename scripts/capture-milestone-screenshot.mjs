@@ -53,6 +53,8 @@ try {
     url,
     selector,
     readySelector,
+    setupCode:
+      typeof args["setup-code"] === "string" ? args["setup-code"] : undefined,
     outputPath,
     viewport,
     browser,

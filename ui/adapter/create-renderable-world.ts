@@ -102,7 +102,7 @@ const collectTerrainFeatures = (
     const [chainStart, chainEnd] = readRange(
       world.packFeatureChainOffsets,
       Math.max(world.packFeatureVertexOffsets.length - 1, 0),
-      featureId,
+      featureId - 1,
     );
     for (let chainId = chainStart; chainId < chainEnd; chainId += 1) {
       const [vertexStart, vertexEnd] = readRange(

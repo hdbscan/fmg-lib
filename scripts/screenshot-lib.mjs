@@ -265,6 +265,7 @@ export const captureScreenshot = async ({
   url,
   selector,
   readySelector,
+  setupCode,
   outputPath,
   viewport,
   browser = defaultBrowser,
@@ -288,6 +289,9 @@ export const captureScreenshot = async ({
       String(viewport.height),
     );
     await runPlaywrightCli(session, "goto", url);
+    if (typeof setupCode === "string" && setupCode.trim().length > 0) {
+      await runPlaywrightCli(session, "run-code", setupCode);
+    }
     await runPlaywrightCli(
       session,
       "run-code",

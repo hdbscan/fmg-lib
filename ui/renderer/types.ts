@@ -14,6 +14,8 @@ export type RenderLayer = "physical" | "political" | "entities" | "overlay";
 
 export type TerrainGeometryMode = "grid" | "packed";
 
+export type RenderMaskLayer = null | "coastline" | "rivers";
+
 export type RendererState = Readonly<{
   world: RenderableWorld | null;
   camera: CameraState;

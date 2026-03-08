@@ -35,6 +35,7 @@
     "screenshot:install-browser": "bunx playwright install firefox",
     "screenshot:milestone": "bun ./scripts/capture-milestone-screenshot.mjs",
     "screenshot:drift": "bun ./scripts/check-screenshot-drift.mjs",
+    "parity:render": "bun run ui:build && bun ./scripts/check-render-parity.mjs",
     "screenshot:milestone:ui-shell": "bun run ui:build && bun ./scripts/capture-milestone-screenshot.mjs --slug m01-ui-shell-local --static-root ui/dist --static-path / --selector [data-screenshot=\"ui-shell\"] --ready-selector [data-screenshot=\"ui-shell-canvas\"] --delay-ms 1000",
     "screenshot:dummy": "bun ./scripts/capture-milestone-screenshot.mjs --slug ui-dummy-current",
     "screenshot:dummy:drift": "bun ./scripts/check-screenshot-drift.mjs --slug ui-dummy-current --baseline ./screenshots/ui-dummy-step-01.png --note \"Upstream UI shell is not stable yet, so this drift check compares against the approved local dummy baseline.\""

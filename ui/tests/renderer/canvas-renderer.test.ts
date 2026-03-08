@@ -10,6 +10,10 @@ import { getFixtureWorld } from "../helpers/world-fixture";
 class FakeCanvasContext2D {
   public drawImageCalls = 0;
 
+  public strokeCalls = 0;
+
+  public fillRectCalls = 0;
+
   public fillStyle = "#000000";
 
   public strokeStyle = "#000000";
@@ -34,9 +38,13 @@ class FakeCanvasContext2D {
 
   public fill(): void {}
 
-  public stroke(): void {}
+  public stroke(): void {
+    this.strokeCalls += 1;
+  }
 
-  public fillRect(): void {}
+  public fillRect(): void {
+    this.fillRectCalls += 1;
+  }
 
   public clearRect(): void {}
 
@@ -86,7 +94,7 @@ describe("CanvasMapRenderer", () => {
       return;
     }
 
-    delete (globalThis as { document?: Document }).document;
+    (globalThis as { document?: Document | undefined }).document = undefined;
   });
 
   it("composites visible layers without a browser canvas implementation", () => {
@@ -189,5 +197,80 @@ describe("CanvasMapRenderer", () => {
 
     expect(physicalLayer?.width).toBeGreaterThanOrEqual(world.width);
     expect(physicalLayer?.height).toBeGreaterThanOrEqual(world.height);
+  });
+
+  it("renders coastline and river review masks without browser canvas APIs", () => {
+    globalThis.document = {
+      createElement: () => new FakeCanvas(1, 1),
+    } as unknown as Document;
+
+    const world = buildRenderableWorld(getFixtureWorld());
+
+    const coastlineRoot = new FakeCanvas(world.width, world.height);
+    const coastlineRenderer = new CanvasMapRenderer(
+      coastlineRoot as unknown as HTMLCanvasElement,
+      {
+        ...DEFAULT_VISIBILITY,
+        physical: true,
+        rivers: false,
+        cultures: false,
+        settlements: false,
+        states: false,
+        routes: false,
+        provinces: false,
+        religions: false,
+        military: false,
+        markers: false,
+        zones: false,
+        labels: false,
+      },
+      DEFAULT_STYLE,
+      { x: 0, y: 0, zoom: 1 },
+      "packed",
+      "coastline",
+    );
+    coastlineRenderer.setWorld(world);
+    coastlineRenderer.render({ hoverCellId: null, selectedCellId: null });
+
+    const riverRoot = new FakeCanvas(world.width, world.height);
+    const riverRenderer = new CanvasMapRenderer(
+      riverRoot as unknown as HTMLCanvasElement,
+      {
+        ...DEFAULT_VISIBILITY,
+        physical: true,
+        rivers: false,
+        cultures: false,
+        settlements: false,
+        states: false,
+        routes: false,
+        provinces: false,
+        religions: false,
+        military: false,
+        markers: false,
+        zones: false,
+        labels: false,
+      },
+      DEFAULT_STYLE,
+      { x: 0, y: 0, zoom: 1 },
+      "packed",
+      "rivers",
+    );
+    riverRenderer.setWorld(world);
+    riverRenderer.render({ hoverCellId: null, selectedCellId: null });
+
+    expect(coastlineRoot.context.drawImageCalls).toBeGreaterThanOrEqual(2);
+    expect(riverRoot.context.drawImageCalls).toBeGreaterThanOrEqual(2);
+
+    const coastlinePhysicalLayer = (
+      coastlineRenderer as unknown as { layerCanvases: Map<string, FakeCanvas> }
+    ).layerCanvases.get("physical");
+    const riverPhysicalLayer = (
+      riverRenderer as unknown as { layerCanvases: Map<string, FakeCanvas> }
+    ).layerCanvases.get("physical");
+
+    expect(coastlinePhysicalLayer?.context.fillRectCalls).toBeGreaterThan(0);
+    expect(coastlinePhysicalLayer?.context.strokeCalls).toBeGreaterThan(0);
+    expect(riverPhysicalLayer?.context.fillRectCalls).toBeGreaterThan(0);
+    expect(riverPhysicalLayer?.context.strokeCalls).toBeGreaterThanOrEqual(0);
   });
 });

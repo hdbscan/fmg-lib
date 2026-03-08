@@ -19,13 +19,22 @@ import {
   clampZoom,
 } from "../adapter";
 import { CanvasMapRenderer, estimateRenderWorkload } from "../renderer";
-import type { TerrainGeometryMode } from "../renderer";
 import type { WorkerRequest, WorkerResponse } from "../workers/protocol";
 import {
   type ControllerState,
   DEFAULT_GENERATION_CONFIG,
   createController,
 } from "./controller";
+import {
+  PHYSICAL_CORE_STYLE,
+  PHYSICAL_CORE_VISIBILITY,
+  type ReviewMode,
+  isLockedReviewMode,
+  isRenderParityReviewMode,
+  readReviewMaskLayer,
+  readReviewMode,
+  readTerrainGeometryMode,
+} from "./review-mode";
 import { loadUiSession, saveUiSession } from "./session";
 import {
   SUPPORTED_WORLD_SCHEMA_VERSION,
@@ -68,8 +77,6 @@ type StyleKey = keyof StylePreset;
 type StatusTone = "idle" | "working" | "success" | "error";
 
 type RequestKind = "generate" | "serialize" | "deserialize";
-
-type ReviewMode = "terrain" | null;
 
 const GENERATION_PRESETS: readonly GenerationPreset[] = [
   {
@@ -248,16 +255,6 @@ const readConfigOverride = (): Partial<GenerationDraft> => {
   return next;
 };
 
-const readTerrainGeometryMode = (): TerrainGeometryMode => {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("terrainGeometry") === "packed" ? "packed" : "grid";
-};
-
-const readReviewMode = (): ReviewMode => {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("review") === "terrain" ? "terrain" : null;
-};
-
 const toLibraryHeightTemplate = (
   template: AppHeightTemplate,
 ): HeightTemplate => {
@@ -358,8 +355,10 @@ const summarizeCell = (world: WorldGraphV1, cell: RenderCell) => {
 };
 
 export const App = () => {
-  const terrainGeometryMode = readTerrainGeometryMode();
-  const reviewMode = readReviewMode();
+  const terrainGeometryMode = readTerrainGeometryMode(window.location.search);
+  const reviewMode = readReviewMode(window.location.search);
+  const reviewMaskLayer = readReviewMaskLayer(window.location.search);
+  const renderParityMode = isRenderParityReviewMode(reviewMode);
   const controller = createController();
   const [state, setState] = createSignal<ControllerState>(
     controller.getState(),
@@ -888,7 +887,15 @@ export const App = () => {
       };
     }
 
-    const session = reviewMode === "terrain" ? null : loadUiSession();
+    if (renderParityMode) {
+      controller.setVisibility(PHYSICAL_CORE_VISIBILITY);
+      controller.setStyle(PHYSICAL_CORE_STYLE);
+      controller.selectCell(null);
+      refreshState();
+      setStatusText("Prepared render parity review mode.");
+    }
+
+    const session = isLockedReviewMode(reviewMode) ? null : loadUiSession();
     const configOverride = readConfigOverride();
     if (Object.keys(configOverride).length > 0) {
       setDraft((current: GenerationDraft) => ({
@@ -917,7 +924,7 @@ export const App = () => {
         setCanvasSize({ width: nextWidth, height: nextHeight });
         renderer?.resize(nextWidth, nextHeight);
         const renderable = state().renderable;
-        if (reviewMode === "terrain" && renderable) {
+        if (isLockedReviewMode(reviewMode) && renderable) {
           controller.setCamera(
             fitCameraToWorld(nextWidth, nextHeight, renderable),
           );
@@ -997,6 +1004,7 @@ export const App = () => {
       nextState.style,
       nextState.camera,
       terrainGeometryMode,
+      reviewMaskLayer,
     );
     renderer.resize(size.width, size.height);
     syncRendererState(nextState);
@@ -1007,7 +1015,7 @@ export const App = () => {
       return;
     }
 
-    if (reviewMode === "terrain") {
+    if (isLockedReviewMode(reviewMode)) {
       return;
     }
 
@@ -1048,6 +1056,26 @@ export const App = () => {
     controller.selectCell(null);
     syncRendererState(refreshState());
   };
+
+  if (renderParityMode) {
+    return (
+      <main
+        class="render-parity-shell"
+        data-screenshot="render-parity-map"
+        data-render-review="physical-core"
+        data-render-mask-layer={reviewMaskLayer ?? "styled"}
+        data-render-visible-layers="ocean,lakes,landmass,coastline,heightmap,rivers"
+      >
+        <div class="render-parity-viewport" ref={viewportElement}>
+          <canvas
+            data-screenshot="render-parity-canvas"
+            ref={canvasElement}
+            aria-label="Render parity map"
+          />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <div class="layout">

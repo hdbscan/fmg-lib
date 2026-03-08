@@ -36,6 +36,10 @@ const localReadySelector =
     : localSelector;
 const localLabel =
   typeof args["local-label"] === "string" ? args["local-label"] : "local";
+const localSetupCode =
+  typeof args["local-setup-code"] === "string"
+    ? args["local-setup-code"]
+    : undefined;
 const browser =
   typeof args.browser === "string" ? args.browser : defaultBrowser;
 const note = typeof args.note === "string" ? args.note : null;
@@ -65,6 +69,7 @@ try {
     url: localUrl,
     selector: localSelector,
     readySelector: localReadySelector,
+    setupCode: localSetupCode,
     outputPath: localPath,
     viewport,
     browser,
@@ -91,6 +96,10 @@ try {
     args["upstream-delay-ms"],
     defaultDelayMs,
   );
+  const referenceSetupCode =
+    typeof args["upstream-setup-code"] === "string"
+      ? args["upstream-setup-code"]
+      : undefined;
   let referenceUrl =
     typeof args["upstream-url"] === "string" ? args["upstream-url"] : null;
   let referenceStaticRoot = null;
@@ -102,6 +111,7 @@ try {
       url: args["upstream-url"],
       selector: referenceSelector,
       readySelector: referenceReadySelector,
+      setupCode: referenceSetupCode,
       outputPath: referencePath,
       viewport,
       browser,
@@ -128,6 +138,7 @@ try {
         url: referenceUrl,
         selector: referenceSelector,
         readySelector: referenceReadySelector,
+        setupCode: referenceSetupCode,
         outputPath: referencePath,
         viewport,
         browser,
@@ -169,6 +180,7 @@ try {
       readySelector: localReadySelector,
       browser,
       delayMs: localDelayMs,
+      setupCode: localSetupCode ? "provided" : null,
       staticRoot: localStaticTarget
         ? path.relative(repoRoot, localStaticTarget.rootDirectory) || "."
         : null,
@@ -185,6 +197,8 @@ try {
       readySelector:
         referenceType === "upstream" ? referenceReadySelector : null,
       delayMs: referenceType === "upstream" ? referenceDelayMs : null,
+      setupCode:
+        referenceType === "upstream" && referenceSetupCode ? "provided" : null,
       staticRoot: referenceType === "upstream" ? referenceStaticRoot : null,
       staticPath: referenceType === "upstream" ? referenceStaticPath : null,
       artifact: path.basename(referencePath),
@@ -195,7 +209,7 @@ try {
   await writeJson(metadataPath, report);
   await writeFile(
     markdownPath,
-    [
+    `${[
       `# Drift Report: ${slug}`,
       "",
       `- status: ${status}`,
@@ -206,7 +220,7 @@ try {
       note ? `- note: ${note}` : null,
     ]
       .filter(Boolean)
-      .join("\n") + "\n",
+      .join("\n")}\n`,
     "utf8",
   );
   await writeFile(

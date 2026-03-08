@@ -11,6 +11,7 @@ import type {
 import type {
   MapRenderer,
   RenderLayer,
+  RenderMaskLayer,
   RenderOverlayState,
   TerrainGeometryMode,
 } from "./types";
@@ -286,6 +287,8 @@ export class CanvasMapRenderer implements MapRenderer {
 
   private readonly terrainGeometryMode: TerrainGeometryMode;
 
+  private readonly renderMaskLayer: RenderMaskLayer;
+
   private getLayerSurfaceSize(): Readonly<{ width: number; height: number }> {
     return {
       width: Math.max(this.rootCanvas.width, this.world?.width ?? 0),
@@ -311,6 +314,7 @@ export class CanvasMapRenderer implements MapRenderer {
     style: StylePreset,
     camera: CameraState,
     terrainGeometryMode: TerrainGeometryMode = "grid",
+    renderMaskLayer: RenderMaskLayer = null,
   ) {
     this.rootCanvas = canvas;
     const context = canvas.getContext("2d");
@@ -323,6 +327,7 @@ export class CanvasMapRenderer implements MapRenderer {
     this.style = style;
     this.camera = camera;
     this.terrainGeometryMode = terrainGeometryMode;
+    this.renderMaskLayer = renderMaskLayer;
 
     for (const layer of LAYERS) {
       const layerCanvas = createCanvasLike(canvas.width, canvas.height);
@@ -411,6 +416,16 @@ export class CanvasMapRenderer implements MapRenderer {
     context.fillRect(0, 0, surface.width, surface.height);
 
     if (!this.world) {
+      return;
+    }
+
+    if (this.renderMaskLayer === "coastline") {
+      this.drawCoastlineMask(context);
+      return;
+    }
+
+    if (this.renderMaskLayer === "rivers") {
+      this.drawRiverMask(context);
       return;
     }
 
@@ -548,6 +563,83 @@ export class CanvasMapRenderer implements MapRenderer {
     context.strokeStyle = this.style.riverColor;
     context.lineWidth = 1.15;
     context.lineCap = "round";
+    for (const edge of this.edges) {
+      const cellA = this.world.cells[edge.cellA];
+      const cellB = edge.cellB == null ? null : this.world.cells[edge.cellB];
+      if (!cellA || !cellB || cellA.river <= 0 || cellB.river <= 0) {
+        continue;
+      }
+
+      context.beginPath();
+      context.moveTo(edge.ax, edge.ay);
+      context.lineTo(edge.bx, edge.by);
+      context.stroke();
+    }
+  }
+
+  private drawCoastlineMask(
+    context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  ): void {
+    if (!this.world) {
+      return;
+    }
+
+    const surface = this.getLayerSurfaceSize();
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, surface.width, surface.height);
+    context.strokeStyle = "#000000";
+    context.lineWidth = 2;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+
+    if (
+      this.terrainGeometryMode === "packed" &&
+      this.world.terrainFeatures.length > 0
+    ) {
+      for (const feature of this.world.terrainFeatures) {
+        strokeTerrainFeature(context, feature.rings);
+      }
+      return;
+    }
+
+    for (const edge of this.edges) {
+      const cellA = this.world.cells[edge.cellA];
+      const cellB = edge.cellB == null ? null : this.world.cells[edge.cellB];
+      if (!cellA) {
+        continue;
+      }
+
+      const isCoast =
+        (cellA.feature === 1 && (!cellB || cellB.feature !== 1)) ||
+        (cellA.feature !== 1 && cellB?.feature === 1);
+      if (!isCoast) {
+        continue;
+      }
+
+      context.beginPath();
+      context.moveTo(edge.ax, edge.ay);
+      context.lineTo(edge.bx, edge.by);
+      context.stroke();
+    }
+  }
+
+  private drawRiverMask(
+    context: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  ): void {
+    if (!this.world) {
+      return;
+    }
+
+    const surface = this.getLayerSurfaceSize();
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, surface.width, surface.height);
+    context.strokeStyle = "#000000";
+    context.lineWidth = 2;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+
     for (const edge of this.edges) {
       const cellA = this.world.cells[edge.cellA];
       const cellB = edge.cellB == null ? null : this.world.cells[edge.cellB];
