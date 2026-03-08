@@ -2914,7 +2914,10 @@ const computePackFeatureGroups = (context: GenerationContext): Uint8Array => {
 
     if (featureType === 2) {
       const waterbodyId = cellsWaterbody[firstGridCell] ?? 0;
-      const lakeGroup = lakeMetadata.group[waterbodyId] ?? 0;
+      const lakeGroup =
+        context.internal.packFeatureLakeGroup?.[featureId] ??
+        lakeMetadata.group[waterbodyId] ??
+        0;
       groups[featureId] =
         lakeGroup === 3
           ? packFeatureGroupCode.frozen
@@ -3887,6 +3890,7 @@ const computePackHydrology = (
   river: Uint32Array;
   confluence: Uint32Array;
   heights: Uint8Array;
+  lakeGroup: Uint8Array;
 }> => {
   const {
     cellsTemp,
@@ -3918,6 +3922,7 @@ const computePackHydrology = (
       river: new Uint32Array(0),
       confluence: new Uint32Array(0),
       heights: new Uint8Array(0),
+      lakeGroup: new Uint8Array(0),
     };
   }
 
@@ -4454,6 +4459,27 @@ const computePackHydrology = (
   const finalHeights = Uint8Array.from(alteredHeights, (value) =>
     Math.max(0, Math.min(255, Math.trunc(value))),
   );
+  const lakeGroup = new Uint8Array(packFeatureCount + 1);
+  for (const feature of features) {
+    if (!feature || feature.type !== "lake") {
+      continue;
+    }
+
+    if ((feature.temp ?? 0) < -3) {
+      lakeGroup[feature.i] = lakeGroupCode.frozen;
+      continue;
+    }
+
+    if (!feature.outlet) {
+      lakeGroup[feature.i] =
+        (feature.evaporation ?? 0) > (feature.flux ?? 0) * 4
+          ? lakeGroupCode.dry
+          : lakeGroupCode.salt;
+      continue;
+    }
+
+    lakeGroup[feature.i] = lakeGroupCode.freshwater;
+  }
   const finalConfluenceFlux = new Uint32Array(packCellCount);
   for (let packId = 0; packId < packCellCount; packId += 1) {
     if ((finalConfluence[packId] ?? 0) === 0) {
@@ -4509,6 +4535,7 @@ const computePackHydrology = (
     river: Uint32Array.from(finalRiver),
     confluence: finalConfluenceFlux,
     heights: finalHeights,
+    lakeGroup,
   };
 };
 
@@ -5035,6 +5062,7 @@ export const runHydrologyStage = (context: GenerationContext): void => {
   context.internal.packCellsRiver = packHydrology.river;
   context.internal.packCellsConfluence = packHydrology.confluence;
   context.internal.packCellsH = packHydrology.heights;
+  context.internal.packFeatureLakeGroup = packHydrology.lakeGroup;
 };
 
 export const runBiomeStage = (context: GenerationContext): void => {

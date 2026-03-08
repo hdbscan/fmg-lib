@@ -122,6 +122,7 @@ const createContext = (
       packCellsBiome: null,
       packCellsH: null,
       packCellsCulture: null,
+      packFeatureLakeGroup: null,
     },
     world: {
       cellCount: 0,
