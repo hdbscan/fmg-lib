@@ -74,6 +74,7 @@ const createContext = (heights: readonly number[]): GenerationContext => {
       packCellsCulture: null,
       packFeatureLakeGroup: null,
       cultureCenterPack: null,
+      cultureTemplateIds: null,
       cultureCenterSampleOffsets: null,
       cultureCenterSamples: null,
       cultureCenterSampleIndices: null,

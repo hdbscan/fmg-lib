@@ -395,6 +395,7 @@ export type GenerationContext = {
     packCellsCulture: Uint16Array | null;
     packFeatureLakeGroup: Uint8Array | null;
     cultureCenterPack: Uint32Array | null;
+    cultureTemplateIds: Uint8Array | null;
     cultureCenterSampleOffsets: Uint32Array | null;
     cultureCenterSamples: Uint32Array | null;
     cultureCenterSampleIndices: Uint32Array | null;

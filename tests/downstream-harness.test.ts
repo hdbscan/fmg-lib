@@ -10,6 +10,7 @@ describe("downstream diagnostics", () => {
       key: "downstream:cultures",
       label: "Cultures",
       cultureCenterPack: [1],
+      cultureTemplateIds: [1],
       cultureCenterSamples: [1],
       cultureCenterSampleIndices: [0],
       cultureCenterSampleOffsets: [0, 1],

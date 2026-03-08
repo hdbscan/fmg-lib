@@ -5228,6 +5228,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     context.world.cultureSize = new Uint32Array(1);
     context.internal.packCellsCulture = new Uint16Array(0);
     context.internal.cultureCenterPack = new Uint32Array(0);
+    context.internal.cultureTemplateIds = new Uint8Array(0);
     context.internal.cultureCenterSampleOffsets = new Uint32Array(0);
     context.internal.cultureCenterSamples = new Uint32Array(0);
     context.internal.cultureCenterSampleIndices = new Uint32Array(0);
@@ -5245,16 +5246,18 @@ export const runCulturesStage = (context: GenerationContext): void => {
     context.world.cultureSize = new Uint32Array(1);
     context.internal.packCellsCulture = new Uint16Array(0);
     context.internal.cultureCenterPack = new Uint32Array(0);
+    context.internal.cultureTemplateIds = new Uint8Array(0);
     context.internal.cultureCenterSampleOffsets = new Uint32Array(0);
     context.internal.cultureCenterSamples = new Uint32Array(0);
     context.internal.cultureCenterSampleIndices = new Uint32Array(0);
     return;
   }
 
-  type CultureTemplate = Readonly<{
+  type BaseCultureTemplate = Readonly<{
     odd: number;
     sort: (packId: number) => number;
   }>;
+  type CultureTemplate = BaseCultureTemplate & Readonly<{ templateId: number }>;
 
   type CultureQueueEntry = Readonly<{
     cost: number;
@@ -5315,7 +5318,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
   const getAltitude = (packId: number): number =>
     packHydrologyHeights?.[packId] ?? packH[packId] ?? 0;
 
-  const cultureTemplates: CultureTemplate[] = [
+  const baseCultureTemplates: BaseCultureTemplate[] = [
     {
       odd: 0.7,
       sort: (packId) =>
@@ -5532,6 +5535,9 @@ export const runCulturesStage = (context: GenerationContext): void => {
         getTemperatureDistance(packId, 18),
     },
   ];
+  const cultureTemplates: CultureTemplate[] = baseCultureTemplates.map(
+    (template, templateId) => ({ ...template, templateId }),
+  );
 
   const selectTemplates = (count: number): CultureTemplate[] => {
     const pool = cultureTemplates.slice();
@@ -5560,6 +5566,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
   const isSeed = new Uint8Array(packCellCount);
   const seedPackIds: number[] = [];
   const selectedCultureTypes: PoliticalType[] = [];
+  const selectedTemplateIds: number[] = [];
   const selectedNativeBiomes: number[] = [];
   const selectedExpansionism: number[] = [];
   const centerSampleOffsets = [0];
@@ -5675,6 +5682,7 @@ export const runCulturesStage = (context: GenerationContext): void => {
     const centerCellId = packToGrid[centerPackId] ?? 0;
     const centerType = getCultureType(centerPackId);
     seedPackIds.push(centerPackId);
+    selectedTemplateIds.push(template.templateId);
     selectedCultureTypes.push(centerType);
     selectedNativeBiomes.push(cellsBiome[centerCellId] ?? 0);
     selectedExpansionism.push(getExpansionism(centerType));
@@ -5842,6 +5850,10 @@ export const runCulturesStage = (context: GenerationContext): void => {
 
   context.internal.cultureTypes = cultureTypes;
   context.internal.cultureCenterPack = Uint32Array.from([0, ...seedPackIds]);
+  context.internal.cultureTemplateIds = Uint8Array.from([
+    0,
+    ...selectedTemplateIds,
+  ]);
   context.internal.cultureCenterSampleOffsets =
     Uint32Array.from(centerSampleOffsets);
   context.internal.cultureCenterSamples = Uint32Array.from(centerSamples);

@@ -124,6 +124,7 @@ const createContext = (
       packCellsCulture: null,
       packFeatureLakeGroup: null,
       cultureCenterPack: null,
+      cultureTemplateIds: null,
       cultureCenterSampleOffsets: null,
       cultureCenterSamples: null,
       cultureCenterSampleIndices: null,
@@ -612,6 +613,9 @@ export const generateDownstreamDiagnostics = (
     ...context.world,
     ...(context.internal.cultureCenterPack
       ? { cultureCenterPack: context.internal.cultureCenterPack }
+      : {}),
+    ...(context.internal.cultureTemplateIds
+      ? { cultureTemplateIds: context.internal.cultureTemplateIds }
       : {}),
     ...(context.internal.cultureCenterSampleOffsets &&
     context.internal.cultureCenterSamples &&

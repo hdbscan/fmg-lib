@@ -5,6 +5,7 @@ export type DownstreamDiagnosticStep = Readonly<{
   key: string;
   label: string;
   cultureCenterPack: readonly number[];
+  cultureTemplateIds: readonly number[];
   cultureCenterSamples: readonly number[];
   cultureCenterSampleIndices: readonly number[];
   cultureCenterSampleOffsets: readonly number[];
@@ -110,6 +111,7 @@ type DownstreamWorldView = Readonly<{
   routeLinks?: Record<string, Record<string, number>>;
   packCulture?: ArrayLike<number>;
   cultureCenterPack?: ArrayLike<number>;
+  cultureTemplateIds?: ArrayLike<number>;
   cultureCenterSamples?: ArrayLike<number>;
   cultureCenterSampleIndices?: ArrayLike<number>;
   cultureCenterSampleOffsets?: ArrayLike<number>;
@@ -194,6 +196,9 @@ export const captureDownstreamDiagnosticStep = (
   const cultureCenterPack = world.cultureCenterPack
     ? toArray(world.cultureCenterPack)
     : [];
+  const cultureTemplateIds = world.cultureTemplateIds
+    ? toArray(world.cultureTemplateIds)
+    : [];
   const cultureCenterSamples = world.cultureCenterSamples
     ? toArray(world.cultureCenterSamples)
     : [];
@@ -243,6 +248,7 @@ export const captureDownstreamDiagnosticStep = (
     key,
     label,
     cultureCenterPack,
+    cultureTemplateIds,
     cultureCenterSamples,
     cultureCenterSampleIndices,
     cultureCenterSampleOffsets,
