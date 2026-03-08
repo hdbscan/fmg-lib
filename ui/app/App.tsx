@@ -34,6 +34,8 @@ import {
   getSerializedWorldSchemaVersion,
 } from "./world-transfer";
 
+type AppHeightTemplate = HeightTemplate | "inland-sea";
+
 type GenerationDraft = {
   seed: string;
   width: number;
@@ -49,7 +51,7 @@ type GenerationDraft = {
   mapSize: number;
   latitude: number;
   longitude: number;
-  heightTemplate: HeightTemplate;
+  heightTemplate: AppHeightTemplate;
 };
 
 type GenerationPreset = Readonly<{
@@ -113,7 +115,7 @@ const GENERATION_PRESETS: readonly GenerationPreset[] = [
       height: 720,
       cells: 7500,
       culturesCount: 11,
-      heightTemplate: "inland-sea",
+      heightTemplate: "inland-sea" as HeightTemplate,
     },
   },
 ] as const;
@@ -238,7 +240,7 @@ const readConfigOverride = (): Partial<GenerationDraft> => {
     template === "archipelago" ||
     template === "inland-sea"
   ) {
-    next.heightTemplate = template;
+    next.heightTemplate = template as HeightTemplate;
   }
 
   return next;
@@ -247,6 +249,12 @@ const readConfigOverride = (): Partial<GenerationDraft> => {
 const readTerrainGeometryMode = (): TerrainGeometryMode => {
   const params = new URLSearchParams(window.location.search);
   return params.get("terrainGeometry") === "packed" ? "packed" : "grid";
+};
+
+const toLibraryHeightTemplate = (
+  template: AppHeightTemplate,
+): HeightTemplate => {
+  return template === "inland-sea" ? "mediterranean" : template;
 };
 
 const createRequestId = (): string => {
@@ -301,31 +309,20 @@ const fitCameraToWorld = (
 ): CameraState => {
   const safeWidth = Math.max(1, width);
   const safeHeight = Math.max(1, height);
-  const horizontalPadding = Math.max(24, Math.round(safeWidth * 0.035));
-  const verticalPadding = Math.max(24, Math.round(safeHeight * 0.04));
+  const horizontalPadding = Math.max(12, Math.round(safeWidth * 0.015));
+  const verticalPadding = Math.max(12, Math.round(safeHeight * 0.015));
   const availableWidth = Math.max(160, safeWidth - horizontalPadding * 2);
   const availableHeight = Math.max(160, safeHeight - verticalPadding * 2);
-  const focusWidth = Math.max(
-    1,
-    renderable.focusBounds.maxX - renderable.focusBounds.minX,
-  );
-  const focusHeight = Math.max(
-    1,
-    renderable.focusBounds.maxY - renderable.focusBounds.minY,
-  );
+  const focusWidth = Math.max(1, renderable.width);
+  const focusHeight = Math.max(1, renderable.height);
   const zoom = clampZoom(
     Math.min(availableWidth / focusWidth, availableHeight / focusHeight),
   );
 
-  const focusCenterX =
-    (renderable.focusBounds.minX + renderable.focusBounds.maxX) / 2;
-  const focusCenterY =
-    (renderable.focusBounds.minY + renderable.focusBounds.maxY) / 2;
-
   return {
     zoom,
-    x: safeWidth / 2 - focusCenterX * zoom,
-    y: safeHeight / 2 - focusCenterY * zoom,
+    x: (safeWidth - renderable.width * zoom) / 2,
+    y: (safeHeight - renderable.height * zoom) / 2,
   };
 };
 
@@ -686,7 +683,7 @@ export const App = () => {
         latitude: current.latitude,
         longitude: current.longitude,
       },
-      heightTemplate: current.heightTemplate,
+      heightTemplate: toLibraryHeightTemplate(current.heightTemplate),
     };
     postGenerateRequest(config);
   };
@@ -951,7 +948,7 @@ export const App = () => {
               latitude: mergedDraft.latitude,
               longitude: mergedDraft.longitude,
             },
-            heightTemplate: mergedDraft.heightTemplate,
+            heightTemplate: toLibraryHeightTemplate(mergedDraft.heightTemplate),
           };
           postGenerateRequest(config);
           return;
@@ -1149,7 +1146,7 @@ export const App = () => {
                   onInput={(event) =>
                     updateDraft(
                       "heightTemplate",
-                      event.currentTarget.value as HeightTemplate,
+                      event.currentTarget.value as AppHeightTemplate,
                     )
                   }
                 >
