@@ -393,6 +393,7 @@ export type GenerationContext = {
     packCellsBiome: Uint8Array | null;
     packCellsH: Uint8Array | null;
     packCellsCulture: Uint16Array | null;
+    packFeatureLakeGroup: Uint8Array | null;
   };
   world: {
     cellCount: number;
