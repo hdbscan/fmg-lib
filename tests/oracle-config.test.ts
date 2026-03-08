@@ -12,6 +12,7 @@ const baseOracle: ParitySnapshot = {
   width: 100,
   height: 80,
   gridSpacing: 10,
+  packCellCount: 1,
   terrain: {
     mesh: {
       vertices: [
@@ -54,6 +55,8 @@ const baseOracle: ParitySnapshot = {
     religions: 1,
     burgs: 0,
   },
+  template: "continents",
+  culturesSet: "world",
   sourceUrl: "fixture",
 };
 
@@ -75,7 +78,7 @@ describe("oracle config replay", () => {
     const config = buildGenerationConfigFromOracle({
       ...baseOracle,
       cultureCount: 9,
-      heightmapTemplate: "highIsland",
+      template: "highIsland",
       statesNumber: 14,
       townsNumber: 1000,
       sizeVariety: 5,
