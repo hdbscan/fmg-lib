@@ -993,7 +993,7 @@ const advanceCultureRandomForColorShuffle = (
   random: () => number,
   count: number,
 ): void => {
-  for (let remaining = count; remaining > 1; remaining -= 1) {
+  for (let remaining = count + 1; remaining > 0; remaining -= 1) {
     random();
   }
 };
